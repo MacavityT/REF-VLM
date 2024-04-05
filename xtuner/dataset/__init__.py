@@ -13,6 +13,9 @@ from .refcoco_json import (InvRefCOCOJsonDataset, RefCOCOJsonDataset,
                            RefCOCOJsonEvalDataset)
 from .utils import decode_base64_to_image, expand2square, load_image
 
+from .okapi import OkapiDataset
+from .reform_dataset import InterleaveDateset, SubSet, ConcatDatasetWithShuffle
+
 # ignore FutureWarning in hf datasets
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -32,4 +35,8 @@ __all__ = [
     'RefCOCOJsonDataset',
     'RefCOCOJsonEvalDataset',
     'InvRefCOCOJsonDataset',
+    'OkapiDataset',
+    'InterleaveDateset',
+    'SubSet',
+    'ConcatDatasetWithShuffle'
 ]
