@@ -1,15 +1,14 @@
 import re
 
-from .. import BaseComputeMetrics
-from ..root import (
-    DATASETS,
-    METRICS,
+from xtuner.registry import DATASETS, METRICS
+from xtuner.utils.constants import (
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     POINTS_PLACEHOLDER,
 )
-from ..utils import MInstrDataset
+from xtuner.evaluation.metrics import BaseComputeMetrics
+from .mixin import MInstrDataset
 
 
 # noinspection PyPep8Naming

@@ -1,9 +1,10 @@
-from ..root import (
-    DATASETS,
+from xtuner.registry import DATASETS
+from xtuner.utils.constants import (
     QUESTION_PLACEHOLDER,
-    IMAGE_PLACEHOLDER,
-)
-from ..utils import MInstrDataset
+    IMAGE_PLACEHOLDER
+    )
+
+from .mixin import MInstrDataset
 
 
 @DATASETS.register_module()

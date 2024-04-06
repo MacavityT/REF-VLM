@@ -1,13 +1,12 @@
-from ..utils import (
-    MInstrDataset,
-)
-
-from ..root import (
-    DATASETS,
+from xtuner.registry import DATASETS, METRICS
+from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-    OBJS_PLACEHOLDER,
+    OBJS_PLACEHOLDER
 )
+from xtuner.evaluation.metrics import BaseComputeMetrics
+from .mixin import MInstrDataset
+
 
 
 @DATASETS.register_module()

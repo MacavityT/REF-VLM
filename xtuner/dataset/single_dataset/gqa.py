@@ -1,9 +1,11 @@
 import json
 import re
 
-from ..root import DATASETS, IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER, QUESTION_PLACEHOLDER, METRICS
-from ..utils.flickr30k_entities_utils import PHRASE_ST_PLACEHOLDER, PHRASE_ED_PLACEHOLDER
-from ..utils import MInstrDataset, BaseComputeMetrics
+from xtuner.registry import DATASETS, METRICS
+from xtuner.utils.constants import (IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER, QUESTION_PLACEHOLDER,
+                                    PHRASE_ST_PLACEHOLDER, PHRASE_ED_PLACEHOLDER)
+from xtuner.evaluation.metrics import BaseComputeMetrics
+from mixin import MInstrDataset
 
 REFID_PAT = re.compile(r'(\s\((?:(?:\d+(?:,\d+)*)|-)\)\s?)')
 ANS_EXTRACT_PAT = re.compile(r'(?:(?:(?:(?:(?:So t)|(?:T)|(?:t))he answer is)|(?:Answer:)) (.+))')

@@ -1,5 +1,5 @@
-from ..root import DATASETS
-from ..utils import MInstrDataset
+from xtuner.registry import DATASETS
+from .mixin import MInstrDataset
 
 
 @DATASETS.register_module()

@@ -1,12 +1,12 @@
-from ..root import (
-    DATASETS,
+from xtuner.registry import DATASETS
+from xtuner.utils.constants import (
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-)
-from ..utils import MInstrDataset
-from ..utils.flickr30k_entities_utils import PHRASE_ST_PLACEHOLDER, PHRASE_ED_PLACEHOLDER
+    PHRASE_ST_PLACEHOLDER, 
+    PHRASE_ED_PLACEHOLDER)
 
+from .mixin import MInstrDataset
 
 @DATASETS.register_module()
 class GPT4Gen(MInstrDataset):

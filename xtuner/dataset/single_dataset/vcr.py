@@ -1,10 +1,11 @@
-from ..root import (
-    DATASETS,
-    QUESTION_PLACEHOLDER,
+from xtuner.registry import DATASETS, METRICS
+from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
+    QUESTION_PLACEHOLDER,
 )
-from ..utils import MInstrDataset
+from xtuner.evaluation.metrics import BaseComputeMetrics
+from .mixin import MInstrDataset
 
 
 def prepare_sentence(sent):

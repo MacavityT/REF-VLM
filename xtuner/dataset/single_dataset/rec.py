@@ -6,22 +6,19 @@ from typing import Dict, Any, Sequence
 import torch
 from torchvision.ops import box_iou
 
-from ..utils import (
-    MInstrDataset,
-    BaseComputeMetrics,
-)
-
 from ..process_function import (
     BoxFormatter,
 )
 
-from ..root import (
-    DATASETS,
-    METRICS,
+from xtuner.registry import DATASETS, METRICS
+from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     EXPR_PLACEHOLDER,
 )
+from xtuner.evaluation.metrics import BaseComputeMetrics
+from .mixin import MInstrDataset
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
