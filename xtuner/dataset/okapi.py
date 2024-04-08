@@ -1,35 +1,3 @@
-# Copyright (c) OpenMMLab. All rights reserved.
-import json
-import logging
-import os
-import numpy as np
-
-import torch
-from datasets import Dataset as HFDataset
-from datasets import DatasetDict, load_from_disk
-from mmengine import print_log
-from mmengine.config import Config, ConfigDict
-from PIL import Image
-from torch.utils.data import Dataset
-
-from xtuner.registry import BUILDER
-from .huggingface import process_hf_dataset
-from .utils import expand2square
-
-from .llava import LLaVADataset
-
-# stage one with no special tokens, other stages add special tokens
-STAGES = ['stage1', 'stage2', 'stage3', 'stage4']
-
-class OkapiDataset(LLaVADataset):
-
-    def __init__(self, stage, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        assert stage in STAGES
-        self.stage = stage
-
-
 import warnings
 from functools import partial
 from typing import Dict, Any, Callable, List, Optional, Tuple, Type
@@ -39,7 +7,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from transformers import TrainingArguments
 
-from .root import IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER
+from xtuner.utils.constants import IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER
 from ..conversation import Conversation, get_conv_template
 from ..utils import post_process_generate_ids
 
@@ -98,7 +66,8 @@ class SingleImageConvDatasetMixin:
             has_target = 'target' in item and bool(item['target']) and any(bool(elem) for elem in item['target'].values())
             if has_target and has_image:
                 target['width'], target['height'] = image.width, image.height
-
+        
+        #TODO: 改为遍历 process config ，自动build并处理
         # preprocess
         raw_conv = self.process_conv(raw_conv)
         raw_conv, image = self.process_conv_multimage(raw_conv, image)
@@ -314,3 +283,251 @@ class SingleImageConvDataset(SingleImageConvDatasetMixin, Dataset):
 
 
 __all__ = ['SingleImageConvDatasetMixin', 'SingleImageConvDataset']
+
+
+# Copyright (c) OpenMMLab. All rights reserved.
+import logging
+import os
+from datetime import timedelta
+from functools import partial
+
+import numpy as np
+from datasets import DatasetDict, concatenate_datasets
+from mmengine import print_log
+from mmengine.config import Config, ConfigDict
+from mmengine.utils.misc import get_object_from_string
+from torch import distributed as dist
+
+from xtuner.registry import BUILDER, MAP_FUNC
+from .utils import Packer, encode_fn
+from .huggingface import (
+    get_lengths,
+    build_origin_dataset,
+    map_dataset,
+    add_template_to_dataset,
+    tokenize_dataset,
+    pack_dataset,
+    process
+)
+
+def process_single_dataset(dataset,
+                       do_dataset_tokenization=True,
+                       tokenizer=None,
+                       max_length=None,
+                       dataset_map_fn=None,
+                       template_map_fn=None,
+                       max_dataset_length=None,
+                       split='train',
+                       remove_unused_columns=False,
+                       rename_maps=[],
+                       shuffle_before_pack=True,
+                       pack_to_max_length=True,
+                       use_varlen_attn=False,
+                       input_ids_with_output=True,
+                       with_image_token=False,
+                       map_num_proc=32):
+    """Post-process the dataset loaded from the Hugging Face Hub, or a local
+    dataset.
+
+    Args:
+        dataset: The dataset to be post-processed.
+        do_dataset_tokenization: Whether the dataset need to be tokenized
+            in this function. Default to True.
+        tokenizer: The tokenizer processes some raw text as input and outputs
+            an Encoding. If `do_dataset_tokenization` is True, this argument
+            should not be None. Default to None.
+        max_length: Max length of the sequence. If `do_dataset_tokenization`
+            or `pack_to_max_length` is True, this argument should not be None.
+            Default to None.
+        dataset_map_fn: Map the original dataset format to the one defined
+            by xTuner.
+        template_map_fn: Add the prompt template to the dataset
+        max_dataset_length: If the length of the dataset is too long, we can
+            randomly extract `max_dataset_length` from it.
+        split: Which split of the data to load.
+            If `None`, will return a single concatenated dataset with all
+            splits (typically `datasets.Split.TRAIN` and
+            `datasets.Split.TEST`).
+            If given, will return a single Dataset.
+        remove_unused_columns: Whether to remove columns from the dataset
+            that are not used during training.
+        rename_maps: Rename the column name of the dataset.
+        shuffle_before_pack: Whether to shuffle the dataset before
+            packing them.
+        pack_to_max_length: Whether to pack the dataset to the `max_length `.
+            This usually improves gpu utilization and therefore reduces
+            training time.
+        use_varlen_attn: If use_varlen_attn is True, we calculate attention
+            the actual length of the sequence rather than the actual length
+            of the sequence
+        input_ids_with_output: Whether to put the groundtruth output
+            corresponding to the question into the dataset. Typically set
+            it to True during training and False during testing.
+        with_image_token: Whether to convert DEFAULT_IMAGE_TOKEN to
+            IMAGE_TOKEN_INDEX. Typically set it to True during the training
+            of VLM.
+        map_num_proc: Max number of processes when mapping the dataset.
+    """
+    kwargs = dict(
+        dataset=dataset,
+        do_dataset_tokenization=do_dataset_tokenization,
+        tokenizer=tokenizer,
+        max_length=max_length,
+        dataset_map_fn=dataset_map_fn,
+        template_map_fn=template_map_fn,
+        max_dataset_length=max_dataset_length,
+        split=split,
+        remove_unused_columns=remove_unused_columns,
+        rename_maps=rename_maps,
+        shuffle_before_pack=shuffle_before_pack,
+        pack_to_max_length=pack_to_max_length,
+        use_varlen_attn=use_varlen_attn,
+        input_ids_with_output=input_ids_with_output,
+        with_image_token=with_image_token,
+        map_num_proc=map_num_proc)
+    if not (dist.is_available() and dist.is_initialized()):
+        return process(**kwargs)
+
+    xtuner_dataset_timeout = timedelta(
+        minutes=int(os.getenv('XTUNER_DATASET_TIMEOUT', default=30)))
+    print_log(
+        f'xtuner_dataset_timeout = {xtuner_dataset_timeout}', logger='current')
+    # monitored barrier requires gloo process group to perform host-side sync.
+    group_gloo = dist.new_group(backend='gloo', timeout=xtuner_dataset_timeout)
+
+    if dist.get_rank() == 0:
+        dataset = process(**kwargs)
+        objects = [dataset]
+    else:
+        objects = [None]
+
+    dist.monitored_barrier(group=group_gloo, timeout=xtuner_dataset_timeout)
+    dist.broadcast_object_list(objects, src=0)
+    return objects[0]
+
+
+# Copyright (c) OpenMMLab. All rights reserved.
+import json
+import logging
+import os
+import numpy as np
+
+import torch
+from datasets import Dataset as HFDataset
+from datasets import DatasetDict, load_from_disk
+from mmengine import print_log
+from mmengine.config import Config, ConfigDict
+from PIL import Image
+from torch.utils.data import Dataset
+
+from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
+from .huggingface import process_hf_dataset
+from .utils import expand2square
+
+class OkapiDataset(Dataset):
+
+    def __init__(self,
+                 image_folder,
+                 image_processor,
+                 data_path=None,
+                 tokenizer=None,
+                 offline_processed_text_folder=None,
+                 offline_processed_image_folder=None,
+                 max_dataset_length=None,
+                 dataset_map_fn=None,
+                 template_map_fn=None,
+                 max_length=2048,
+                 pad_image_to_square=False):
+        super().__init__()
+
+        assert offline_processed_text_folder or (data_path and tokenizer)
+        if offline_processed_text_folder and data_path:
+            print_log(
+                'Both `offline_processed_text_folder` and '
+                '`data_path` are set, and we load dataset from'
+                '`offline_processed_text_folder` '
+                f'({offline_processed_text_folder})',
+                logger='current',
+                level=logging.WARNING)
+
+        assert offline_processed_image_folder or (image_folder and image_processor)
+        if offline_processed_image_folder and image_folder:
+            print_log(
+                'Both `offline_processed_image_folder` and '
+                '`image_folder` are set, and we load dataset from'
+                '`offline_processed_image_folder` '
+                f'({offline_processed_image_folder})',
+                logger='current',
+                level=logging.WARNING)
+
+        if offline_processed_text_folder is not None:
+            self.text_data = load_from_disk(offline_processed_text_folder)
+        else:
+            json_data = json.load(open(data_path))
+            for idx in range(len(json_data)):
+                if isinstance(json_data[idx]['id'], int):
+                    json_data[idx]['id'] = str(json_data[idx]['id'])
+            json_data = DatasetDict({'train': HFDataset.from_list(json_data)})
+            self.text_data = process_hf_dataset(
+                dataset=json_data,
+                tokenizer=tokenizer,
+                max_length=max_length,
+                dataset_map_fn=dataset_map_fn,
+                template_map_fn=template_map_fn,
+                split='train',
+                max_dataset_length=max_dataset_length,
+                remove_unused_columns=False,
+                pack_to_max_length=False,
+                with_image_token=True)
+
+        self.image_folder = image_folder
+        if isinstance(image_processor, dict) or isinstance(
+                image_processor, Config) or isinstance(image_processor,
+                                                       ConfigDict):
+            self.image_processor = BUILDER.build(image_processor)
+        else:
+            self.image_processor = image_processor
+        self.pad_image_to_square = pad_image_to_square
+
+    def load_offline_image_data():
+        pass
+
+    def load_offline_text_data():
+        pass
+
+    @property
+    def modality_length(self):
+        length_list = []
+        for data_dict in self.text_data:
+            cur_len = len(data_dict['input_ids'])
+            if data_dict.get('image', None) is None:
+                cur_len = -cur_len
+            length_list.append(cur_len)
+        return length_list
+
+    def __len__(self):
+        return len(self.text_data)
+
+    def __getitem__(self, index):
+        data_dict = self.text_data[index]
+        if data_dict.get('image', None) is not None:
+            image_file = data_dict['image']
+            image = Image.open(os.path.join(self.image_folder,
+                                            image_file)).convert('RGB')
+            if self.pad_image_to_square:
+                image = expand2square(
+                    image,
+                    tuple(
+                        int(x * 255) for x in self.image_processor.image_mean))
+            image = self.image_processor.preprocess(
+                image, return_tensors='pt')['pixel_values'][0]
+            data_dict['pixel_values'] = image
+        else:
+            if hasattr(self.image_processor, 'crop_size'):
+                crop_size = self.image_processor.crop_size
+            else:
+                crop_size = self.image_processor.size
+            data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
+                                                    crop_size['width'])
+        return data_dict
+

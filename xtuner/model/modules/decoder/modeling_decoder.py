@@ -1,20 +1,25 @@
-# Copyright (c) OpenMMLab. All rights reserved.
+# base class
 import torch
 import torch.nn as nn
 from transformers import PreTrainedModel
 from transformers.activations import ACT2FN
 
-from .configuration_decoder import DecoderConfig
+from .configuration_decoder import ProjectorConfig
 
+class MOE:
+    # TODO: Yunan
+    # ref: Switch Transformer
+    pass
 
-
-class BoxDecoder(PreTrainedModel):
+class DecoderModel(PreTrainedModel):
+    
+    # TODO :Taiyan
     _auto_class = 'AutoModel'
-    config_class = DecoderConfig
+    config_class = ProjectorConfig
     base_model_prefix = 'model'
     supports_gradient_checkpointing = True
 
-    def __init__(self, config: DecoderConfig) -> None:
+    def __init__(self, config: ProjectorConfig) -> None:
         super().__init__(config)
         self.gradient_checkpointing = False
 
@@ -41,7 +46,7 @@ class BoxDecoder(PreTrainedModel):
         self.model.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, BoxDecoder):
+        if isinstance(module, ProjectorModel):
             module.gradient_checkpointing = value
 
     def forward(self, x):

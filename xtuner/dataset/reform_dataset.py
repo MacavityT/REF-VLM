@@ -5,23 +5,22 @@ from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
 from torch.utils.data import Subset as TorchSubset
 
-from xtuner.registry import BUILDER
+from xtuner.registry import BUILDER, DATASETS
 
-# ###
-# class ConcatDataset(TorchConcatDataset):
+@DATASETS.register_module()
+class ConcatDataset(TorchConcatDataset):
 
-#     def __init__(self, datasets):
-#         datasets_instance = []
-#         for cfg in datasets:
-#             datasets_instance.append(BUILDER.build(cfg))
-#         super().__init__(datasets=datasets_instance)
+    def __init__(self, datasets):
+        datasets_instance = []
+        for cfg in datasets:
+            datasets_instance.append(BUILDER.build(cfg))
+        super().__init__(datasets=datasets_instance)
 
-#     def __repr__(self):
-#         main_str = 'Dataset as a concatenation of multiple datasets. \n'
-#         main_str += ',\n'.join(
-#             [f'{repr(dataset)}' for dataset in self.datasets])
-#         return main_str
-# ###
+    def __repr__(self):
+        main_str = 'Dataset as a concatenation of multiple datasets. \n'
+        main_str += ',\n'.join(
+            [f'{repr(dataset)}' for dataset in self.datasets])
+        return main_str
 
 # stolen from huggingface/datasets
 # https://github.com/huggingface/datasets/blob/074925b9b7c1dfd33b8675aa99c07cc26375665c/src/datasets/arrow_dataset.py#L5987
@@ -95,6 +94,7 @@ def _interleave_dataset_index(
                 current_index[source_idx] = 0
     return indices
 
+@DATASETS.register_module()
 class InterleaveDateset(Dataset):
     _repr_indent = 4
 
@@ -140,6 +140,8 @@ class InterleaveDateset(Dataset):
         lines = [head] + [" " * self._repr_indent + line for line in body]
         return "\n".join(lines)
 
+
+@DATASETS.register_module()
 class SubSet(TorchSubset):
     def __init__(self, cfg, portion, do_shuffle=True, seed=42):
         assert 0 < portion <= 1
@@ -155,6 +157,7 @@ class SubSet(TorchSubset):
         super().__init__(dataset, indices)
 
 
+@DATASETS.register_module()
 class ConcatDatasetWithShuffle(TorchSubset):
     _repr_indent = 4
 
