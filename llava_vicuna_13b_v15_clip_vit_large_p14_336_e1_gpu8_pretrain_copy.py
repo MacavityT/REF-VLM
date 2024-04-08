@@ -21,11 +21,11 @@ from xtuner.utils import PROMPT_TEMPLATE
 #                          PART 1  Settings                           #
 #######################################################################
 # Model
-llm_name_or_path = 'lmsys/vicuna-13b-v1.5'
+llm_name_or_path = '/model/Aaronzhu/Vicuna/7b_v1.5'
 visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
-data_root = './data/llava_data/'
+data_root = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/'
 data_path = data_root + 'LLaVA-Pretrain/blip_laion_cc_sbu_558k.json'
 image_folder = data_root + 'LLaVA-Pretrain/images'
 prompt_template = PROMPT_TEMPLATE.vicuna
