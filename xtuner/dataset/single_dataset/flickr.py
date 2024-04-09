@@ -228,7 +228,7 @@ class FlickrDataset(MInstrDataset):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
 
     def __len__(self):
-        return len(self.data)
+        return len(self.text_data)
 
     def __getitem__(self, index):
         item = self.get_raw_item(index)

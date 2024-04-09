@@ -147,7 +147,7 @@ class V7W_POINT(MInstrDataset):
         assert version in ['p', 'b']
 
     def __len__(self):
-        return len(self.data)
+        return len(self.text_data)
 
     def __getitem__(self, index):
         item = self.get_raw_item(index)

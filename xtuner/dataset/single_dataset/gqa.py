@@ -42,7 +42,7 @@ class GQADataset(MInstrDataset):
             self.scene_index = None
 
     def get_raw_item(self, index):
-        question = json.loads(self.data[index])
+        question = json.loads(self.text_data[index])
         if self.scene_graph is None:
             return question, None
         scene = json.loads(self.scene_graph[self.scene_index[question['imageId']]])

@@ -8,9 +8,6 @@ from torch.utils.data import Dataset
 from transformers import TrainingArguments
 
 from xtuner.utils.constants import IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER
-from ..conversation import Conversation, get_conv_template
-from ..utils import post_process_generate_ids
-
 
 class SingleImageConvDatasetMixin:
 
@@ -206,43 +203,6 @@ class SingleImageConvDatasetMixin:
         """
         return self.process_func['image'](image, self.preprocessor)
 
-    def _print_sample(self, ret_dict, raw_conv, conv):
-        if not hasattr(self, '_printed_sample'):
-            self._printed_sample = True
-            post_processed_labels = post_process_generate_ids(self.preprocessor['text'], ret_dict['labels'])
-            print(f"=================== {self.mode} sample ===================", flush=True)
-            print(f"        input_ids: {self.preprocessor['text'].convert_ids_to_tokens(ret_dict['input_ids'])}")
-            print(f"           labels: {self.preprocessor['text'].convert_ids_to_tokens(post_processed_labels)}")
-            print(f"decoded input_ids: {self.preprocessor['text'].decode(ret_dict['input_ids'])}")
-            print(f"decoded    labels: {self.preprocessor['text'].decode(post_processed_labels)}")
-            if 'image' in ret_dict and ret_dict['image'] is not None:
-                image = ret_dict['image']
-                if isinstance(image, torch.Tensor):
-                    print(f"            image: {image.shape}")
-                elif isinstance(image, dict):
-                    print(f"            image: {image.keys()}")
-                elif isinstance(image, list) and len(image) > 0:
-                    print(f"            image: {len(image)}, {type(image[0])}")
-                else:
-                    print(f"            image: {type(image)}")
-            print("====================================================", flush=True)
-            try:
-                if self.training_args is not None:
-                    _save_obj = {
-                        'ret_dict': ret_dict,
-                        'raw_conv': raw_conv,
-                        'conv': conv.get_prompt(),
-                    }
-                    from pathlib import Path
-                    output_dir = Path(self.training_args.output_dir)
-                    output_dir.mkdir(exist_ok=True, parents=True)
-                    _local_rank = self.training_args.local_rank
-                    _word_size = self.training_args.world_size
-                    _file_path = str(output_dir / f'sample_check_{self.mode}_{_local_rank}_{_word_size}.pt')
-                    print(f'saving some sample to {_file_path} for check.')
-                    torch.save(_save_obj, _file_path)
-            except Exception as e:
-                warnings.warn(f'try to save samples but get exception: {e.args}. ignored.')
 
 
 class SingleImageConvDataset(SingleImageConvDatasetMixin, Dataset):
@@ -251,25 +211,12 @@ class SingleImageConvDataset(SingleImageConvDatasetMixin, Dataset):
     def __init__(self, *args, dataset_generator: Type[Dataset], **kwargs):
         super().__init__(*args, **kwargs)
         self.dataset_generator = dataset_generator
-        self.dataset = None
-
-    def initialize_if_needed(self):
-        """
-        lazy initialize for big in-memory python object due to python 'copy-on-read' behavior
-        when num_worker > 0. refer: https://github.com/pytorch/pytorch/issues/13246
-        """
-        if self.dataset is None:
-            # warnings.warn("it's highly recommended that set persistent_workers=True, "
-            #               "otherwise this initialize code will run in every epoch beginning."
-            #               "(ignore me if set)")
-            self.dataset = self.dataset_generator()
+        self.dataset = dataset_generator()
 
     def __len__(self):
-        self.initialize_if_needed()
         return len(self.dataset)
 
     def get_raw_item(self, index) -> Dict[str, Any]:
-        self.initialize_if_needed()
         return self.dataset[index]
 
     def __repr__(self) -> str:
@@ -300,111 +247,6 @@ from torch import distributed as dist
 
 from xtuner.registry import BUILDER, MAP_FUNC
 from .utils import Packer, encode_fn
-from .huggingface import (
-    get_lengths,
-    build_origin_dataset,
-    map_dataset,
-    add_template_to_dataset,
-    tokenize_dataset,
-    pack_dataset,
-    process
-)
-
-def process_single_dataset(dataset,
-                       do_dataset_tokenization=True,
-                       tokenizer=None,
-                       max_length=None,
-                       dataset_map_fn=None,
-                       template_map_fn=None,
-                       max_dataset_length=None,
-                       split='train',
-                       remove_unused_columns=False,
-                       rename_maps=[],
-                       shuffle_before_pack=True,
-                       pack_to_max_length=True,
-                       use_varlen_attn=False,
-                       input_ids_with_output=True,
-                       with_image_token=False,
-                       map_num_proc=32):
-    """Post-process the dataset loaded from the Hugging Face Hub, or a local
-    dataset.
-
-    Args:
-        dataset: The dataset to be post-processed.
-        do_dataset_tokenization: Whether the dataset need to be tokenized
-            in this function. Default to True.
-        tokenizer: The tokenizer processes some raw text as input and outputs
-            an Encoding. If `do_dataset_tokenization` is True, this argument
-            should not be None. Default to None.
-        max_length: Max length of the sequence. If `do_dataset_tokenization`
-            or `pack_to_max_length` is True, this argument should not be None.
-            Default to None.
-        dataset_map_fn: Map the original dataset format to the one defined
-            by xTuner.
-        template_map_fn: Add the prompt template to the dataset
-        max_dataset_length: If the length of the dataset is too long, we can
-            randomly extract `max_dataset_length` from it.
-        split: Which split of the data to load.
-            If `None`, will return a single concatenated dataset with all
-            splits (typically `datasets.Split.TRAIN` and
-            `datasets.Split.TEST`).
-            If given, will return a single Dataset.
-        remove_unused_columns: Whether to remove columns from the dataset
-            that are not used during training.
-        rename_maps: Rename the column name of the dataset.
-        shuffle_before_pack: Whether to shuffle the dataset before
-            packing them.
-        pack_to_max_length: Whether to pack the dataset to the `max_length `.
-            This usually improves gpu utilization and therefore reduces
-            training time.
-        use_varlen_attn: If use_varlen_attn is True, we calculate attention
-            the actual length of the sequence rather than the actual length
-            of the sequence
-        input_ids_with_output: Whether to put the groundtruth output
-            corresponding to the question into the dataset. Typically set
-            it to True during training and False during testing.
-        with_image_token: Whether to convert DEFAULT_IMAGE_TOKEN to
-            IMAGE_TOKEN_INDEX. Typically set it to True during the training
-            of VLM.
-        map_num_proc: Max number of processes when mapping the dataset.
-    """
-    kwargs = dict(
-        dataset=dataset,
-        do_dataset_tokenization=do_dataset_tokenization,
-        tokenizer=tokenizer,
-        max_length=max_length,
-        dataset_map_fn=dataset_map_fn,
-        template_map_fn=template_map_fn,
-        max_dataset_length=max_dataset_length,
-        split=split,
-        remove_unused_columns=remove_unused_columns,
-        rename_maps=rename_maps,
-        shuffle_before_pack=shuffle_before_pack,
-        pack_to_max_length=pack_to_max_length,
-        use_varlen_attn=use_varlen_attn,
-        input_ids_with_output=input_ids_with_output,
-        with_image_token=with_image_token,
-        map_num_proc=map_num_proc)
-    if not (dist.is_available() and dist.is_initialized()):
-        return process(**kwargs)
-
-    xtuner_dataset_timeout = timedelta(
-        minutes=int(os.getenv('XTUNER_DATASET_TIMEOUT', default=30)))
-    print_log(
-        f'xtuner_dataset_timeout = {xtuner_dataset_timeout}', logger='current')
-    # monitored barrier requires gloo process group to perform host-side sync.
-    group_gloo = dist.new_group(backend='gloo', timeout=xtuner_dataset_timeout)
-
-    if dist.get_rank() == 0:
-        dataset = process(**kwargs)
-        objects = [dataset]
-    else:
-        objects = [None]
-
-    dist.monitored_barrier(group=group_gloo, timeout=xtuner_dataset_timeout)
-    dist.broadcast_object_list(objects, src=0)
-    return objects[0]
-
 
 # Copyright (c) OpenMMLab. All rights reserved.
 import json
@@ -437,50 +279,12 @@ class OkapiDataset(Dataset):
                  dataset_map_fn=None,
                  template_map_fn=None,
                  max_length=2048,
-                 pad_image_to_square=False):
+                 pad_image_to_square=False,
+                 datasets_args=None):
         super().__init__()
+        # build datasets
 
-        assert offline_processed_text_folder or (data_path and tokenizer)
-        if offline_processed_text_folder and data_path:
-            print_log(
-                'Both `offline_processed_text_folder` and '
-                '`data_path` are set, and we load dataset from'
-                '`offline_processed_text_folder` '
-                f'({offline_processed_text_folder})',
-                logger='current',
-                level=logging.WARNING)
-
-        assert offline_processed_image_folder or (image_folder and image_processor)
-        if offline_processed_image_folder and image_folder:
-            print_log(
-                'Both `offline_processed_image_folder` and '
-                '`image_folder` are set, and we load dataset from'
-                '`offline_processed_image_folder` '
-                f'({offline_processed_image_folder})',
-                logger='current',
-                level=logging.WARNING)
-
-        if offline_processed_text_folder is not None:
-            self.text_data = load_from_disk(offline_processed_text_folder)
-        else:
-            json_data = json.load(open(data_path))
-            for idx in range(len(json_data)):
-                if isinstance(json_data[idx]['id'], int):
-                    json_data[idx]['id'] = str(json_data[idx]['id'])
-            json_data = DatasetDict({'train': HFDataset.from_list(json_data)})
-            self.text_data = process_hf_dataset(
-                dataset=json_data,
-                tokenizer=tokenizer,
-                max_length=max_length,
-                dataset_map_fn=dataset_map_fn,
-                template_map_fn=template_map_fn,
-                split='train',
-                max_dataset_length=max_dataset_length,
-                remove_unused_columns=False,
-                pack_to_max_length=False,
-                with_image_token=True)
-
-        self.image_folder = image_folder
+        self.dataset = DATASETS.build(datasets_args)
         if isinstance(image_processor, dict) or isinstance(
                 image_processor, Config) or isinstance(image_processor,
                                                        ConfigDict):
@@ -489,10 +293,8 @@ class OkapiDataset(Dataset):
             self.image_processor = image_processor
         self.pad_image_to_square = pad_image_to_square
 
-    def load_offline_image_data():
-        pass
-
-    def load_offline_text_data():
+    def processes():
+        # 判断每个数据集是否 load from disk，如果是在线处理，则进入 processes 流程
         pass
 
     @property

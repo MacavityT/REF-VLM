@@ -269,3 +269,38 @@ def decode_base64_to_image(base64_string):
     image_data = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(image_data))
     return image
+
+# for boxes format
+def _box_xyxy_expand2square(box, *, w, h):
+    if w == h:
+        return box
+    if w > h:
+        x1, y1, x2, y2 = box
+        y1 += (w - h) // 2
+        y2 += (w - h) // 2
+        box = x1, y1, x2, y2
+        return box
+    assert w < h
+    x1, y1, x2, y2 = box
+    x1 += (h - w) // 2
+    x2 += (h - w) // 2
+    box = x1, y1, x2, y2
+    return box
+
+def _point_xy_expand2square(point, *, w, h):
+    pseudo_box = (point[0], point[1], point[0], point[1])
+    expanded_box = _box_xyxy_expand2square(box=pseudo_box, w=w, h=h)
+    expanded_point = (expanded_box[0], expanded_box[1])
+    return expanded_point
+
+def boxes_xyxy_expand2square(expanded_image, bboxes):
+    width, height = expanded_image.size
+    expanded_bboxes = [_box_xyxy_expand2square(bbox, w=width, h=height) for bbox in bboxes]
+    return expanded_bboxes
+
+def points_xy_expand2square(expanded_image, points):
+    width, height = expanded_image.size
+    points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
+
+def all_expand2square():
+    pass
