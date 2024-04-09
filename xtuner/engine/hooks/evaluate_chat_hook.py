@@ -152,6 +152,8 @@ class EvaluateChatHook(Hook):
             generation_output = self.tokenizer.decode(generation_output[0])
             runner.logger.info(f'Sample output:\n'
                                f'{inputs + generation_output}\n')
+            
+            # 每一个stage evaluation的评估准则：就是直接使用这个方法，保存一个evaluation的输出结果
             if save_eval_output:
                 eval_outputs.append(f'{inputs + generation_output}\n')
 
