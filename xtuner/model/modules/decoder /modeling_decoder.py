@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 from zeta.nn import FeedForward, MultiQueryAttention
-from moe_config import  MixtralConfig
+from moe_config import MixtralConfig
 from transformers.activations import ACT2FN
 
 """
@@ -101,9 +101,9 @@ class MixtralBlockSparseTop2MLP(nn.Module):
 
 if __name__ == '__main__':
 
-    x = torch.randn(1, 256 ,1024)
-    mixtralConfig =  MixtralConfig (hidden_size = 1024, num_local_experts = 4, num_experts_per_tok = 2)
+    x = torch.randn(1, 256, 1024)
+    mixtralConfig = MixtralConfig (hidden_size = 1024, num_local_experts = 4, num_experts_per_tok = 2)
     mixtralSparseMoeBlock = MixtralSparseMoeBlock( config = mixtralConfig )
-    final_hidden_states, router_logits= mixtralSparseMoeBlock(x)
+    final_hidden_states, router_logits = mixtralSparseMoeBlock(x)
     # Print the shape of the output tensor
     print(final_hidden_states.shape) #torch.Size([1, 256, 1024])
