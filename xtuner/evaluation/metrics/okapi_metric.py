@@ -1,7 +1,7 @@
 import sys
 import copy
 import logging
-from typing import Dict, Any, Union, Sequence
+from typing import Dict, Any, Union, Sequence,List
 
 import torch
 from transformers import EvalPrediction

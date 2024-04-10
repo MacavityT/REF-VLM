@@ -1,15 +1,14 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import torch
 from mmengine.dataset import DefaultSampler
 from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
                             LoggerHook, ParamSchedulerHook)
 from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from torch.optim import AdamW
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          BitsAndBytesConfig, CLIPImageProcessor,
-                          CLIPVisionModel)
+                          CLIPImageProcessor, CLIPVisionModel)
 
 from xtuner.dataset import LLaVADataset
+from xtuner.dataset.single_dataset.caption import CaptionDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
@@ -25,9 +24,10 @@ llm_name_or_path = '/model/Aaronzhu/Vicuna/7b_v1.5'
 visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
-data_root = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/'
-data_path = data_root + 'LLaVA-Pretrain/blip_laion_cc_sbu_558k.json'
-image_folder = data_root + 'LLaVA-Pretrain/images'
+data_root = '/data/Aaronzhu/DatasetStage1/MSCOCO/2017/'
+data_path = data_root + 'annotations/captions_val2017.json'
+image_folder = data_root + 'val2017'
+template_file = "/code/okapi-mllm/xtuner/dataset/map_fns/dataset_templates/image_cap.json"
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
@@ -35,13 +35,13 @@ max_length = int(2048 - (336 / 14)**2)
 batch_size = 32  # per_device
 accumulative_counts = 1
 dataloader_num_workers = 0
-max_epochs = 1
+max_epochs = 10
 optim_type = AdamW
 lr = 1e-3
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
-warmup_ratio = 0.03
+warmup_ratio = 0.3
 
 # Save
 save_steps = 500
@@ -74,17 +74,7 @@ model = dict(
     llm=dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=llm_name_or_path,
-        trust_remote_code=True,
-        torch_dtype=torch.float16,
-        quantization_config=dict(
-            type=BitsAndBytesConfig,
-            load_in_4bit=True,
-            load_in_8bit=False,
-            llm_int8_threshold=6.0,
-            llm_int8_has_fp16_weight=False,
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type='nf4')),
+        trust_remote_code=True),
     visual_encoder=dict(
         type=CLIPVisionModel.from_pretrained,
         pretrained_model_name_or_path=visual_encoder_name_or_path))
@@ -104,10 +94,20 @@ llava_dataset = dict(
     max_length=max_length,
     pad_image_to_square=False)
 
+# coco dataset
+coco_dataset = dict(
+    type=CaptionDataset,
+    filename=data_path,
+    image_folder=image_folder,
+    template_file=template_file
+)
+
+
+
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=dataloader_num_workers,
-    dataset=llava_dataset,
+    dataset=coco_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
 
