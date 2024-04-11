@@ -220,7 +220,7 @@ class EvaluateChatHook(Hook):
 
     def before_train(self, runner):
         runner.logger.info('before_train in EvaluateChatHook.')
-        self._generate_samples(runner, max_new_tokens=50)
+        self._generate_samples(runner, max_new_tokens=50,save_eval_output=True)
 
     def _is_save_checkpoint(self, runner):
         hooks = runner.hooks

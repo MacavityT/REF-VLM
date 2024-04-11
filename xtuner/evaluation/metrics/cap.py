@@ -1,6 +1,6 @@
 import json
 import sys
-from pycocoevalcap.eval import Cider, Meteor, Bleu, PTBTokenizer
+from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.registry.root import METRICS
 from xtuner.evaluation.metrics.okapi_metric import BaseComputeMetrics
 
@@ -16,7 +16,7 @@ logging.basicConfig(
 
 
 @METRICS.register_module()
-class REGCapComputeMetrics(BaseComputeMetrics):
+class ImgCapComputeMetrics(BaseComputeMetrics):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -33,15 +33,17 @@ class REGCapComputeMetrics(BaseComputeMetrics):
         targets  = tokenizer.tokenize(targets)
         preds = tokenizer.tokenize(preds)
         json.dump({"preds": preds, "targets": targets}, open("rst.json", "w"))
-        cider_score, meteor_score, bleu_score = Cider(), Meteor(),Bleu(4)
+        cider_score, meteor_score, bleu_score,spice_score = Cider(), Meteor(), Bleu(4), Spice()
         cider_rst, _ = cider_score.compute_score(targets, preds)
         meteor_rst, _ = meteor_score.compute_score(targets, preds)
         blue_rst, _ = bleu_score.compute_score(targets,preds)
+        spice_rst, _ = spice_score.compute_score(targets,preds)
 
         return {
             "CIDEr": cider_rst*100,
             "Meteor": meteor_rst,
-            "BLEU4": blue_rst
+            "BLEU4": blue_rst,
+            "SPICE": spice_rst
         }
 
     def extract_ans(self, string: str):

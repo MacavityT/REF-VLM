@@ -1,7 +1,7 @@
 GPTGEN_TRAIN_COMMON_CFG = dict(
     type='GPT4Gen',
     filename=r'{{fileDirname}}/../../../data/GPT4GEN_BoxCoT_train.jsonl',
-    image_folder=r'zz1424:s3://production-public-flickr_image/Flickr_Image/unzip/flickr30k_images/flickr30k_images',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k',
 )
 
 DEFAULT_TRAIN_GPTGEN_VARIANT = dict(

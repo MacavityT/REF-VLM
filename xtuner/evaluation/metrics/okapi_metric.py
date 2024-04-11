@@ -44,6 +44,15 @@ class BaseComputeMetrics:
         assert len(preds) == len(targets)
         return self.calculate_metric(preds, targets)
 
+
+    # TODO: 有需要修改的地方，BaseComputeMetrics的实现是不是要修改成与mmengine.evaluator中的BaseMetric相似？
+    """
+    重写函数：
+        1. process (类似于extract_anns的函数)
+        2. compute_metrics:   Process one batch of data samples and predictions. The processed
+                              results should be stored in `self.results`, which will be used to
+                              compute the metrics when all batches have been processed.
+    """
     def calculate_metric(self, preds: Sequence[str], targets: Sequence[str]) -> Dict[str, Any]:
         correct = 0
         failed = 0
