@@ -56,7 +56,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
     def __init__(self,
                 text_path, 
-                image_folder=None, 
+                image_folder=None,
+                image_info_folder=None, 
                 offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
                 tokenizer=None,
@@ -67,12 +68,12 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         super().__init__(**kwargs)
         self.text_path = text_path
         self.image_folder = image_folder
+        self.image_info_folder = image_info_folder
         self.rng = np.random.default_rng(seed)
 
         self.tokenizer = tokenizer
         self.image_processror = image_processor,
         self.pad_image_to_square = pad_image_to_square
-        self.text_data = []
 
         if isinstance(image_processor, dict) or isinstance(
                 image_processor, Config) or isinstance(image_processor,
@@ -80,16 +81,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             self.image_processor = BUILDER.build(image_processor)
         else:
             self.image_processor = image_processor
-
-        assert offline_processed_text_folder or (text_path and tokenizer)
-        if offline_processed_text_folder and text_path:
-            print_log(
-                'Both `offline_processed_text_folder` and '
-                '`data_path` are set, and we load dataset from'
-                '`offline_processed_text_folder` '
-                f'({offline_processed_text_folder})',
-                logger='current',
-                level=logging.WARNING)
 
         assert offline_processed_image_folder or (image_folder and image_processor)
         if offline_processed_image_folder and image_folder:
@@ -101,12 +92,29 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        if offline_processed_text_folder is not None:
-            self.text_data = self.load_offline_text_data(offline_processed_text_folder)
+        assert offline_processed_text_folder or (text_path and tokenizer)
+        if offline_processed_text_folder and text_path:
+            print_log(
+                'Both `offline_processed_text_folder` and '
+                '`data_path` are set, and we load dataset from'
+                '`offline_processed_text_folder` '
+                f'({offline_processed_text_folder})',
+                logger='current',
+                level=logging.WARNING)
+
         if offline_processed_image_folder is not None:
             self.image_data = self.load_offline_image_data(offline_processed_image_folder)
+        
+        if offline_processed_text_folder is not None:
+            self.text_data = self.load_offline_text_data(offline_processed_text_folder)
+        if text_path is not None:
+            self.text_data = []
+            with open(text_path, 'r', encoding='utf8') as f:
+                # for line in tqdm(f, desc=f'{self.__class__.__name__} loading ann {self.filename}'):
+                for line in f:
+                    self.text_data.append(line)
 
-    #TODO: 增加离线加载流程
+
     def load_offline_text_data(offline_processed_text_folder):
         return load_from_disk(offline_processed_text_folder)
 
@@ -123,10 +131,12 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 self.text_data.append(line)
 
     def get_image(self, image_path):
-        # if self.image_folder is not None:
-        #     image_path = os.path.join(self.image_folder, image_path)
+        if self.image_folder is not None:
+            image_path_abs = os.path.join(self.image_folder, image_path)
         # image = Image.open(image_path).convert('RGB')
-        return image_path
+        if self.image_info_folder is not None:
+            width = []
+        return image_path_abs, 
 
     def get_template(self):
         return self.rng.choice(self.templates)

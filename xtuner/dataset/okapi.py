@@ -65,7 +65,7 @@ class OkapiDataset(Dataset):
         else:
             self.dataset = [dataset]
 
-        self.data = self.process_dataset()
+        self.data = self.dataset_process()
 
 
     @property
@@ -83,6 +83,7 @@ class OkapiDataset(Dataset):
         return len(self.text_data)
 
     def image_process(self, image):
+
         if self.pad_image_to_square:
             image = expand2square(
                 image,
@@ -93,13 +94,15 @@ class OkapiDataset(Dataset):
             image, return_tensors='pt')['pixel_values'][0]
         return image
 
-    def process_dataset(self):
+    def dataset_process(self):
         data_dict = {}
         for ds in self.dataset:
             '''
             item = {
                 'image': '/path/to/image', # str
                 'target': {
+                    'width': 512, # int
+                    'height': 512, # int 
                     # xmin, ymin, xmax, ymax
                     'boxes': [
                         [10, 10, 256, 265],  # dog1
@@ -124,7 +127,15 @@ class OkapiDataset(Dataset):
                 ]
             }
             '''
-            ds_data = [item for item in ds]
+            ds_data = []
+            for item in ds:
+                if 'width' not in item['target'].keys() or \
+                    'height' not in item['target'].keys():
+                    image_path = item['image']
+                    image = Image.open(image_path).convert('RGB')
+                    item['width'] = image.width
+                    item['height'] = image.height
+                ds_data.append(item)
             data_dict[type(ds).__name__] = HFDataset.from_list(ds_data)
             
         gathered_data = DatasetDict(data_dict)
@@ -139,6 +150,7 @@ class OkapiDataset(Dataset):
                     remove_unused_columns=False,
                     pack_to_max_length=False,
                     with_image_token=True)
+
 
     def __getitem__(self, index):
         data_dict = self.text_data[index]
