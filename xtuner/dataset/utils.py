@@ -304,3 +304,46 @@ def points_xy_expand2square(expanded_image, points):
 
 def all_expand2square():
     pass
+
+def de_norm_box_xyxy(box, *, w, h):
+    x1, y1, x2, y2 = box
+    x1 = x1 * w
+    x2 = x2 * w
+    y1 = y1 * h
+    y2 = y2 * h
+    box = x1, y1, x2, y2
+    return box
+
+
+def box_xywh_to_xyxy(box, *, w=None, h=None):
+    x, y, bw, bh = box
+    x2 = x + bw
+    y2 = y + bh
+    if w is not None:
+        x2 = min(x2, w)
+    if h is not None:
+        y2 = min(y2, h)
+    box = x, y, x2, y2
+    return box
+
+
+def norm_box_xyxy(box, *, w, h):
+    x1, y1, x2, y2 = box
+
+    # Calculate the normalized coordinates with min-max clamping
+    norm_x1 = max(0.0, min(x1 / w, 1.0))
+    norm_y1 = max(0.0, min(y1 / h, 1.0))
+    norm_x2 = max(0.0, min(x2 / w, 1.0))
+    norm_y2 = max(0.0, min(y2 / h, 1.0))
+
+    # Return the normalized box coordinates
+    normalized_box = (round(norm_x1, 3), round(norm_y1, 3), round(norm_x2, 3), round(norm_y2, 3))
+    return normalized_box
+
+
+def norm_point_xyxy(point, *, w, h):
+    x, y = point
+    norm_x = max(0.0, min(x / w, 1.0))
+    norm_y = max(0.0, min(y / h, 1.0))
+    point = norm_x, norm_y
+    return point

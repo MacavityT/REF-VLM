@@ -10,7 +10,7 @@ from mmengine.config import Config, ConfigDict
 from torch.utils.data import Dataset
 from datasets import DatasetDict, load_from_disk
 from xtuner.registry import BUILDER
-from .data import dataset_template_path
+from .dataset_templates import dataset_template_path
 
 class QuestionTemplateMixin:
     def __init__(
@@ -61,6 +61,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 offline_processed_image_folder=None,
                 tokenizer=None,
                 image_processor=None,
+                pad_image_to_square=False,
                 seed=None, 
                 **kwargs):
         super().__init__(**kwargs)
@@ -70,6 +71,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
         self.tokenizer = tokenizer
         self.image_processror = image_processor,
+        self.pad_image_to_square = pad_image_to_square
         self.text_data = []
 
         if isinstance(image_processor, dict) or isinstance(
@@ -79,7 +81,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         else:
             self.image_processor = image_processor
 
-        assert offline_processed_text_folder or text_path
+        assert offline_processed_text_folder or (text_path and tokenizer)
         if offline_processed_text_folder and text_path:
             print_log(
                 'Both `offline_processed_text_folder` and '
@@ -89,7 +91,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        assert offline_processed_image_folder or image_folder
+        assert offline_processed_image_folder or (image_folder and image_processor)
         if offline_processed_image_folder and image_folder:
             print_log(
                 'Both `offline_processed_image_folder` and '
@@ -99,32 +101,17 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        # if offline_processed_text_folder is not None:
-        #     self.text_data = load_from_disk(offline_processed_text_folder)
-        # else:
-        #     json_data = json.load(open(data_path))
-        #     for idx in range(len(json_data)):
-        #         if isinstance(json_data[idx]['id'], int):
-        #             json_data[idx]['id'] = str(json_data[idx]['id'])
-        #     json_data = DatasetDict({'train': HFDataset.from_list(json_data)})
-        #     self.text_data = process_hf_dataset(
-        #         dataset=json_data,
-        #         tokenizer=tokenizer,
-        #         max_length=max_length,
-        #         dataset_map_fn=dataset_map_fn,
-        #         template_map_fn=template_map_fn,
-        #         split='train',
-        #         max_dataset_length=max_dataset_length,
-        #         remove_unused_columns=False,
-        #         pack_to_max_length=False,
-        #         with_image_token=True)
+        if offline_processed_text_folder is not None:
+            self.text_data = self.load_offline_text_data(offline_processed_text_folder)
+        if offline_processed_image_folder is not None:
+            self.image_data = self.load_offline_image_data(offline_processed_image_folder)
 
+    #TODO: 增加离线加载流程
+    def load_offline_text_data(offline_processed_text_folder):
+        return load_from_disk(offline_processed_text_folder)
 
-    def load_offline_image_data():
-        pass
-
-    def load_offline_text_data():
-        pass
+    def load_offline_image_data(offline_processed_image_folder, image_path):
+        raise NotImplementedError
 
     def get_raw_item(self, index):
         return json.loads(self.text_data[index])
@@ -136,10 +123,10 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 self.text_data.append(line)
 
     def get_image(self, image_path):
-        if self.image_folder is not None:
-            image_path = os.path.join(self.image_folder, image_path)
-        image = Image.open(image_path).convert('RGB')
-        return image
+        # if self.image_folder is not None:
+        #     image_path = os.path.join(self.image_folder, image_path)
+        # image = Image.open(image_path).convert('RGB')
+        return image_path
 
     def get_template(self):
         return self.rng.choice(self.templates)
