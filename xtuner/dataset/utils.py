@@ -11,6 +11,19 @@ from PIL import Image
 
 from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
 
+import cv2
+import mmengine.fileio as fileio
+from mmengine.utils import is_str
+from cv2 import (IMREAD_COLOR, IMREAD_GRAYSCALE, IMREAD_IGNORE_ORIENTATION,
+                 IMREAD_UNCHANGED)
+imread_flags = {
+    'color': IMREAD_COLOR,
+    'grayscale': IMREAD_GRAYSCALE,
+    'unchanged': IMREAD_UNCHANGED,
+    'color_ignore_orientation': IMREAD_IGNORE_ORIENTATION | IMREAD_COLOR,
+    'grayscale_ignore_orientation':
+    IMREAD_IGNORE_ORIENTATION | IMREAD_GRAYSCALE
+} 
 
 def get_bos_eos_token_ids(tokenizer):
     if tokenizer.__class__.__name__ in [
@@ -269,6 +282,19 @@ def decode_base64_to_image(base64_string):
     image_data = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(image_data))
     return image
+
+
+def imfrombytes(filename,
+                flag: str = 'color',
+                channel_order: str = 'bgr') -> np.ndarray:
+    img_bytes = fileio.get(filename)
+    img_np = np.frombuffer(img_bytes, np.uint8)
+    flag = imread_flags[flag] if is_str(flag) else flag
+    img = cv2.imdecode(img_np, flag)
+    if flag == IMREAD_COLOR and channel_order == 'rgb':
+        cv2.cvtColor(img, cv2.COLOR_BGR2RGB, img)
+    return img
+
 
 # for boxes format
 def _box_xyxy_expand2square(box, *, w, h):

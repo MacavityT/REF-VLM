@@ -73,14 +73,14 @@ def okapi_box_map_fn(example):
             # map box seq
             boxes_seq: List[Boxes] = map_obj(normalized_boxes, boxes_seq)
             # reformat; replace <boxes> placeholder
-            all_boxes = self.bboxes_token_pat.findall(words)
-            assert len(all_boxes) == len(bboxes_seq), f"not match. sentence: {words}. boxes:{bboxes_seq}"
+            all_boxes = bboxes_token_pat.findall(words)
+            assert len(all_boxes) == len(boxes_seq), f"not match. sentence: {words}. boxes:{boxes_seq}"
             if len(all_boxes) == 0:
                 continue
-            bboxes_strs = [format_box_or_points(bboxes) for bboxes in bboxes_seq]
-            converted = words.replace(self.bboxes_token, '{}').format(*bboxes_strs)
+            bboxes_strs = [format_box_or_points(boxes) for boxes in boxes_seq]
+            converted = words.replace(BOXES_PLACEHOLDER, '{}').format(*bboxes_strs)
             # sentence['raw_value'] = sentence['value']
-            sentence['value'] = words
+            sentence['value'] = converted
 
 def okapi_point_map_fn(example):
     points_token_pat = re.compile(POINTS_PLACEHOLDER)
@@ -105,7 +105,7 @@ def okapi_point_map_fn(example):
             if len(all_points) == 0:
                 continue
             points_strs = [format_box_or_points(points) for points in points_seq]
-            converted = words.replace(POINTS_PLACEHOLDER, '{}').format(*bboxes_strs)        
+            converted = words.replace(POINTS_PLACEHOLDER, '{}').format(*points_strs)        
             # sentence['raw_value'] = sentence['value']
             sentence['value'] = converted
 
@@ -124,7 +124,7 @@ def extract(string: str, use_small_brackets = False) -> List[Boxes]:
     return ret
 
 # extract points from language, but not useful for okapi
-def extract_point(string: str) -> List[Boxes]:
+def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
     point_pat = small_brackets_point_pat if use_small_brackets else middle_brackets_point_pat
     """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
     ret = []
@@ -145,13 +145,3 @@ def okapi_map_fn(example):
     okapi_point_map_fn(example)
     res = llava_map_fn(example)
     return res
-
-import re
-class PlainBoxFormatter:
-
-
-    def call_on_point(self, sentence: str, points_seq: BoxesSeq) -> str:
-
-        return converted
-
-    def __call__(self, sentence: str, bboxes_seq: BoxesSeq) -> str:

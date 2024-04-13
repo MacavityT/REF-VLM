@@ -3,19 +3,18 @@ import numpy as np
 from typing import Dict, Any
 from functools import partial
 from tqdm import trange
-
+from PIL import Image
 
 import torch
 from datasets import Dataset as HFDataset
 from datasets import DatasetDict
 from mmengine import print_log
 from mmengine.config import Config, ConfigDict
-from PIL import Image
 from torch.utils.data import Dataset
 
 from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
 from .huggingface import process_hf_dataset
-from .utils import expand2square, all_expand2square, load_image
+from .utils import expand2square, all_expand2square, imfrombytes
 
 class OkapiDataset(Dataset):
 
@@ -84,7 +83,8 @@ class OkapiDataset(Dataset):
 
     def image_process(self, image):
         # load image
-        image = load_image(image)
+        image = imfrombytes(image, flag='color', channel_order='rgb') # array
+        image = Image.fromarray(image) # PIL.Image
         # expand2square
         if self.pad_image_to_square:
             image = expand2square(
@@ -136,9 +136,9 @@ class OkapiDataset(Dataset):
                 if 'width' not in item['image'].keys() or \
                     'height' not in item['image'].keys():
                     image_path = item['image']['path']
-                    image = load_image(image_path)
-                    item['width'] = image.width
-                    item['height'] = image.height
+                    image = imfrombytes(image_path, flag='unchanged') # array
+                    item['height'] = image.shape[0]
+                    item['width'] = image.shape[1]
                 ds_data.append(item)
             data_dict[type(ds).__name__] = HFDataset.from_list(ds_data)
             
