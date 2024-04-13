@@ -297,7 +297,7 @@ def imfrombytes(filename,
 
 
 # for boxes format
-def _box_xyxy_expand2square(box, *, w, h):
+def _box_xyxy_expand2square(box, w, h):
     if w == h:
         return box
     if w > h:
@@ -313,23 +313,20 @@ def _box_xyxy_expand2square(box, *, w, h):
     box = x1, y1, x2, y2
     return box
 
-def _point_xy_expand2square(point, *, w, h):
+def _point_xy_expand2square(point, w, h):
     pseudo_box = (point[0], point[1], point[0], point[1])
     expanded_box = _box_xyxy_expand2square(box=pseudo_box, w=w, h=h)
     expanded_point = (expanded_box[0], expanded_box[1])
     return expanded_point
 
-def boxes_xyxy_expand2square(expanded_image, bboxes):
-    width, height = expanded_image.size
+def boxes_xyxy_expand2square(width, height, bboxes):
     expanded_bboxes = [_box_xyxy_expand2square(bbox, w=width, h=height) for bbox in bboxes]
     return expanded_bboxes
 
-def points_xy_expand2square(expanded_image, points):
-    width, height = expanded_image.size
-    points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
+def points_xy_expand2square(width, height, points):
+    expanded_points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
+    return expanded_points
 
-def all_expand2square():
-    pass
 
 def de_norm_box_xyxy(box, *, w, h):
     x1, y1, x2, y2 = box

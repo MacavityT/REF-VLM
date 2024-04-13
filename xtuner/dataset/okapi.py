@@ -14,7 +14,12 @@ from torch.utils.data import Dataset
 
 from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
 from .huggingface import process_hf_dataset
-from .utils import expand2square, all_expand2square, imfrombytes
+from .utils import (
+    imfrombytes,
+    expand2square,
+    boxes_xyxy_expand2square,
+    points_xy_expand2square
+)
 
 class OkapiDataset(Dataset):
 
@@ -95,6 +100,15 @@ class OkapiDataset(Dataset):
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
         return image
+    
+    def target_process(self, target, width, height):
+        if 'boxes' in target.keys():
+            bboxes = [boxes_xyxy_expand2square(bbox, w=width, h=height) for bbox in target['boxes']]
+            target['boxes'] = bboxes
+        if 'points' in target.keys():
+            points = [points_xy_expand2square(point, w=width, h=height) for point in target['points']]
+            target['points'] = points
+
 
     def dataset_process(self):
         data_dict = {}
@@ -137,8 +151,13 @@ class OkapiDataset(Dataset):
                     'height' not in item['image'].keys():
                     image_path = item['image']['path']
                     image = imfrombytes(image_path, flag='unchanged') # array
-                    item['height'] = image.shape[0]
-                    item['width'] = image.shape[1]
+                    item['image']['height'] = image.shape[0]
+                    item['image']['width'] = image.shape[1]
+                
+                if 'target' in item.keys():
+                    self.target_process(item['target'],
+                                        width=item['image']['width'],
+                                        height=item['image']['height'])
                 ds_data.append(item)
             data_dict[type(ds).__name__] = HFDataset.from_list(ds_data)
             
