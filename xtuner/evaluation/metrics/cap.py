@@ -1,27 +1,50 @@
 import json
 import sys
+import torch
+from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.registry.root import METRICS
 from xtuner.evaluation.metrics.okapi_metric import BaseComputeMetrics
 
 
-import logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    datefmt="%m/%d/%Y %H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout), ],
-)
-
 
 @METRICS.register_module()
 class ImgCapComputeMetrics(BaseComputeMetrics):
+    """
+    eval_dataloader通过collect_fn中的eval_collate_fn.py定义
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-    def calculate_metric(self, preds, targets):
+    def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
+        """Process one batch of data samples and predictions. The processed
+        results should be stored in ``self.results``, which will be used to
+        compute the metrics when all batches have been processed.
+
+        Args:
+            data_batch (Any): A batch of data from the dataloader.
+            data_samples (Sequence[dict]): A batch of outputs from
+                the model.
+        """
+        tasks = data_batch['data_samples']['tasks']
+        preds = []
+
+        for sample, attn_mask, task, gt in zip(
+            data_samples,data_batch['data']['attention_mask'],tasks,data_batch['data']['labels']):
+            pred_logits = sample['logits']   # TODO: 需要确认调用还是调用generate方法？ 这一块还要后续再确认一下
+            first_zero_idx = self.find_first_zero_index(attn_mask)
+            pred_idx = -1 if first_zero_idx is None else first_zero_idx - 1
+            pred_logits_filter = pred_logits[pred_idx]
+            pred = torch.argmax(pred_logits_filter,dim=1).item()
+            preds.append(pred)
+            self.results.append((task, pred, gt))
+
+
+    def compute_metrics(self, results: list) -> dict:
+
+        task,preds, targets = results
+
         preds = [self.extract_ans(p) for p in preds]
         preds = {i: [{"caption": x}] for i, x in enumerate(preds)}
 
@@ -32,7 +55,6 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         tokenizer = PTBTokenizer()
         targets  = tokenizer.tokenize(targets)
         preds = tokenizer.tokenize(preds)
-        json.dump({"preds": preds, "targets": targets}, open("rst.json", "w"))
         cider_score, meteor_score, bleu_score,spice_score = Cider(), Meteor(), Bleu(4), Spice()
         cider_rst, _ = cider_score.compute_score(targets, preds)
         meteor_rst, _ = meteor_score.compute_score(targets, preds)

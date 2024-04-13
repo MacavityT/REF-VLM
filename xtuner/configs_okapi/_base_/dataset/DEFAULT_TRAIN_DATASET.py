@@ -11,7 +11,7 @@ _base_ = [
 DEFAULT_TRAIN_DATASET = dict(
     flickr=dict(
         type='FlickrDataset',
-        filename=r'{{fileDirname}}/../../../data/CWB_flickr30k_train.jsonl',
+        filename=r'{{fileDirname}}/../../../data/CWB_flickr30k_train.jsonl',  
         image_folder=r'zz1424:s3://production-public-flickr_image/Flickr_Image/unzip/flickr30k_images/flickr30k_images',
         template_file=r'{{fileDirname}}/template/flickr30k.json',
     ),

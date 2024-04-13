@@ -25,7 +25,7 @@ visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
 data_root = '/data/Aaronzhu/DatasetStage1/MSCOCO/2017/'
-data_path = data_root + 'annotations/captions_val2017.json'
+data_path = '/data/Aaronzhu/DatasetStage1/Shikra/CAP_coco2017_val.jsonl'
 image_folder = data_root + 'val2017'
 template_file = "/code/okapi-mllm/xtuner/dataset/map_fns/dataset_templates/image_cap.json"
 prompt_template = PROMPT_TEMPLATE.vicuna
@@ -82,17 +82,17 @@ model = dict(
 #######################################################################
 #                      PART 3  Dataset & Dataloader                   #
 #######################################################################
-llava_dataset = dict(
-    type=LLaVADataset,
-    data_path=data_path,
-    image_folder=image_folder,
-    tokenizer=tokenizer,
-    image_processor=image_processor,
-    dataset_map_fn=llava_map_fn,
-    template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
-    max_length=max_length,
-    pad_image_to_square=False)
+# llava_dataset = dict(
+#     type=LLaVADataset,
+#     data_path=data_path,
+#     image_folder=image_folder,
+#     tokenizer=tokenizer,
+#     image_processor=image_processor,
+#     dataset_map_fn=llava_map_fn,
+#     template_map_fn=dict(
+#         type=template_map_fn_factory, template=prompt_template),
+#     max_length=max_length,
+#     pad_image_to_square=False)
 
 # coco dataset
 coco_dataset = dict(
@@ -110,6 +110,32 @@ train_dataloader = dict(
     dataset=coco_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
+
+
+# 加载 evaluator的数据集
+
+
+# val_mmlu_fs = dict(
+#     type=process_hf_dataset,
+#     dataset=mmlu_fs_dataset,
+#     tokenizer=tokenizer,
+#     dataset_map_fn=default_map_fn,
+#     max_length=max_length,
+#     input_ids_with_output=False,
+#     pack_to_max_length=False,
+#     split='val')
+
+# val_dataloader = dict(
+#     batch_size=1,
+#     num_workers=0,
+#     dataset=val_mmlu_fs,
+#     sampler=dict(type=DefaultSampler, shuffle=False),
+#     collate_fn=dict(type=mmlu_collate_fn))
+
+
+# # evaluator可以是list的形式
+# val_evaluator = dict(
+#     type=MMLUMetric, tokenizer=tokenizer, prefix='mmlu_fs_val')
 
 #######################################################################
 #                    PART 4  Scheduler & Optimizer                    #
