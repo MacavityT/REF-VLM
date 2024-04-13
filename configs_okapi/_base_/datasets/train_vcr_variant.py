@@ -1,7 +1,7 @@
 vcr_train_common_cfg = dict(
     type='VCRDataset',
-    filename=r'{{fileDirname}}/../../../data/vcr_train.jsonl',
-    image_folder=r'sh41:s3://MultiModal/Monolith/academic/vcr/vcr1images',
+    filename=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_train.jsonl',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/vcr1/vcr1images',
 )
 
 train_vcr_variant = dict(
