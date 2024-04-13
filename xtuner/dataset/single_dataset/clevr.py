@@ -22,7 +22,7 @@ class ClevrDataset(MInstrDataset):
             self.scene_graph = [line for line in open(scene_graph_file, 'r', encoding='utf8')]
 
     def get_raw_item(self, index):
-        question = json.loads(self.data[index])
+        question = json.loads(self.text_data[index])
         if self.scene_graph is None:
             scene = None
         else:

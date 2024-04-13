@@ -19,3 +19,5 @@ POINTS_PLACEHOLDER = '<points>'
 
 PHRASE_ST_PLACEHOLDER = '<ph_st>'
 PHRASE_ED_PLACEHOLDER = '<ph_ed>'
+
+MASK_PLACEHOLDER = '<mask>'
