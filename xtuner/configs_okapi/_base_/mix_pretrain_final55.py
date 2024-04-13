@@ -1,4 +1,4 @@
-_base_ = ['DEFAULT_TRAIN_DATASET.py']
+_base_ = ['train_all_dataset.py']
 
 data_args = dict(
     #
@@ -11,9 +11,9 @@ data_args = dict(
             dict(
                 type='ConcatDatasetWithShuffle',
                 cfgs=[
-                    {{_base_.DEFAULT_TRAIN_DATASET.instruct}},
-                    {{_base_.DEFAULT_TRAIN_DATASET.GPT4GEN_QBC}},
-                    {{_base_.DEFAULT_TRAIN_DATASET.GPT4GEN_RD_QBC}},
+                    {{_base_.train_all_dataset.instruct}},
+                    {{_base_.train_all_dataset.gpt4gen_qbc}},
+                    {{_base_.train_all_dataset.gpt4gen_rd_qbc}},
                 ]
             ),
             dict(
@@ -22,24 +22,24 @@ data_args = dict(
                 seed=None,
                 stopping_strategy='first_exhausted',
                 cfgs=[
-                    {{_base_.DEFAULT_TRAIN_DATASET.flickr}},
-                    {{_base_.DEFAULT_TRAIN_DATASET.rec}},
+                    {{_base_.train_all_dataset.flickr}},
+                    {{_base_.train_all_dataset.rec}},
                     dict(
                         type='ConcatDatasetWithShuffle',
                         seed=43,
                         cfgs=[
-                            {{_base_.DEFAULT_TRAIN_DATASET.VQAv2_train}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.VQAE_train}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.VQAX_train}},
+                            {{_base_.train_all_dataset.vqav2_train}},
+                            {{_base_.train_all_dataset.vqae_train}},
+                            {{_base_.train_all_dataset.vqax_train}},
                         ],
                     ),
                     dict(
                         type='ConcatDatasetWithShuffle',
                         seed=44,
                         cfgs=[
-                            {{_base_.DEFAULT_TRAIN_DATASET.VCR_q_ra}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.VCR_qc_rac}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.VCR_qac_r}},
+                            {{_base_.train_all_dataset.vcr_q_ra}},
+                            {{_base_.train_all_dataset.vcr_qc_rac}},
+                            {{_base_.train_all_dataset.vcr_qac_r}},
                         ],
                     ),
                     dict(
@@ -47,47 +47,47 @@ data_args = dict(
                         seed=45,
                         portion=3,
                         cfgs=[
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_LOCAL_b}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_LOCAL_p}},
+                            {{_base_.train_all_dataset.point_local_b}},
+                            {{_base_.train_all_dataset.point_local_p}},
                         ]
                     ),
                     dict(
                         type='ConcatDatasetWithShuffle',
                         seed=46,
                         cfgs=[
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_TWICE_oq_bp}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_TWICE_sq_bp}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_TWICE_gq_bp}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_V7W_p}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.POINT_V7W_b}},
+                            {{_base_.train_all_dataset.point_twice_oq_bp}},
+                            {{_base_.train_all_dataset.point_twice_sq_bp}},
+                            {{_base_.train_all_dataset.point_twice_gq_bp}},
+                            {{_base_.train_all_dataset.point_v7w_p}},
+                            {{_base_.train_all_dataset.point_v7w_b}},
                         ]
                     ),
                     dict(
                         type='ConcatDatasetWithShuffle',
                         seed=47,
                         cfgs=[
-                            {{_base_.DEFAULT_TRAIN_DATASET.reg}},
-                            {{_base_.DEFAULT_TRAIN_DATASET.caption}},
+                            {{_base_.train_all_dataset.reg}},
+                            {{_base_.train_all_dataset.caption}},
                             dict(
                                 type='SubSet',
                                 portion=2 / 3,
                                 do_shuffle=True,
                                 seed=40,
-                                cfg={{_base_.DEFAULT_TRAIN_DATASET.llavacc3m}},
+                                cfg={{_base_.train_all_dataset.llavacc3m}},
                             ),
                             dict(
                                 type='SubSet',
                                 portion=2 / 3,
                                 do_shuffle=True,
                                 seed=41,
-                                cfg={{_base_.DEFAULT_TRAIN_DATASET.llavalcs}},
+                                cfg={{_base_.train_all_dataset.llavalcs}},
                             ),
                             dict(
                                 type='SubSet',
                                 portion=1 / 15,
                                 do_shuffle=True,
                                 seed=42,
-                                cfg={{_base_.DEFAULT_TRAIN_DATASET.gc}},
+                                cfg={{_base_.train_all_dataset.gc}},
                             ),
                         ]
                     )

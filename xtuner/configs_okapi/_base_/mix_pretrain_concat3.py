@@ -1,12 +1,12 @@
-_base_ = ['DEFAULT_TRAIN_DATASET.py']
+_base_ = ['train_all_dataset.py']
 
 data_args = dict(
     #
     train=dict(
         type='ConcatDataset',
         cfgs=[
-            {{_base_.DEFAULT_TRAIN_DATASET.rec}},
-            {{_base_.DEFAULT_TRAIN_DATASET.recvg}},
+            {{_base_.train_all_dataset.rec}},
+            {{_base_.train_all_dataset.recvg}},
         ],
     ),
     validation=None,
