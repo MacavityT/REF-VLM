@@ -15,7 +15,7 @@ from torch.utils.data import Dataset
 
 from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
 from .huggingface import process_hf_dataset
-from .utils import expand2square, all_expand2square
+from .utils import expand2square, all_expand2square, load_image
 
 class OkapiDataset(Dataset):
 
@@ -71,7 +71,7 @@ class OkapiDataset(Dataset):
     @property
     def modality_length(self):
         length_list = []
-        for data_dict in self.text_data:
+        for data_dict in self.data:
             cur_len = len(data_dict['input_ids'])
             if data_dict.get('image', None) is None:
                 cur_len = -cur_len
@@ -80,10 +80,12 @@ class OkapiDataset(Dataset):
 
 
     def __len__(self):
-        return len(self.text_data)
+        return len(self.data)
 
     def image_process(self, image):
-
+        # load image
+        image = load_image(image)
+        # expand2square
         if self.pad_image_to_square:
             image = expand2square(
                 image,
@@ -99,10 +101,12 @@ class OkapiDataset(Dataset):
         for ds in self.dataset:
             '''
             item = {
-                'image': '/path/to/image', # str
-                'target': {
+                'image': {
+                    'path': '/path/to/image', # str
                     'width': 512, # int
                     'height': 512, # int 
+                },
+                'target': {
                     # xmin, ymin, xmax, ymax
                     'boxes': [
                         [10, 10, 256, 265],  # dog1
@@ -129,10 +133,10 @@ class OkapiDataset(Dataset):
             '''
             ds_data = []
             for item in ds:
-                if 'width' not in item['target'].keys() or \
-                    'height' not in item['target'].keys():
-                    image_path = item['image']
-                    image = Image.open(image_path).convert('RGB')
+                if 'width' not in item['image'].keys() or \
+                    'height' not in item['image'].keys():
+                    image_path = item['image']['path']
+                    image = load_image(image_path)
                     item['width'] = image.width
                     item['height'] = image.height
                 ds_data.append(item)
@@ -153,7 +157,7 @@ class OkapiDataset(Dataset):
 
 
     def __getitem__(self, index):
-        data_dict = self.text_data[index]
+        data_dict = self.data[index]
 
         # image
         if data_dict.get('image', None) is not None:

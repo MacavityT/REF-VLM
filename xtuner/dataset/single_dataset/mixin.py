@@ -104,16 +104,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
         if offline_processed_image_folder is not None:
             self.image_data = self.load_offline_image_data(offline_processed_image_folder)
+        if image_info_folder is not None:
+            self.image_data_info = self.get_file_data(image_info_folder)
         
         if offline_processed_text_folder is not None:
             self.text_data = self.load_offline_text_data(offline_processed_text_folder)
-        if text_path is not None:
-            self.text_data = []
-            with open(text_path, 'r', encoding='utf8') as f:
-                # for line in tqdm(f, desc=f'{self.__class__.__name__} loading ann {self.filename}'):
-                for line in f:
-                    self.text_data.append(line)
-
+        else:
+            self.text_data = self.get_file_data(text_path)
 
     def load_offline_text_data(offline_processed_text_folder):
         return load_from_disk(offline_processed_text_folder)
@@ -124,19 +121,28 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
     def get_raw_item(self, index):
         return json.loads(self.text_data[index])
     
-    def get_text(self, text_path):
-        with open(text_path, 'r', encoding='utf8') as f:
-            # for line in tqdm(f, desc=f'{self.__class__.__name__} loading ann {self.filename}'):
+    def get_file_data(self, file_path):
+        file_data = []
+        with open(file_path, 'r', encoding='utf8') as f:
             for line in f:
-                self.text_data.append(line)
+                file_data.append(line)
+        return file_data
 
     def get_image(self, image_path):
         if self.image_folder is not None:
             image_path_abs = os.path.join(self.image_folder, image_path)
+        else:
+            image_path_abs = image_path
         # image = Image.open(image_path).convert('RGB')
+        width, height = None, None
         if self.image_info_folder is not None:
-            width = []
-        return image_path_abs, 
+            width = self.image_data_info[image_path]['width']
+            height = self.image_data_info[image_path]['height']
+        return {
+            'path': image_path_abs,
+            'width': width,
+            'height': height
+        } 
 
     def get_template(self):
         return self.rng.choice(self.templates)
