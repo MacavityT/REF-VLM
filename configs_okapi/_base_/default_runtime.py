@@ -1,6 +1,15 @@
-#######################################################################
-#                           PART 5  Runtime                           #
-#######################################################################
+from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
+from xtuner.utils import PROMPT_TEMPLATE
+
+
+# Evaluate the generation performance during the training
+evaluation_freq = 500
+SYSTEM = ''
+evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
+evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
+
+prompt_template = PROMPT_TEMPLATE.vicuna
+
 # Log the dialogue periodically during the training process, optional
 custom_hooks = [
     dict(type=DatasetInfoHook, tokenizer=tokenizer),

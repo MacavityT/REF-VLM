@@ -1,13 +1,22 @@
-#######################################################################
-#                    PART 4  Scheduler & Optimizer                    #
-#######################################################################
+from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
+from torch.optim import AdamW
+from xtuner.engine.runner import TrainLoop
+
+batch_size = 32  # per_device
+accumulative_counts = 1
+dataloader_num_workers = 0
 max_epochs = 1
+lr = 1e-3
+betas = (0.9, 0.999)
+weight_decay = 0
+max_norm = 1  # grad clip
+warmup_ratio = 0.03
 
 # optimizer
 optim_wrapper = dict(
     type=AmpOptimWrapper,
     optimizer=dict(
-        type=optim_type, lr=lr, betas=betas, weight_decay=weight_decay),
+        type=AdamW, lr=lr, betas=betas, weight_decay=weight_decay),
     clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
     accumulative_counts=accumulative_counts,
     loss_scale='dynamic',
