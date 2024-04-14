@@ -11,54 +11,54 @@ _base_ = [
 train_dataset, = dict(
     flickr=dict(
         type='FlickrDataset',
-        filename=r'{{fileDirname}}/../../../data/CWB_flickr30k_train.jsonl',
-        image_folder=r'zz1424:s3://production-public-flickr_image/Flickr_Image/unzip/flickr30k_images/flickr30k_images',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_train.jsonl',  
+        image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
         template_file=r'flickr30k',
     ),
     rec=dict(
         type='RECDataset',
-        filename=r'{{fileDirname}}/../../../data/REC_ref3_train.jsonl',
-        image_folder=r'zz1424:s3://visual_grounding/academic_data/refer/images/mscoco/images/train2014/',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_file=r'REC',
     ),
     recvg=dict(
         type='RECDataset',
-        filename=r'{{fileDirname}}/../../../data/GC_genome196_train.jsonl',
-        image_folder=r'zz1424:s3://publicdataset_8/Visual_Genome_Dataset_V1.2/unzip/data',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/GC_genome196_train.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/Visual Genome',
         template_file=r'REC',
     ),
     reg=dict(
         type='REGDataset',
-        filename=r'{{fileDirname}}/../../../data/REC_ref3_train.jsonl',
-        image_folder=r'zz1424:s3://visual_grounding/academic_data/refer/images/mscoco/images/train2014/',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_file=r'REG',
     ),
     gc=dict(
         type='GCDataset',
-        filename=r'{{fileDirname}}/../../../data/GC_genome196_train.jsonl',
-        image_folder=r'zz1424:s3://publicdataset_8/Visual_Genome_Dataset_V1.2/unzip/data',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/GC_genome196_train.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/Visual Genome',
         template_file=r'GC',
     ),
     caption=dict(
         type='CaptionDataset',
-        filename=r'{{fileDirname}}/../../../data/CAP_coco2014_train.jsonl',
-        image_folder=r'openmmlab1424:s3://openmmlab/datasets/detection/coco/train2014/',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/CAP_coco2014_train.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_file=r'image_cap',
     ),
     llavacc3m=dict(
         type='InstructDataset',
-        filename=r"{{fileDirname}}/../../../data/llava_cc3m.jsonl",
-        image_folder=r'sh41:s3://MultiModal/Monolith/academic/llava-pretrain/data/558K_imgs',  # TODO: zz make folder name mistake
+        filename=r"/data/Aaronzhu/DatasetStage1/Shikra/llava_cc3m.jsonl",
+        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava/LLaVA-CC3M-Pretrain-595K/images',  # TODO: zz make folder name mistake
     ),
     llavalcs=dict(
         type='InstructDataset',
-        filename=r"{{fileDirname}}/../../../data/blip_laion_cc_sbu_558k.jsonl",
-        image_folder=r'sh41:s3://MultiModal/Monolith/academic/llava-pretrain/data/595K_imgs',  # TODO: zz make folder name mistake
+        filename=r"/data/Aaronzhu/DatasetStage1/Shikra/blip_laion_cc_sbu_558k_filter.jsonl",
+        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images',  # TODO: zz make folder name mistake
     ),
     instruct=dict(
         type='InstructDataset',
-        filename=r'{{fileDirname}}/../../../data/llava_instruct_150k.jsonl',
-        image_folder=r'zz1424:s3://PublicDatalist/public_datalist_6_unzip/train2014',
+        filename=r'/data/Aaronzhu/DatasetStage1/Shikra/llava_instruct_150k.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
         add_coco_prefix=True,
     ),
     **_base_.train_gqa_variant,

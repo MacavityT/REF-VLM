@@ -24,7 +24,7 @@ visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
 data_root = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/'
-data_path = data_root + 'LLaVA-Pretrain/blip_laion_cc_sbu_558k.json'
+data_path = data_root + 'LLaVA-Pretrain/test_llava.json'
 image_folder = data_root + 'LLaVA-Pretrain/images'
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
@@ -33,13 +33,13 @@ max_length = int(2048 - (336 / 14)**2)
 batch_size = 32  # per_device
 accumulative_counts = 1
 dataloader_num_workers = 0
-max_epochs = 1
+max_epochs = 10
 optim_type = AdamW
 lr = 1e-3
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
-warmup_ratio = 0.03
+warmup_ratio = 0.3
 
 # Save
 save_steps = 500
@@ -48,7 +48,7 @@ save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
 # Evaluate the generation performance during the training
 evaluation_freq = 500
 SYSTEM = ''
-evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
+evaluation_images = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images/00000/000000030.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
 
 #######################################################################

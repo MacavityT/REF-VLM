@@ -8,6 +8,7 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           CLIPImageProcessor, CLIPVisionModel)
 
 from xtuner.dataset import LLaVADataset
+from xtuner.dataset.single_dataset.caption import CaptionDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
@@ -23,9 +24,10 @@ llm_name_or_path = '/model/Aaronzhu/Vicuna/7b_v1.5'
 visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
-data_root = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/'
-data_path = data_root + 'LLaVA-Pretrain/blip_laion_cc_sbu_558k.json'
-image_folder = data_root + 'LLaVA-Pretrain/images'
+data_root = '/data/Aaronzhu/DatasetStage1/MSCOCO/2017/'
+data_path = '/data/Aaronzhu/DatasetStage1/Shikra/CAP_coco2017_val.jsonl'
+image_folder = data_root + 'val2017'
+template_file = "/code/okapi-mllm/xtuner/dataset/map_fns/dataset_templates/image_cap.json"
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
@@ -33,13 +35,13 @@ max_length = int(2048 - (336 / 14)**2)
 batch_size = 32  # per_device
 accumulative_counts = 1
 dataloader_num_workers = 0
-max_epochs = 1
+max_epochs = 10
 optim_type = AdamW
 lr = 1e-3
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
-warmup_ratio = 0.03
+warmup_ratio = 0.3
 
 # Save
 save_steps = 500
@@ -80,24 +82,60 @@ model = dict(
 #######################################################################
 #                      PART 3  Dataset & Dataloader                   #
 #######################################################################
-llava_dataset = dict(
-    type=LLaVADataset,
-    data_path=data_path,
+# llava_dataset = dict(
+#     type=LLaVADataset,
+#     data_path=data_path,
+#     image_folder=image_folder,
+#     tokenizer=tokenizer,
+#     image_processor=image_processor,
+#     dataset_map_fn=llava_map_fn,
+#     template_map_fn=dict(
+#         type=template_map_fn_factory, template=prompt_template),
+#     max_length=max_length,
+#     pad_image_to_square=False)
+
+# coco dataset
+coco_dataset = dict(
+    type=CaptionDataset,
+    filename=data_path,
     image_folder=image_folder,
-    tokenizer=tokenizer,
-    image_processor=image_processor,
-    dataset_map_fn=llava_map_fn,
-    template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
-    max_length=max_length,
-    pad_image_to_square=False)
+    template_file=template_file
+)
+
+
 
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=dataloader_num_workers,
-    dataset=llava_dataset,
+    dataset=coco_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
+
+
+# 加载 evaluator的数据集
+
+
+# val_mmlu_fs = dict(
+#     type=process_hf_dataset,
+#     dataset=mmlu_fs_dataset,
+#     tokenizer=tokenizer,
+#     dataset_map_fn=default_map_fn,
+#     max_length=max_length,
+#     input_ids_with_output=False,
+#     pack_to_max_length=False,
+#     split='val')
+
+# val_dataloader = dict(
+#     batch_size=1,
+#     num_workers=0,
+#     dataset=val_mmlu_fs,
+#     sampler=dict(type=DefaultSampler, shuffle=False),
+#     collate_fn=dict(type=mmlu_collate_fn))
+
+
+# # evaluator可以是list的形式
+# val_evaluator = dict(
+#     type=MMLUMetric, tokenizer=tokenizer, prefix='mmlu_fs_val')
 
 #######################################################################
 #                    PART 4  Scheduler & Optimizer                    #

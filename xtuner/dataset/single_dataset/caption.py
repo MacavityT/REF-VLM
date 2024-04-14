@@ -1,3 +1,4 @@
+import json
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import IMAGE_PLACEHOLDER
 from .mixin import MInstrDataset
@@ -30,3 +31,7 @@ class CaptionDataset(MInstrDataset):
             ]
         }
         return ret
+    
+
+
+

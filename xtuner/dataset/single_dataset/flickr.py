@@ -241,7 +241,7 @@ class FlickrDataset(MInstrDataset):
 
         ret = {
             'image': image,
-            'target': {'boxes': item['boxes']},
+            'target': {'boxes': item['boxes']},  # 'seg' /
             'conversations': [
                 {
                     'from': 'human',

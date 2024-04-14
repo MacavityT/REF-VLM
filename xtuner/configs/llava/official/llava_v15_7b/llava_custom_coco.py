@@ -8,6 +8,7 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           CLIPImageProcessor, CLIPVisionModel)
 
 from xtuner.dataset import LLaVADataset
+from xtuner.dataset.single_dataset.caption import CaptionDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
@@ -23,9 +24,10 @@ llm_name_or_path = '/model/Aaronzhu/Vicuna/7b_v1.5'
 visual_encoder_name_or_path = 'openai/clip-vit-large-patch14-336'
 
 # Data
-data_root = '/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/'
-data_path = data_root + 'LLaVA-Pretrain/blip_laion_cc_sbu_558k.json'
-image_folder = data_root + 'LLaVA-Pretrain/images'
+data_root = '/data/Aaronzhu/DatasetStage1/MSCOCO/2017/'
+data_path = data_root + 'annotations/captions_val2017.json'
+image_folder = data_root + 'val2017'
+template_file = "/code/okapi-mllm/xtuner/dataset/map_fns/dataset_templates/image_cap.json"
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
@@ -92,10 +94,20 @@ llava_dataset = dict(
     max_length=max_length,
     pad_image_to_square=False)
 
+# coco dataset
+coco_dataset = dict(
+    type=CaptionDataset,
+    filename=data_path,
+    image_folder=image_folder,
+    template_file=template_file
+)
+
+
+
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=dataloader_num_workers,
-    dataset=llava_dataset,
+    dataset=coco_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
 

@@ -1,9 +1,9 @@
 gqa_train_common_cfg = dict(
     type='GQADataset',
-    filename=r'{{fileDirname}}/../../../data/gqa_question_balanced_with_CoT.jsonl',
-    image_folder=r'zz1424:s3://publicdataset_11/GQA/unzip/images',
-    scene_graph_file=r"{{fileDirname}}/../../../data/gqa_scene_graph_data.jsonl",
-    scene_graph_index=r"{{fileDirname}}/../../../data/gqa_scene_graph_index",
+    filename=r'/data/Aaronzhu/DatasetStage1/Shikra/gqa_question_balanced_with_cot.jsonl',
+    image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images/gqa/images',
+    scene_graph_file=r"/data/Aaronzhu/DatasetStage1/Shikra/gqa_scene_graph_data.jsonl",
+    scene_graph_index=r"/data/Aaronzhu/DatasetStage1/Shikra/gqa_scene_graph_index.json",
 )
 
 train_gqa_variant = dict(

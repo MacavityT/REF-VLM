@@ -1,13 +1,13 @@
 vcr_val_common_cfg = dict(
     type='VCRDataset',
-    image_folder=r'sh41:s3://MultiModal/Monolith/academic/vcr/vcr1images',
-    filename=r'{{fileDirname}}/../../../data/vcr_val.jsonl',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/vcr1/vcr1images',
+    filename=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_val.jsonl',
 )
 
 vcr_test_common_cfg = dict(
     type='VCRPredDataset',
-    image_folder=r'sh41:s3://MultiModal/Monolith/academic/vcr/vcr1images',
-    filename=r'{{fileDirname}}/../../../data/vcr_test.jsonl',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/vcr1/vcr1images',
+    filename=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_test.jsonl',
 )
 
 test_vcr_variant = dict(
