@@ -53,19 +53,26 @@ class OkapiDataset(Dataset):
         else:
             self.tokenizer = tokenizer
 
-        self.dataset = []
         if isinstance(dataset, dict):
             dataset_build_fn = {
                 ds_name: partial(DATASETS.build, 
-                image_processor = self.image_processor,
-                tokenizer = self.tokenizer,
-                pad_image_to_square=self.pad_image_to_square,
-                **ds_args) 
+                                image_processor = self.image_processor,
+                                tokenizer = self.tokenizer,
+                                pad_image_to_square=self.pad_image_to_square,
+                                **ds_args) 
                 for ds_name, ds_args in dataset.keys()
             }       
             self.dataset = [fn() for fn in dataset_build_fn]
         elif isinstance(dataset, list):
-            self.dataset = dataset
+            dataset_build_fn = [
+                partial(DATASETS.build, 
+                        image_processor = self.image_processor,
+                        tokenizer = self.tokenizer,
+                        pad_image_to_square=self.pad_image_to_square,
+                        **ds_args) 
+                for ds_args in dataset
+            ]       
+            self.dataset = [fn() for fn in dataset_build_fn]
         else:
             self.dataset = [dataset]
 
@@ -112,7 +119,7 @@ class OkapiDataset(Dataset):
 
     def dataset_process(self):
         data_dict = {}
-        for ds in self.dataset:
+        for idx, ds in enumerate(self.dataset):
             '''
             item = {
                 'image': {
@@ -159,7 +166,7 @@ class OkapiDataset(Dataset):
                                         width=item['image']['width'],
                                         height=item['image']['height'])
                 ds_data.append(item)
-            data_dict[type(ds).__name__] = HFDataset.from_list(ds_data)
+            data_dict[f'dataset_{idx}'] = HFDataset.from_list(ds_data)
             
         gathered_data = DatasetDict(data_dict)
         return process_hf_dataset(
