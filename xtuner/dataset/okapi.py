@@ -2,7 +2,7 @@
 import numpy as np
 from typing import Dict, Any
 from functools import partial
-from tqdm import trange
+from tqdm import tqdm, trange
 from PIL import Image
 
 import torch
@@ -20,6 +20,13 @@ from .utils import (
     boxes_xyxy_expand2square,
     points_xy_expand2square
 )
+
+REFORM_DATASET = [
+    'ConcatDataset',
+    'InterleaveDateset',
+    'SubSet',
+    'ConcatDatasetWithShuffle'
+]
 
 class OkapiDataset(Dataset):
 
@@ -53,28 +60,41 @@ class OkapiDataset(Dataset):
         else:
             self.tokenizer = tokenizer
 
+        # Build datasets
+        dataset_build_cfg = dict(
+            image_processor = self.image_processor,
+            tokenizer = self.tokenizer,
+            pad_image_to_square=self.pad_image_to_square,
+        )
+
+        print_log("Datasets Building ....")
         if isinstance(dataset, dict):
-            dataset_build_fn = {
-                ds_name: partial(DATASETS.build, 
-                                image_processor = self.image_processor,
-                                tokenizer = self.tokenizer,
-                                pad_image_to_square=self.pad_image_to_square,
-                                **ds_args) 
-                for ds_name, ds_args in dataset.keys()
-            }       
+            dataset_build_fn = dict()
+            for ds_name, ds_args in dataset.keys():
+                if ds_args['type'] in REFORM_DATASET:
+                    ds_args['cfg'].update(dataset_build_cfg)
+                else:
+                    ds_args.update(dataset_build_cfg)
+                dataset_build_fn[ds_name] = partial(
+                    DATASETS.build,
+                    ds_args
+                )
             self.dataset = [fn() for fn in dataset_build_fn]
         elif isinstance(dataset, list):
-            dataset_build_fn = [
-                partial(DATASETS.build, 
-                        image_processor = self.image_processor,
-                        tokenizer = self.tokenizer,
-                        pad_image_to_square=self.pad_image_to_square,
-                        **ds_args) 
-                for ds_args in dataset
-            ]       
+            dataset_build_fn = []
+            for ds_args in dataset:
+                if ds_args['type'] in REFORM_DATASET:
+                    ds_args['cfg'].update(dataset_build_cfg)
+                else:
+                    ds_args.update(dataset_build_cfg)
+                dataset_build_fn.append(partial(
+                    DATASETS.build,
+                    ds_args
+                ))
             self.dataset = [fn() for fn in dataset_build_fn]
         else:
             self.dataset = [dataset]
+        print_log("Datasets Build Success.")
 
         self.data = self.dataset_process()
 
@@ -109,12 +129,11 @@ class OkapiDataset(Dataset):
         return image
     
     def target_process(self, target, width, height):
-        if 'boxes' in target.keys():
-            bboxes = [boxes_xyxy_expand2square(bbox, w=width, h=height) for bbox in target['boxes']]
-            target['boxes'] = bboxes
-        if 'points' in target.keys():
-            points = [points_xy_expand2square(point, w=width, h=height) for point in target['points']]
-            target['points'] = points
+        if self.pad_image_to_square:
+            if 'boxes' in target.keys():
+                target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
+            if 'points' in target.keys():
+                target['boxes'] = points_xy_expand2square(target['points'], width=width, height=height)
 
 
     def dataset_process(self):
@@ -153,7 +172,8 @@ class OkapiDataset(Dataset):
             }
             '''
             ds_data = []
-            for item in ds:
+            for i in tqdm(range(len(ds)), desc=f'Processing dataset_{idx}:'):
+                item = ds[i]
                 if 'width' not in item['image'].keys() or \
                     'height' not in item['image'].keys():
                     image_path = item['image']['path']

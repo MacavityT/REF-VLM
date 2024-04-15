@@ -25,6 +25,8 @@ from xtuner.registry import BUILDER, MAP_FUNC
 from xtuner.tools.utils import (auto_dtype_of_deepspeed_config,
                                 get_seed_from_checkpoint)
 
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train LLM')

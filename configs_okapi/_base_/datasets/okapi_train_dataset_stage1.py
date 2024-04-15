@@ -39,8 +39,8 @@ dataset_args = [
     gc,
     recvg,
     # # llava pretrain
-    train_all_dataset['llavacc3m'],
-    train_all_dataset['llavalcs'],
+    # train_all_dataset['llavacc3m'],
+    # train_all_dataset['llavalcs'],
     # vqa
     train_all_dataset['vqav2_train'],
     train_all_dataset['vqae_train'],
@@ -76,7 +76,7 @@ okapi_dataset = dict(
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
-    pad_image_to_square=False)
+    pad_image_to_square=True)
 
 train_dataloader = dict(
     batch_size=batch_size,
