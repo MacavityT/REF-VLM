@@ -2,6 +2,7 @@ point_train_common_cfg_local = dict(
     type='Point_QA_local',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_local_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
+    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
     template_name=r"VQA",
 )
 
@@ -9,6 +10,7 @@ point_train_common_cfg_twice = dict(
     type='Point_QA_twice',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_twice_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
+    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
     template_name=r"VQA",
 )
 
@@ -16,6 +18,7 @@ point_train_common_cfg_v7w = dict(
     type='V7W_POINT',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/v7w_pointing_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual7W/images',
+    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/visual7w_shape.jsonl',
     template_name=r"VQA",
 )
 

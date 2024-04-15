@@ -2,6 +2,7 @@ vcr_train_common_cfg = dict(
     type='VCRDataset',
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_train.jsonl',
     image_folder=r'/data/Aaronzhu/DatasetStage1/vcr1/vcr1images',
+    image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/vcr1_shape.jsonl',
 )
 
 train_vcr_variant = dict(
