@@ -1,14 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-# Copyright (c) OpenMMLab. All rights reserved.
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 
 from mmengine.config import read_base
 with read_base():
-    from _base_.models.all_tokenizers import vicuna_7b_path, vicuna_7b_path_tokenizer
-    from _base_.models.all_visual_encoders import clip_patch14_336
-    from _base_.datasets.okapi_train_stage1 import *
-    from _base_.schedules.schedule import *
+    from ..models.all_tokenizers import vicuna_7b_path, vicuna_7b_path_tokenizer
+    from ..models.all_visual_encoders import clip_patch14_336
 
 
 # Evaluate the generation performance during the training

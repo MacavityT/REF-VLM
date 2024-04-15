@@ -2,9 +2,8 @@ from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
 from torch.optim import AdamW
 from xtuner.engine.runner import TrainLoop
 
-batch_size = 32  # per_device
 accumulative_counts = 1
-dataloader_num_workers = 0
+
 max_epochs = 1
 lr = 1e-3
 betas = (0.9, 0.999)

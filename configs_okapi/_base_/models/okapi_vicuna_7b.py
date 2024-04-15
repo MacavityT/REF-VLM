@@ -1,14 +1,10 @@
-from transformers import AutoModelForCausalLM, CLIPVisionModel
+from transformers import AutoModelForCausalLM
 from xtuner.model import OkapiModel
 
-_base_ = [
-    'tokenizers.py',
-    'visual_encoders.py'
-]
-
-
-llm_name_or_path = _base_.vicuna_7b_path
-visual_encoder_name_or_path = _base_.clip_patch14_336_path
+from mmengine.config import read_base
+with read_base():
+    from .all_tokenizers import vicuna_7b_path, vicuna_7b_path_tokenizer
+    from .all_visual_encoders import clip_patch14_336
 
 model = dict(
     type=OkapiModel,
@@ -16,8 +12,6 @@ model = dict(
     freeze_visual_encoder=True,
     llm=dict(
         type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=llm_name_or_path,
+        pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
-    visual_encoder=dict(
-        type=CLIPVisionModel.from_pretrained,
-        pretrained_model_name_or_path=visual_encoder_name_or_path))
+    visual_encoder=clip_patch14_336['visual_encoder'])

@@ -1,28 +1,10 @@
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-from xtuner.utils import PROMPT_TEMPLATE
+# Copyright (c) OpenMMLab. All rights reserved.
+from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
+                            LoggerHook, ParamSchedulerHook)
+# Save
+save_steps = 500
+save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
 
-
-# Evaluate the generation performance during the training
-evaluation_freq = 500
-SYSTEM = ''
-evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
-evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
-
-prompt_template = PROMPT_TEMPLATE.vicuna
-
-# Log the dialogue periodically during the training process, optional
-custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer),
-    dict(
-        type=EvaluateChatHook,
-        tokenizer=tokenizer,
-        image_processor=image_processor,
-        every_n_iters=evaluation_freq,
-        evaluation_inputs=evaluation_inputs,
-        evaluation_images=evaluation_images,
-        system=SYSTEM,
-        prompt_template=prompt_template)
-]
 
 # configure default hooks
 default_hooks = dict(
