@@ -33,7 +33,7 @@ class QuestionTemplateMixin:
         if template_name is not None:
             self.template_file = dataset_template_path[template_name]
 
-        self.templates = json.load(open(template_file, 'r', encoding='utf8'))
+        self.templates = json.load(open(self.template_file, 'r', encoding='utf8'))
         if self.max_dynamic_size is not None:
             self.templates = self.templates[: self.max_dynamic_size]
 
@@ -134,15 +134,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         else:
             image_path_abs = image_path
         # image = Image.open(image_path).convert('RGB')
-        width, height = None, None
+        item = {'path': image_path_abs}
         if self.image_info_folder is not None:
             width = self.image_data_info[image_path]['width']
             height = self.image_data_info[image_path]['height']
-        return {
-            'path': image_path_abs,
-            'width': width,
-            'height': height
-        } 
+            item['width'] = width
+            item['height'] = height
+        return item
 
     def get_template(self):
         return self.rng.choice(self.templates)
