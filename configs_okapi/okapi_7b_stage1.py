@@ -1,5 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-# Copyright (c) OpenMMLab. All rights reserved.
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 
@@ -9,6 +8,8 @@ with read_base():
     from _base_.models.all_visual_encoders import clip_patch14_336
     from _base_.datasets.okapi_train_stage1 import *
     from _base_.schedules.schedule import *
+    from _base_.runtimes.okapi_vicuna_runtime import *
+    from _base_.runtimes.default_runtime import *
 
 
 # Evaluate the generation performance during the training
