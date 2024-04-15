@@ -266,6 +266,7 @@ class OkapiModel(BaseModel):
         return generate_ids_dict
 
     def predict(self, data, data_samples=None):
+        
         outputs = self.llm(**data)
         logits_dict = [{'logits': logits} for logits in outputs.logits]
         return logits_dict

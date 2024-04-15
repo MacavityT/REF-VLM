@@ -67,10 +67,10 @@ class VQAComputeMetrics(BaseComputeMetrics):
     def accuracy(self,preds,targets):
 
         true = 0
-        for pred, target in zip(preds,targets):
+        for pred, target in zip(preds,targets):  # ppl vqa 
             if target in pred.split(" "):
-                if pred == target:
-                    true += 1
+                true += 1
+
         acc = float(true) / float(len(preds))
         return acc
 
