@@ -1,23 +1,24 @@
-_base_ = [
-    'test_rec_variant.py',
-    'test_flickr_variant.py',
-    'test_gqa_variant.py',
-    'test_clevr_variant.py',
-    'test_gptgen_variant.py',
-    'test_vcr_variant.py',
-    'test_vqav2_variant.py',
-    'test_point_variant.py',
-    'test_pope_variant.py',
-]
+from mmengine.config import read_base
 
-test_dataset = dict(
-    **_base_.test_rec_variant,
-    **_base_.test_flickr_variant,
-    **_base_.test_gqa_variant,
-    **_base_.test_clevr_variant,
-    **_base_.test_gptgen_variant,
-    **_base_.test_vcr_variant,
-    **_base_.test_vqav2_variant,
-    **_base_.test_point_variant,
-    **_base_.test_pope_variant,
+with read_base():
+    from test_rec_variant import test_rec_variant
+    from test_flickr_variant import test_flickr_variant
+    from test_gqa_variant import test_gqa_variant
+    from test_clevr_variant import test_clevr_variant
+    from test_gptgen_variant import test_gptgen_variant
+    from test_vcr_variant import test_vcr_variant
+    from test_vqav2_variant import test_vqav2_variant
+    from test_point_variant import test_point_variant
+    from test_pope_variant import test_pope_variant
+
+test_all_dataset = dict(
+    **test_rec_variant,
+    **test_flickr_variant,
+    **test_gqa_variant,
+    **test_clevr_variant,
+    **test_gptgen_variant,
+    **test_vcr_variant,
+    **test_vqav2_variant,
+    **test_point_variant,
+    **test_pope_variant,
 )

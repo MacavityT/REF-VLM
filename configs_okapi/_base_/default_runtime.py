@@ -1,19 +1,10 @@
-#######################################################################
-#                           PART 5  Runtime                           #
-#######################################################################
-# Log the dialogue periodically during the training process, optional
-custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer),
-    dict(
-        type=EvaluateChatHook,
-        tokenizer=tokenizer,
-        image_processor=image_processor,
-        every_n_iters=evaluation_freq,
-        evaluation_inputs=evaluation_inputs,
-        evaluation_images=evaluation_images,
-        system=SYSTEM,
-        prompt_template=prompt_template)
-]
+# Copyright (c) OpenMMLab. All rights reserved.
+from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
+                            LoggerHook, ParamSchedulerHook)
+# Save
+save_steps = 500
+save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
+
 
 # configure default hooks
 default_hooks = dict(

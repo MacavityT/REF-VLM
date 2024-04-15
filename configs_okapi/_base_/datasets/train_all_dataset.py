@@ -1,14 +1,16 @@
-_base_ = [
-    'train_gqa_variant.py',
-    'train_clevr_variant.py',
-    'train_point_variant.py',
-    'train_gptgen_variant.py',
-    'train__variant.py',
-    'train_vqav2_variant.py',
-    'train_vqaex_variant.py',
-]
+from mmengine.config import read_base
 
-train_dataset, = dict(
+with read_base():
+    from .train_gqa_variant import train_gqa_variant
+    from .train_clevr_variant import train_clevr_variant
+    from .train_point_variant import train_point_variant
+    from .train_gptgen_variant import train_gptgen_variant
+    from .train_vcr_variant import train_vcr_variant
+    from .train_vqav2_variant import train_vqav2_variant
+    from .train_vqaex_variant import train_vqaex_variant
+
+
+train_all_dataset = dict(
     flickr=dict(
         type='FlickrDataset',
         filename=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_train.jsonl',  
@@ -61,11 +63,11 @@ train_dataset, = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
         add_coco_prefix=True,
     ),
-    **_base_.train_gqa_variant,
-    **_base_.train_clevr_variant,
-    **_base_.train_point_variant,
-    **_base_.train_gptgen_variant,
-    **_base_.train__variant,
-    **_base_.train_vqav2_variant,
-    **_base_.train_vqaex_variant,
+    **train_gqa_variant,
+    **train_clevr_variant,
+    **train_point_variant,
+    **train_gptgen_variant,
+    **train_vcr_variant,
+    **train_vqav2_variant,
+    **train_vqaex_variant,
 )
