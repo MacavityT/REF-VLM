@@ -1,11 +1,10 @@
+from transformers import AutoModelForCausalLM, CLIPVisionModel
+from xtuner.model import OkapiModel
+
 _base_ = [
     'tokenizers.py',
     'visual_encoders.py'
 ]
-
-
-from transformers import AutoModelForCausalLM, CLIPVisionModel
-from xtuner.model import OkapiModel
 
 
 llm_name_or_path = _base_.vicuna_7b_path
