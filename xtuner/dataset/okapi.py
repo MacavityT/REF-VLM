@@ -67,7 +67,7 @@ class OkapiDataset(Dataset):
             pad_image_to_square=self.pad_image_to_square,
         )
 
-        print_log("Datasets Building ...")
+        print_log("Okapi Datasets Building ...")
         if isinstance(dataset, dict):
             dataset_build_fn = dict()
             for ds_name, ds_args in dataset.keys():
@@ -94,11 +94,11 @@ class OkapiDataset(Dataset):
             self.dataset = [fn() for fn in dataset_build_fn]
         else:
             self.dataset = [dataset]
-        print_log("Datasets Build Success.")
+        print_log("Okapi Datasets Build Success.")
 
-        print_log("Datasets Processing ...")
+        print_log("Okapi Datasets Processing ...")
         self.data = self.dataset_process()
-        print_log("Datasets Process Success.")
+        print_log("Okapi Datasets Process Success.")
 
 
     @property
