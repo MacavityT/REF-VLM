@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer
 
-vicuna_7b_path = 'lmsys/vicuna-7b-v1.5'
+# lmsys/vicuna-7b-v1.5
+vicuna_7b_path = '/model/Aaronzhu/Vicuna-7B'
 
 vicuna_7b_path_tokenizer = dict(
     type=AutoTokenizer.from_pretrained,

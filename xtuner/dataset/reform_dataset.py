@@ -7,20 +7,20 @@ from torch.utils.data import Subset as TorchSubset
 
 from xtuner.registry import BUILDER, DATASETS
 
-@DATASETS.register_module()
-class ConcatDataset(TorchConcatDataset):
+# @DATASETS.register_module()
+# class ConcatDataset(TorchConcatDataset):
 
-    def __init__(self, datasets):
-        datasets_instance = []
-        for cfg in datasets:
-            datasets_instance.append(BUILDER.build(cfg))
-        super().__init__(datasets=datasets_instance)
+#     def __init__(self, datasets):
+#         datasets_instance = []
+#         for cfg in datasets:
+#             datasets_instance.append(DATASETS.build(cfg))
+#         super().__init__(datasets=datasets_instance)
 
-    def __repr__(self):
-        main_str = 'Dataset as a concatenation of multiple datasets. \n'
-        main_str += ',\n'.join(
-            [f'{repr(dataset)}' for dataset in self.datasets])
-        return main_str
+#     def __repr__(self):
+#         main_str = 'Dataset as a concatenation of multiple datasets. \n'
+#         main_str += ',\n'.join(
+#             [f'{repr(dataset)}' for dataset in self.datasets])
+#         return main_str
 
 # stolen from huggingface/datasets
 # https://github.com/huggingface/datasets/blob/074925b9b7c1dfd33b8675aa99c07cc26375665c/src/datasets/arrow_dataset.py#L5987
@@ -110,7 +110,7 @@ class InterleaveDateset(Dataset):
         self.seed = seed
         self.stopping_strategy = stopping_strategy
 
-        datasets = [BUILDER.build(cfg) for cfg in cfgs]
+        datasets = [DATASETS.build(cfg) for cfg in cfgs]
         self.concat_dataset = TorchConcatDataset(datasets)
 
         self.index_mapping = _interleave_dataset_index(
@@ -145,7 +145,7 @@ class InterleaveDateset(Dataset):
 class SubSet(TorchSubset):
     def __init__(self, cfg, portion, do_shuffle=True, seed=42):
         assert 0 < portion <= 1
-        dataset = BUILDER.build(cfg=cfg)
+        dataset = DATASETS.build(cfg=cfg)
         target_len = int(len(dataset) * portion)
         if do_shuffle:
             rng = np.random.default_rng(seed)
@@ -165,7 +165,7 @@ class ConcatDatasetWithShuffle(TorchSubset):
         self.cfgs = cfgs
         self.seed = seed
         self.portion = portion
-        dataset = TorchConcatDataset([BUILDER.build(cfg) for cfg in cfgs])
+        dataset = TorchConcatDataset([DATASETS.build(cfg) for cfg in cfgs])
 
         target_len = int(len(dataset) * portion)
         indices = list(range(len(dataset))) * int(np.ceil(portion))

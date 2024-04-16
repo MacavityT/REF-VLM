@@ -319,11 +319,11 @@ def _point_xy_expand2square(point, w, h):
     expanded_point = (expanded_box[0], expanded_box[1])
     return expanded_point
 
-def boxes_xyxy_expand2square(width, height, bboxes):
+def boxes_xyxy_expand2square(bboxes, width, height):
     expanded_bboxes = [_box_xyxy_expand2square(bbox, w=width, h=height) for bbox in bboxes]
     return expanded_bboxes
 
-def points_xy_expand2square(width, height, points):
+def points_xy_expand2square(points, width, height):
     expanded_points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
     return expanded_points
 

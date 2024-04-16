@@ -1,6 +1,7 @@
 from transformers import CLIPImageProcessor, CLIPVisionModel
 
-clip_patch14_336_path = 'openai/clip-vit-large-patch14-336'
+# openai/clip-vit-large-patch14-336
+clip_patch14_336_path = '/model/Aaronzhu/clip-14-336'
 
 clip_patch14_336 = dict(
     image_processor = dict(

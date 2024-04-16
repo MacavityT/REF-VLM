@@ -6,32 +6,32 @@ pope_test_common_cfg = dict(
 test_pope_variant = dict(
     coco_pope_random_q_a=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_random.jsonl',
-        template_file=r'VQA'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_random.jsonl',
+        template_name=r'VQA'
     ),
     coco_pope_random_q_bca=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_random.jsonl',
-        template_file=r'VQA_BCoT'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_random.jsonl',
+        template_name=r'VQA_BCoT'
     ),
     coco_pope_popular_q_a=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_popular.jsonl',
-        template_file=r'VQA'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_popular.jsonl',
+        template_name=r'VQA'
     ),
     coco_pope_popular_q_bca=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_popular.jsonl',
-        template_file=r'VQA_BCoT'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_popular.jsonl',
+        template_name=r'VQA_BCoT'
     ),
     coco_pope_adversarial_q_a=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_adversarial.jsonl',
-        template_file=r'VQA'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_adversarial.jsonl',
+        template_name=r'VQA'
     ),
     coco_pope_adversarial_q_bca=dict(
         **pope_test_common_cfg,
-        filename='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_adversarial.jsonl',
-        template_file=r'VQA_BCoT'
+        text_path='/data/Aaronzhu/DatasetStage1/Shikra/coco_pope_adversarial.jsonl',
+        template_name=r'VQA_BCoT'
     ),
 )

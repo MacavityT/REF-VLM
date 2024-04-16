@@ -46,4 +46,5 @@ class REGDataset(MInstrDataset):
 
 @DATASETS.register_module()
 class GCDataset(REGDataset):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
