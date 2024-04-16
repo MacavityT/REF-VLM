@@ -1,7 +1,7 @@
 vqaex_train_common_cfg = dict(
     type='VQAEXDataset',
-    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
-    image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/VQAv2/real_images/train2014',
+    image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/vqav2_train_shape.jsonl',
     template_name=r"VQA_CoT",
 )
 

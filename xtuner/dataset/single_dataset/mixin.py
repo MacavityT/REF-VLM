@@ -2,7 +2,7 @@ import json
 import jsonlines
 import os
 import logging
-
+import jsonlines
 import numpy as np
 from PIL import Image
 from mmengine import print_log
@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from datasets import DatasetDict, load_from_disk
 from xtuner.registry import BUILDER
 from .dataset_templates import dataset_template_path
+from ..utils import imfrombytes
 
 class QuestionTemplateMixin:
     def __init__(
@@ -149,12 +150,35 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         else:
             image_path_abs = image_path
         # image = Image.open(image_path).convert('RGB')
+
+        # save images
         item = {'path': image_path_abs}
+
         if self.image_info_folder is not None:
-            width = self.image_data_info[image_path]['width']
-            height = self.image_data_info[image_path]['height']
+            key_example = list(self.image_data_info.keys())[0]
+            image_path_abs_list = image_path_abs.split("/")
+            if len(key_example.split("/")) == 2:
+                image_path = os.path.join(image_path_abs_list[-2],image_path_abs_list[-1])
+            elif len(key_example.split("/")) == 3:
+                image_path = os.path.join(image_path_abs_list[-3],image_path_abs_list[-2],image_path_abs_list[-1])
+
+            try:
+                width = self.image_data_info[image_path]['width']
+                height = self.image_data_info[image_path]['height']
+            except:
+                image = imfrombytes(image_path_abs)
+                width = image.shape[1]
+                height = image.shape[0]
+                
             item['width'] = width
             item['height'] = height
+
+        # image = imfrombytes(image_path_abs)
+        # item_save = {'path':image_path,'height':image.shape[0],'witdh':image.shape[1]}
+        # with jsonlines.open("/data/Aaronzhu/DatasetStage1/Shikra/shape/image_shape.jsonl","a") as f2:
+        #     f2.write(item_save)
+
+        # item = {'path':image_path_abs,'height':image.shape[0],'witdh':image.shape[1]}
         return item
 
     def get_template(self):

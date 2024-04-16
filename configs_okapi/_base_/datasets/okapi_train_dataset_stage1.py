@@ -24,7 +24,7 @@ prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
 batch_size = 32  # per_device
-dataloader_num_workers = 0
+dataloader_num_workers = 5
 
 #region okapi dataset
 gc = dict(
@@ -89,7 +89,7 @@ okapi_dataset = dict(
 #region llava dataset
 llava_dataset = dict(
     type=LLaVADataset,
-    data_path=r"/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/blip_laion_cc_sbu_558k.json",
+    data_path=r"/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/blip_laion_cc_sbu_558k_filter.json",
     image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images',
     tokenizer=vicuna_7b_path_tokenizer,
     image_processor=clip_patch14_336['image_processor'],
@@ -97,10 +97,12 @@ llava_dataset = dict(
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
-    pad_image_to_square=False)
+    pad_image_to_square=True)
 #endregion
 
 train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
+# train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
+
 train_dataloader = dict(
     batch_size=batch_size,
     num_workers=dataloader_num_workers,
