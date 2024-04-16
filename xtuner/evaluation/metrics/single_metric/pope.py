@@ -22,23 +22,23 @@ class PopeComputeMetrics(BaseComputeMetrics):
                 the model.  
             {'generate_ids': generate ids}
         """
-        tasks = data_batch['data_samples']['tasks']
+
         
-        for sample, task, gt in zip(
-            data_samples,tasks,data_batch['data']['labels']):
+        for sample, gt in zip(
+            data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
 
-            self.results.append((task, decode_pred, target))
+            self.results.append(( decode_pred, target))
 
 
     def compute_metrics(self, results: list) -> dict:
 
         preds = []
         targets = []
-        for i, (task, pred, target) in enumerate(results):
+        for i, (pred, target) in enumerate(results):
             preds.append(self.extract_ans(pred))
             targets.append(self.extract_ans(target))
 
@@ -66,7 +66,7 @@ class PopeComputeMetrics(BaseComputeMetrics):
             'target_failed': target_failed,
             'failed': failed,
         }
-        metrics['task'] = task
+
         
         self._print_results(metrics)
         

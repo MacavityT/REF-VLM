@@ -47,7 +47,7 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
 
         preds = []
         targets = []
-        for i, (task, pred, target) in enumerate(results):
+        for i, (pred, target) in enumerate(results):
             pred = self.extract_ans(pred)
             preds.append(pred)
             targets.append(target)
@@ -72,7 +72,6 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             "SPICE": spice_rst
         }
 
-        metrics['task'] = task
 
         self._print_results(metrics)
 
