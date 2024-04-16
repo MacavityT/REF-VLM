@@ -2,7 +2,7 @@
 from mmengine.dataset import DefaultSampler
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import default_collate_fn
-from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
+from xtuner.dataset.map_fns import okapi_map_fn, template_map_fn_factory
 from xtuner.utils import PROMPT_TEMPLATE
 
 from mmengine.config import read_base
@@ -72,7 +72,7 @@ okapi_dataset = dict(
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=vicuna_7b_path_tokenizer,
-    dataset_map_fn=llava_map_fn,
+    dataset_map_fn=okapi_map_fn,
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,

@@ -67,7 +67,7 @@ class OkapiDataset(Dataset):
             pad_image_to_square=self.pad_image_to_square,
         )
 
-        print_log("Datasets Building ....")
+        print_log("Datasets Building ...")
         if isinstance(dataset, dict):
             dataset_build_fn = dict()
             for ds_name, ds_args in dataset.keys():
@@ -96,7 +96,9 @@ class OkapiDataset(Dataset):
             self.dataset = [dataset]
         print_log("Datasets Build Success.")
 
+        print_log("Datasets Processing ...")
         self.data = self.dataset_process()
+        print_log("Datasets Process Success.")
 
 
     @property
@@ -172,7 +174,7 @@ class OkapiDataset(Dataset):
             }
             '''
             ds_data = []
-            for i in tqdm(range(len(ds)), desc=f'Processing dataset_{idx}:'):
+            for i in tqdm(range(len(ds)), desc=f'Processing Dataset_{idx}:'):
                 item = ds[i]
                 if 'width' not in item['image'].keys() or \
                     'height' not in item['image'].keys():
@@ -207,7 +209,8 @@ class OkapiDataset(Dataset):
 
         # image
         if data_dict.get('image', None) is not None:
-            image_path = data_dict['image']
+            image_info = data_dict['image']
+            image_path = image_info['path']
             image = self.image_process(image_path)
             data_dict['pixel_values'] = image
 
