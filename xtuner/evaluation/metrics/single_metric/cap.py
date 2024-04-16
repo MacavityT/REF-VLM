@@ -1,18 +1,22 @@
 import json
 import sys
 import torch
+import logging
 from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
+from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
-from xtuner.evaluation.metrics.okapi_metric import BaseComputeMetrics
-
+from ..okapi_metric import BaseComputeMetrics
 
 
 @METRICS.register_module()
 class ImgCapComputeMetrics(BaseComputeMetrics):
+
     """
-    eval_dataloader通过collect_fn中的eval_collate_fn.py定义
+    Tasks: Image caption, Region caption
+    Metrics: CIDEr, Meteor, BLEU4, SPICE
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -25,32 +29,32 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         Args:
             data_batch (Any): A batch of data from the dataloader.
             data_samples (Sequence[dict]): A batch of outputs from
-                the model.
+                the model.  
+            {'generate_ids': generate ids}
         """
-        tasks = data_batch['data_samples']['tasks']
-        preds = []
+        
+        for sample, gt in zip(
+            data_samples,data_batch['data']['labels']):
+            generate_ids =sample['generate_ids']
+            decode_pred = self.decode_generate_ids(ids=generate_ids)
+            gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
+            target = self.decode_generate_ids(ids=gt)
 
-        for sample, attn_mask, task, gt in zip(
-            data_samples,data_batch['data']['attention_mask'],tasks,data_batch['data']['labels']):
-            pred_logits = sample['logits']   # TODO: 需要确认调用还是调用generate方法？ 这一块还要后续再确认一下
-            first_zero_idx = self.find_first_zero_index(attn_mask)
-            pred_idx = -1 if first_zero_idx is None else first_zero_idx - 1
-            pred_logits_filter = pred_logits[pred_idx]
-            pred = torch.argmax(pred_logits_filter,dim=1).item()
-            preds.append(pred)
-            self.results.append((task, pred, gt))
+            self.results.append((decode_pred, target))
 
 
     def compute_metrics(self, results: list) -> dict:
 
-        task,preds, targets = results
+        preds = []
+        targets = []
+        for i, (pred, target) in enumerate(results):
+            pred = self.extract_ans(pred)
+            preds.append(pred)
+            targets.append(target)
 
-        preds = [self.extract_ans(p) for p in preds]
         preds = {i: [{"caption": x}] for i, x in enumerate(preds)}
-
-        targets = [self.extract_ans(t) for t in targets]
         targets = {i: [{"caption": x}] for i, x in enumerate(targets)}
-        json.dump({"preds": preds, "targets": targets}, open("rst.json", "w"))
+
 
         tokenizer = PTBTokenizer()
         targets  = tokenizer.tokenize(targets)
@@ -61,17 +65,31 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         blue_rst, _ = bleu_score.compute_score(targets,preds)
         spice_rst, _ = spice_score.compute_score(targets,preds)
 
-        return {
+        metrics = {
             "CIDEr": cider_rst*100,
             "Meteor": meteor_rst,
             "BLEU4": blue_rst,
             "SPICE": spice_rst
         }
 
+
+        self._print_results(metrics)
+
+        return metrics
+    
     def extract_ans(self, string: str):
+        """
+        extract prediction strings from model output
+        Args:
+            string (str): USER: <image>\nPlease describe this picture ASSISTANT: augment reality in opencv.</s>
+
+        Return:
+            string (str): e.g. aument reality in opencv 
+        """
         try:
             string = string.split("ASSISTANT: ")[-1].lower().split("</s>")[0]
             return string
         except Exception as e:
-            logger.warning(f"extract_ans for {string} but get exception: {e}")
+            print_log(f"Warning: extract_ans for {string} but get exception: {e}")
             return None
+        

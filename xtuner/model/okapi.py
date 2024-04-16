@@ -231,6 +231,7 @@ class OkapiModel(BaseModel):
             raise NotImplementedError
 
     def forward(self, data, data_samples=None, mode='loss'):
+
         if 'pixel_values' in data:
             visual_outputs = self.visual_encoder(
                 data['pixel_values'].to(self.visual_encoder.dtype),
@@ -242,8 +243,11 @@ class OkapiModel(BaseModel):
 
         if mode == 'loss':
             return self.compute_loss(data, data_samples)
+
+        # TODO: Aaron: 重写一下predict的mode，调用generate方法
         elif mode == 'predict':
-            return self.predict(data, data_samples)
+            return self.generate(data,data_samples)
+            # return self.predict(data, data_samples)
         elif mode == 'tensor':
             return self._forward(data, data_samples)
         else:
@@ -254,8 +258,15 @@ class OkapiModel(BaseModel):
         outputs = self.llm(**data)
 
         return outputs
+    
+    # TODO： Aaron add
+    def generate(self,data,data_samples=None):
+        generate_ids = self.llm.generate(**data)
+        generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
+        return generate_ids_dict
 
     def predict(self, data, data_samples=None):
+        
         outputs = self.llm(**data)
         logits_dict = [{'logits': logits} for logits in outputs.logits]
         return logits_dict
