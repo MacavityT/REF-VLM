@@ -1,4 +1,5 @@
 import json
+import jsonlines
 import os
 import logging
 
@@ -106,6 +107,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             self.image_data = self.load_offline_image_data(offline_processed_image_folder)
         if image_info_folder is not None:
             self.image_data_info = self.get_file_data(image_info_folder)
+            if isinstance(self.image_data_info, list):
+                rearrange = dict()
+                for info in self.image_data_info:
+                    if isinstance(info, str): 
+                        info = json.loads(info)
+                    rearrange.update(info)
+                self.image_data_info = rearrange
         
         if offline_processed_text_folder is not None:
             self.text_data = self.load_offline_text_data(offline_processed_text_folder)
@@ -124,6 +132,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
     def get_file_data(self, file_path):
         file_data = []
         with open(file_path, 'r', encoding='utf8') as f:
+            for line in f:
+                file_data.append(line)
+        return file_data
+
+    def get_info_data(self, file_path):
+        file_data = []
+        with jsonlines.open(file_path, 'r') as f:
             for line in f:
                 file_data.append(line)
         return file_data

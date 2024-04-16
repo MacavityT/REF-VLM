@@ -9,16 +9,16 @@ train_clevr_variant = dict(
     clevr_a=dict(
         **clevr_train_common_cfg,
         version='q-a',
-        template_name=r"VQA.json",
+        template_name=r"VQA",
     ),
     clevr_s=dict(
         **clevr_train_common_cfg,
         version='q-s',
-        template_name=r"VQA_CoT.json",
+        template_name=r"VQA_CoT",
     ),
     clevr_bs=dict(
         **clevr_train_common_cfg,
         version='q-bs',
-        template_name=r"VQA_PCoT.json",
+        template_name=r"VQA_PCoT",
     ),
 )
