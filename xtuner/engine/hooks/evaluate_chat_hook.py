@@ -174,7 +174,7 @@ class EvaluateChatHook(Hook):
                 input=sample_input, round=1, **runner.cfg)
             input_ids = self.tokenizer.encode(inputs, return_tensors='pt')
             input_ids = input_ids.to(device)
-            generation_output = model.generate(
+            generation_output = model.llm.generate(
                 input_ids=input_ids,
                 max_new_tokens=max_new_tokens,
                 generation_config=self.gen_config,

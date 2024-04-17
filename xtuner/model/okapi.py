@@ -1,13 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
 from collections import OrderedDict
-
+import json
 import torch
 import torch.nn as nn
 from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
 from peft import get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoConfig
+from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
 from .modules import ProjectorConfig, ProjectorModel, dispatch_modules
@@ -23,6 +23,7 @@ class OkapiModel(BaseModel):
     def __init__(self,
                  llm,
                  visual_encoder,
+                 tokenizer=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
                  visual_select_layer=-2,
@@ -31,7 +32,8 @@ class OkapiModel(BaseModel):
                  llm_lora=None,
                  visual_encoder_lora=None,
                  use_activation_checkpointing=True,
-                 max_position_embeddings=None):
+                 max_position_embeddings=None,
+                 max_new_tokens=600):
         super().__init__()
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
@@ -92,6 +94,25 @@ class OkapiModel(BaseModel):
         self.visual_select_layer = visual_select_layer
 
         self._is_init = True
+
+        # default generation config
+
+        if tokenizer is not None:
+            self.tokenizer = BUILDER.build(tokenizer)
+        default_generation_kwargs = dict(
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            temperature=0.1,
+            top_p=0.75,
+            top_k=40,
+            eos_token_id=self.tokenizer.eos_token_id,
+            pad_token_id=self.tokenizer.pad_token_id
+            if self.tokenizer.pad_token_id is not None else
+            self.tokenizer.eos_token_id)
+        self.max_new_tokens = max_new_tokens
+        self.gen_config = GenerationConfig(**default_generation_kwargs)
+
+        self.stop_criteria = StoppingCriteriaList()
 
     def _parse_lora_config(self, lora_config):
         if isinstance(lora_config, dict) or isinstance(
@@ -246,7 +267,7 @@ class OkapiModel(BaseModel):
 
         # TODO: Aaron: 重写一下predict的mode，调用generate方法
         elif mode == 'predict':
-            return self.generate(data,data_samples)
+            return self.predict(data,data_samples)
             # return self.predict(data, data_samples)
         elif mode == 'tensor':
             return self._forward(data, data_samples)
@@ -260,16 +281,22 @@ class OkapiModel(BaseModel):
         return outputs
     
     # TODO： Aaron add
-    def generate(self,data,data_samples=None):
-        generate_ids = self.llm.generate(**data)
+    def predict(self,data,data_samples=None):
+
+        generate_ids = self.llm.generate(
+                **data,
+                max_new_tokens=self.max_new_tokens,
+                generation_config=self.gen_config,
+                bos_token_id=self.tokenizer.bos_token_id,
+                stopping_criteria=self.stop_criteria)
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
         return generate_ids_dict
 
-    def predict(self, data, data_samples=None):
+    # def predict(self, data, data_samples=None):
         
-        outputs = self.llm(**data)
-        logits_dict = [{'logits': logits} for logits in outputs.logits]
-        return logits_dict
+    #     outputs = self.llm(**data)
+    #     logits_dict = [{'logits': logits} for logits in outputs.logits]
+    #     return logits_dict
 
     def compute_loss(self, data, data_samples=None):
         outputs = self.llm(**data)

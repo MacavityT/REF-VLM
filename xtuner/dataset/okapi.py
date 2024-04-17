@@ -209,6 +209,7 @@ class OkapiDataset(Dataset):
                                         width=item['image']['width'],
                                         height=item['image']['height'])
                 else:
+                    item['target'] = {}
                     for target_key in TARGET_KEY_LIST:
                         if target_key == 'boxes':
                             item['target'][target_key] = np.array([]).astype(np.float64) 

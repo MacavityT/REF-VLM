@@ -29,26 +29,22 @@ class BaseComputeMetrics(BaseMetric):
         self.tokenizer = BUILDER.build(tokenizer)
         self.preprocessor = preprocessor
 
- 
-    @staticmethod
     def post_process_generate_ids(self, ids: torch.Tensor):
         ids = copy.deepcopy(ids)  # do not modify origin preds and targets
         ids[ids < 0] = self.tokenizer.pad_token_id
         return ids
     
-    @staticmethod
     def decode_generate_ids(self, ids: torch.Tensor) -> Union[List[str], str]:
         assert ids.ndim in [1, 2]
         only_one_sentence = ids.ndim == 1
         if only_one_sentence:
             ids = ids.unsqueeze(0)
-        ids = self.post_process_generate_ids(self.tokenizer, ids)
+        ids = self.post_process_generate_ids(ids)
         res = self.tokenizer.batch_decode(ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         if only_one_sentence:
             return res[0]
         return res
     
-    @staticmethod
     def _print_results(self, table_metrics: dict) -> None:
         table_title = ' Caption Evaluation Results '
         table = Table(title=table_title)
