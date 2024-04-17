@@ -46,7 +46,7 @@ recvg = dict(
 dataset_args = [
     gc,
     recvg,
-    # # llava pretrain
+    # llava pretrain
     # train_all_dataset['llavacc3m'],
     # train_all_dataset['llavalcs'],
     # vqa
@@ -101,7 +101,7 @@ llava_dataset = dict(
 #endregion
 
 train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
-# train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
+
 
 train_dataloader = dict(
     batch_size=batch_size,

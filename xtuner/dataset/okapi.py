@@ -27,6 +27,7 @@ REFORM_DATASET = [
     'SubSet',
     'ConcatDatasetWithShuffle'
 ]
+TARGET_KEY_LIST = ['boxes', 'points', 'masks']
 
 class OkapiDataset(Dataset):
 
@@ -133,9 +134,29 @@ class OkapiDataset(Dataset):
     def target_process(self, target, width, height):
         if self.pad_image_to_square:
             if 'boxes' in target.keys():
-                target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
+                if target['boxes'] != []:
+                    target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
+                else:
+                    target['boxes'] = np.array([]).astype(np.float64) # Sequence
+            else:
+                target['boxes'] = np.array([]).astype(np.float64) # Sequence
             if 'points' in target.keys():
-                target['boxes'] = points_xy_expand2square(target['points'], width=width, height=height)
+                if target['points'] != []:
+                    target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
+                else:
+                    target['points'] = np.array([]).astype(np.float64) # Sequence
+            else:
+                target['points'] = np.array([]).astype(np.float64) # Value
+        
+
+        # for target_key in TARGET_KEY_LIST:
+        #     if not target_key in target.keys():
+        #         target[target_key] = np.array([]).astype(np.float64)
+        #     if target[target_key] == []:
+        #         target[target_key] = np.array([]).astype(np.float64)
+        #     if target_key == 'boxes':
+        #         target[target_key] = [0.0,0.0,0.0,0.0]
+        #         item['conversations'][0]['boxes_seq'] = np.array([]).astype(np.float64)
 
 
     def dataset_process(self):
@@ -187,10 +208,21 @@ class OkapiDataset(Dataset):
                     self.target_process(item['target'],
                                         width=item['image']['width'],
                                         height=item['image']['height'])
+                else:
+                    for target_key in TARGET_KEY_LIST:
+                        if target_key == 'boxes':
+                            item['target'][target_key] = np.array([]).astype(np.float64) 
+                        else:
+                            item['target'][target_key] = np.array([]).astype(np.float64)
+                    
+                
                 ds_data.append(item)
+
             data_dict[f'dataset_{idx}'] = HFDataset.from_list(ds_data)
             
         gathered_data = DatasetDict(data_dict)
+
+        # torch.save(gathered_data,"data_concat4.pt")
         return process_hf_dataset(
                     dataset=gathered_data,
                     tokenizer=self.tokenizer,

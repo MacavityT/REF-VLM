@@ -1,5 +1,5 @@
 from mmengine.dataset import DefaultSampler
-from xtuner.dataset import OkapiDataset
+from xtuner.dataset import OkapiDataset,ConcatDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 from xtuner.utils import PROMPT_TEMPLATE
@@ -16,7 +16,7 @@ prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
 
-dataloader_num_workers = 0
+dataloader_num_workers = 5
 
 
 val_all_dataset = dict(
@@ -28,13 +28,13 @@ val_all_dataset = dict(
     )
 )
 
+val_dataset_args = [
+    val_all_dataset['caption']
+]
 
-val_dataset = dict()
-
-
-okapi_dataset = dict(
+okapi_dataset_val = dict(
     type=OkapiDataset,
-    dataset=val_dataset,
+    dataset=val_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=vicuna_7b_path_tokenizer,
     dataset_map_fn=llava_map_fn,
@@ -46,7 +46,12 @@ okapi_dataset = dict(
 val_dataloader = dict(
     batch_size=1,
     num_workers=dataloader_num_workers,
-    dataset=okapi_dataset,
+    dataset=okapi_dataset_val,
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
+
+
+
+
+
 

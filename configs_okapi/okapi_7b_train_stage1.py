@@ -7,6 +7,7 @@ with read_base():
     from ._base_.models.all_tokenizers import vicuna_7b_path_tokenizer
     from ._base_.models.all_visual_encoders import clip_patch14_336
     from ._base_.datasets.okapi_train_dataset_stage1 import *
+    from ._base_.datasets.okapi_val_dataset_stage1 import *
     from ._base_.models.okapi_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
