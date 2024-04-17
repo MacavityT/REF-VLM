@@ -7,10 +7,11 @@ from PIL import Image
 
 import torch
 from datasets import Dataset as HFDataset
-from datasets import DatasetDict
+from datasets import DatasetDict, concatenate_datasets
 from mmengine import print_log
 from mmengine.config import Config, ConfigDict
 from torch.utils.data import Dataset
+from torch.utils.data import ConcatDataset as TorchConcatDataset
 
 from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
 from .huggingface import process_hf_dataset
@@ -27,7 +28,6 @@ REFORM_DATASET = [
     'SubSet',
     'ConcatDatasetWithShuffle'
 ]
-TARGET_KEY_LIST = ['boxes', 'points', 'masks']
 
 class OkapiDataset(Dataset):
 
@@ -73,7 +73,10 @@ class OkapiDataset(Dataset):
             dataset_build_fn = dict()
             for ds_name, ds_args in dataset.keys():
                 if ds_args['type'] in REFORM_DATASET:
-                    ds_args['cfg'].update(dataset_build_cfg)
+                    args = ds_args['cfg']
+                    while args['type'] in REFORM_DATASET:
+                        args = args['cfg']
+                    args.update(dataset_build_cfg)
                 else:
                     ds_args.update(dataset_build_cfg)
                 dataset_build_fn[ds_name] = partial(
@@ -85,7 +88,10 @@ class OkapiDataset(Dataset):
             dataset_build_fn = []
             for ds_args in dataset:
                 if ds_args['type'] in REFORM_DATASET:
-                    ds_args['cfg'].update(dataset_build_cfg)
+                    args = ds_args['cfg']
+                    while args['type'] in REFORM_DATASET:
+                        args = args['cfg']
+                    args.update(dataset_build_cfg)
                 else:
                     ds_args.update(dataset_build_cfg)
                 dataset_build_fn.append(partial(
@@ -98,7 +104,8 @@ class OkapiDataset(Dataset):
         print_log("Okapi Datasets Build Success.")
 
         print_log("Okapi Datasets Processing ...")
-        self.data = self.dataset_process()
+        self.data_list = self.dataset_process()
+        self.data = TorchConcatDataset(self.data_list)
         print_log("Okapi Datasets Process Success.")
 
 
@@ -134,33 +141,12 @@ class OkapiDataset(Dataset):
     def target_process(self, target, width, height):
         if self.pad_image_to_square:
             if 'boxes' in target.keys():
-                if target['boxes'] != []:
-                    target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
-                else:
-                    target['boxes'] = np.array([]).astype(np.float64) # Sequence
-            else:
-                target['boxes'] = np.array([]).astype(np.float64) # Sequence
+                target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
             if 'points' in target.keys():
-                if target['points'] != []:
-                    target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
-                else:
-                    target['points'] = np.array([]).astype(np.float64) # Sequence
-            else:
-                target['points'] = np.array([]).astype(np.float64) # Value
-        
-
-        # for target_key in TARGET_KEY_LIST:
-        #     if not target_key in target.keys():
-        #         target[target_key] = np.array([]).astype(np.float64)
-        #     if target[target_key] == []:
-        #         target[target_key] = np.array([]).astype(np.float64)
-        #     if target_key == 'boxes':
-        #         target[target_key] = [0.0,0.0,0.0,0.0]
-        #         item['conversations'][0]['boxes_seq'] = np.array([]).astype(np.float64)
-
+                target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
 
     def dataset_process(self):
-        data_dict = {}
+        data_list = []
         for idx, ds in enumerate(self.dataset):
             '''
             item = {
@@ -195,7 +181,7 @@ class OkapiDataset(Dataset):
             }
             '''
             ds_data = []
-            for i in tqdm(range(len(ds)), desc=f'Processing Dataset_{idx}:'):
+            for i in tqdm(range(len(ds)), desc=f'Processing Dataset {idx}'):
                 item = ds[i]
                 if 'width' not in item['image'].keys() or \
                     'height' not in item['image'].keys():
@@ -208,32 +194,23 @@ class OkapiDataset(Dataset):
                     self.target_process(item['target'],
                                         width=item['image']['width'],
                                         height=item['image']['height'])
-                else:
-                    for target_key in TARGET_KEY_LIST:
-                        if target_key == 'boxes':
-                            item['target'][target_key] = np.array([]).astype(np.float64) 
-                        else:
-                            item['target'][target_key] = np.array([]).astype(np.float64)
-                    
-                
                 ds_data.append(item)
 
-            data_dict[f'dataset_{idx}'] = HFDataset.from_list(ds_data)
+            ds_data_hf =  process_hf_dataset(
+                dataset=HFDataset.from_list(ds_data),
+                tokenizer=self.tokenizer,
+                max_length=self.max_length,
+                dataset_map_fn=self.dataset_map_fn,
+                template_map_fn=self.template_map_fn,
+                split=None,
+                max_dataset_length=self.max_dataset_length,
+                remove_unused_columns=False,
+                pack_to_max_length=False,
+                with_image_token=True)
             
-        gathered_data = DatasetDict(data_dict)
-
-        # torch.save(gathered_data,"data_concat4.pt")
-        return process_hf_dataset(
-                    dataset=gathered_data,
-                    tokenizer=self.tokenizer,
-                    max_length=self.max_length,
-                    dataset_map_fn=self.dataset_map_fn,
-                    template_map_fn=self.template_map_fn,
-                    split=None,
-                    max_dataset_length=self.max_dataset_length,
-                    remove_unused_columns=False,
-                    pack_to_max_length=False,
-                    with_image_token=True)
+            data_list.append(ds_data_hf)
+            
+        return data_list
 
 
     def __getitem__(self, index):

@@ -54,6 +54,9 @@ def format_box_or_points(boxes: Boxes,
     return "[" + box_str + "]"
 
 def okapi_box_map_fn(example):
+    if 'target' not in example.keys(): 
+        return
+
     # normalize target
     bboxes_token_pat = re.compile(BOXES_PLACEHOLDER)
     image_info = example['image']
@@ -84,6 +87,9 @@ def okapi_box_map_fn(example):
             sentence['value'] = converted
 
 def okapi_point_map_fn(example):
+    if 'target' not in example.keys(): 
+        return
+    
     points_token_pat = re.compile(POINTS_PLACEHOLDER)
     image_info = example['image']
     target = example['target']
