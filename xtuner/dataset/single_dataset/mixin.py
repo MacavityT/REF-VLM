@@ -172,13 +172,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 
             item['width'] = width
             item['height'] = height
-
-        # image = imfrombytes(image_path_abs)
-        # item_save = {'path':image_path,'height':image.shape[0],'witdh':image.shape[1]}
-        # with jsonlines.open("/data/Aaronzhu/DatasetStage1/Shikra/shape/image_shape.jsonl","a") as f2:
-        #     f2.write(item_save)
-
-        # item = {'path':image_path_abs,'height':image.shape[0],'witdh':image.shape[1]}
         return item
 
     def get_template(self):
