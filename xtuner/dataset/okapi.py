@@ -71,7 +71,7 @@ class OkapiDataset(Dataset):
         print_log("Okapi Datasets Building ...")
         if isinstance(dataset, dict):
             dataset_build_fn = dict()
-            for ds_name, ds_args in dataset.keys():
+            for ds_name, ds_args in dataset.items():
                 if ds_args['type'] in REFORM_DATASET:
                     args = ds_args['cfg']
                     while args['type'] in REFORM_DATASET:
