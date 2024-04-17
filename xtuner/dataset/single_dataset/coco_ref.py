@@ -10,9 +10,6 @@ class CoCoRefDataset(Dataset):
         Args:
             root (string): Root directory where images are downloaded to.
             annotation_file (string): Path to the COCO annotation file.
-            transform (callable, optional): A function/transform that takes in an image and returns a transformed version.
-            target_transform (callable, optional): A function/transform that takes in the target and transforms it.
-            use_custom_bboxes (bool): Flag to use custom bounding boxes instead of COCO ones.
         """
         self.root = root
         self.coco = COCO(annotation_file)
