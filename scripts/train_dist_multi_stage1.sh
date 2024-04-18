@@ -35,7 +35,8 @@ echo "host1: $host1"
 
 if test $local_host = $host1
 then
-    NPROC_PER_NODE=8 xtuner train configs_okapi/okapi_7b_train_stage1.py --deepspeed deepspeed_zero2  --hostfile scripts/myhostfile.txt   
+    deepspeed  --master_port=29501 --hostfile scripts/myhostfile.txt xtuner/tools/train.py configs_okapi/sketch_subset_stage1.py \
+     --deepspeed deepspeed_zero2   
 fi
 
 sleep 30d

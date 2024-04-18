@@ -1,0 +1,5 @@
+mm-llm-42827-task1-0.mm-llm-42827 slots=8
+mm-llm-42827-task1-1.mm-llm-42827 slots=8
+mm-llm-42827-task1-2.mm-llm-42827 slots=8
+mm-llm-42827-task1-3.mm-llm-42827 slots=8
+mm-llm-42827-task1-4.mm-llm-42827 slots=8
