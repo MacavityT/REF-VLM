@@ -42,7 +42,7 @@ class OkapiDataset(Dataset):
                  dataset_map_fn=None,
                  template_map_fn=None,
                  max_length=2048,
-                 shard_process_max_length=1e4,
+                 shard_process_max_length=5e4,
                  pad_image_to_square=False,
                  save_offline_dataset=False):
         super().__init__()
@@ -130,6 +130,8 @@ class OkapiDataset(Dataset):
                 shard_ds_data = [item]
                 shard_idx += 1            
         all_shards.append(shard_ds_data) # append the last shard (or the only shard)
+
+        torch.distributed.barrier()
 
         if return_shards: # for offline saving process
             return all_shards
