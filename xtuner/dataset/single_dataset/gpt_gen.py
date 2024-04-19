@@ -15,8 +15,12 @@ class GPT4Gen(MInstrDataset):
         self.version = version
         assert version in ['a', 'c', 'bc']
 
-    def __getitem__(self, item):
-        raw = self.get_raw_item(item)
+    def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+                
+        raw = self.get_raw_item(index)
         #
         image = self.get_image(raw['img_path'])
         #

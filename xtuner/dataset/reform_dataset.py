@@ -7,21 +7,6 @@ from torch.utils.data import Subset as TorchSubset
 
 from xtuner.registry import BUILDER, DATASETS
 
-# @DATASETS.register_module()
-# class ConcatDataset(TorchConcatDataset):
-
-#     def __init__(self, datasets):
-#         datasets_instance = []
-#         for cfg in datasets:
-#             datasets_instance.append(DATASETS.build(cfg))
-#         super().__init__(datasets=datasets_instance)
-
-#     def __repr__(self):
-#         main_str = 'Dataset as a concatenation of multiple datasets. \n'
-#         main_str += ',\n'.join(
-#             [f'{repr(dataset)}' for dataset in self.datasets])
-#         return main_str
-
 # stolen from huggingface/datasets
 # https://github.com/huggingface/datasets/blob/074925b9b7c1dfd33b8675aa99c07cc26375665c/src/datasets/arrow_dataset.py#L5987
 def _interleave_dataset_index(

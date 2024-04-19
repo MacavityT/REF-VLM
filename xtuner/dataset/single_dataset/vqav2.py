@@ -12,6 +12,10 @@ class VQAv2Dataset(MInstrDataset):
         self.has_annotation = has_annotation
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         image = self.get_image(image_path=item['image_path'])
 

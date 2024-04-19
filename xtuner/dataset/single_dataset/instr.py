@@ -9,6 +9,10 @@ class InstructDataset(MInstrDataset):
         self.add_coco_prefix = add_coco_prefix
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         if self.add_coco_prefix:
             img_path = f"COCO_train2014_{item['image']}"

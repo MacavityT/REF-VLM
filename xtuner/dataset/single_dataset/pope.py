@@ -12,6 +12,10 @@ class POPEVQADataset(MInstrDataset):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         image = self.get_image(image_path=item['image'])
 

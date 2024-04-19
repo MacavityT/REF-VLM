@@ -7,5 +7,8 @@ vqav2_train_common_cfg = dict(
 )
 
 train_vqav2_variant = dict(
-    vqav2_train=dict(**vqav2_train_common_cfg),
+    vqav2_train=dict(
+        **vqav2_train_common_cfg,
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vqav2_train'
+    ),
 )

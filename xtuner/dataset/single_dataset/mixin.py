@@ -4,13 +4,11 @@ import os
 import logging
 import jsonlines
 import numpy as np
-from PIL import Image
 from mmengine import print_log
-from mmengine.config import Config, ConfigDict
 
 from torch.utils.data import Dataset
-from datasets import DatasetDict, load_from_disk
-from xtuner.registry import BUILDER
+from xtuner.registry import BUILDER, DATASETS
+from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
 from ..utils import imfrombytes
 
@@ -62,9 +60,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 image_info_folder=None, 
                 offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
-                tokenizer=None,
-                image_processor=None,
-                pad_image_to_square=False,
                 seed=None, 
                 **kwargs):
         super().__init__(**kwargs)
@@ -72,20 +67,11 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.image_folder = image_folder
         self.image_info_folder = image_info_folder
         self.rng = np.random.default_rng(seed)
+        self.offline_processed_text_folder = offline_processed_text_folder
+        self.offline_processed_image_folder = offline_processed_image_folder
 
-        self.tokenizer = tokenizer
-        self.image_processror = image_processor,
-        self.pad_image_to_square = pad_image_to_square
-
-        if isinstance(image_processor, dict) or isinstance(
-                image_processor, Config) or isinstance(image_processor,
-                                                       ConfigDict):
-            self.image_processor = BUILDER.build(image_processor)
-        else:
-            self.image_processor = image_processor
-
-        assert offline_processed_image_folder or (image_folder and image_processor)
-        if offline_processed_image_folder and image_folder:
+        assert offline_processed_image_folder or image_folder
+        if offline_processed_image_folder and os.path.exists(offline_processed_image_folder) and image_folder:
             print_log(
                 'Both `offline_processed_image_folder` and '
                 '`image_folder` are set, and we load dataset from'
@@ -94,8 +80,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        assert offline_processed_text_folder or (text_path and tokenizer)
-        if offline_processed_text_folder and text_path:
+        assert offline_processed_text_folder or text_path
+        if offline_processed_text_folder and os.path.exists(offline_processed_text_folder) and text_path:
             print_log(
                 'Both `offline_processed_text_folder` and '
                 '`data_path` are set, and we load dataset from'
@@ -104,27 +90,35 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        if offline_processed_image_folder is not None:
+        if offline_processed_image_folder is not None and \
+            os.path.exists(offline_processed_image_folder):
             self.image_data = self.load_offline_image_data(offline_processed_image_folder)
-        if image_info_folder is not None:
-            self.image_data_info = self.get_file_data(image_info_folder)
-            if isinstance(self.image_data_info, list):
-                rearrange = dict()
-                for info in self.image_data_info:
-                    if isinstance(info, str): 
-                        info = json.loads(info)
-                    rearrange.update(info)
-                self.image_data_info = rearrange
-        
-        if offline_processed_text_folder is not None:
+
+        self.image_data_info = None
+        if (offline_processed_text_folder is not None) and \
+            os.path.exists(offline_processed_text_folder):
             self.text_data = self.load_offline_text_data(offline_processed_text_folder)
         else:
             self.text_data = self.get_file_data(text_path)
+            if image_info_folder is not None:
+                self.image_data_info = self.get_file_data(image_info_folder)
+                if isinstance(self.image_data_info, list):
+                    rearrange = dict()
+                    for info in self.image_data_info:
+                        if isinstance(info, str): 
+                            info = json.loads(info)
+                        rearrange.update(info)
+                    self.image_data_info = rearrange
+         
+    def load_offline_text_data(self, offline_processed_text_folder):
+        offline_dataset_args = dict(
+            type = 'OfflineDataset',
+            format = 'json',
+            folder = offline_processed_text_folder
+        )
+        return DATASETS.build(offline_dataset_args)
 
-    def load_offline_text_data(offline_processed_text_folder):
-        return load_from_disk(offline_processed_text_folder)
-
-    def load_offline_image_data(offline_processed_image_folder, image_path):
+    def load_offline_image_data(self, offline_processed_image_folder, image_path):
         raise NotImplementedError
 
     def get_raw_item(self, index):
@@ -133,13 +127,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
     def get_file_data(self, file_path):
         file_data = []
         with open(file_path, 'r', encoding='utf8') as f:
-            for line in f:
-                file_data.append(line)
-        return file_data
-
-    def get_info_data(self, file_path):
-        file_data = []
-        with jsonlines.open(file_path, 'r') as f:
             for line in f:
                 file_data.append(line)
         return file_data
@@ -178,7 +165,11 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         return self.rng.choice(self.templates)
 
     def __getitem__(self, index):
-        raise NotImplementedError
+        if isinstance(self.text_data, OfflineDataset):
+            item = self.text_data[index]
+        else:
+            item = None
+        return item
 
     def __len__(self):
         return len(self.text_data)

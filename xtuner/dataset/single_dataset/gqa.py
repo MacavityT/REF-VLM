@@ -49,6 +49,10 @@ class GQADataset(MInstrDataset):
         return question, scene
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+
         question, scene = self.get_raw_item(index)
         img_path = f"{question['imageId']}.jpg"
         image = self.get_image(img_path)

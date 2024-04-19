@@ -15,6 +15,10 @@ class REGDataset(MInstrDataset):
         super().__init__(*args, placeholders=(IMAGE_PLACEHOLDER, OBJS_PLACEHOLDER), **kwargs)
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         img_path = item['img_path']
         expr = item['expression']
