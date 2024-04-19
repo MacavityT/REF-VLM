@@ -162,11 +162,12 @@ class OkapiDataset(Dataset):
         for ds_idx, ds in enumerate(self.dataset):
             assert ds.offline_processed_text_folder is not None, \
                 f"Dataset {ds_idx} offline text folder is None."
-            if os.path.exists(ds.offline_processed_text_folder):
+            if os.path.exists(ds.offline_processed_text_folder) and \
+                (not ds.enforce_online):
                 print(f"Skipped Dataset {ds_idx}, offline text folder existed.")
                 continue
 
-            os.makedirs(ds.offline_processed_text_folder)
+            os.makedirs(ds.offline_processed_text_folder, exist_ok=True)
             all_shards = self.single_dataset_process(ds_idx, ds, return_shards=True)
             total_length = 0
             for shard in all_shards:
@@ -176,6 +177,24 @@ class OkapiDataset(Dataset):
             
             filename_count = 0
             for shard_idx, shard in enumerate(all_shards):
+                # checking current files, if exists then skip 'process_hf_dataset' function
+                skip_flag = False
+                for check_idx in range(shard_idx*self.shard_process_max_length, \
+                                       (shard_idx+1)*self.shard_process_max_length):
+                    check_file = os.path.join(
+                        ds.offline_processed_text_folder, 
+                        f"offline_text_file_{check_idx}.json"
+                    )
+                    if not os.path.isfile(check_file):
+                        break
+                    # if all check file exists, then set flag
+                    skip_flag = True
+                    
+                if skip_flag:
+                    filename_count = (shard_idx+1)*self.shard_process_max_length
+                    print_log(f"Shard {shard_idx} offline files exists, skipped.")
+                    continue
+
                 shard_hf = process_hf_dataset(
                     dataset=HFDataset.from_list(shard),
                     tokenizer=self.tokenizer,
