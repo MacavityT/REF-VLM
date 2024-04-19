@@ -268,6 +268,7 @@ class OkapiModel(BaseModel):
         # TODO: Aaron: 重写一下predict的mode，调用generate方法
         elif mode == 'predict':
             return self.predict(data,data_samples)
+
             # return self.predict(data, data_samples)
         elif mode == 'tensor':
             return self._forward(data, data_samples)
