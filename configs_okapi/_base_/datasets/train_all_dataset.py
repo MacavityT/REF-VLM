@@ -16,6 +16,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_train.jsonl',  
         image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/flickr30k_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/flickr',
+        offline_processed_image_folder = '',
         template_name=r'flickr30k',
     ),
     rec=dict(
@@ -23,6 +25,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/rec',
+        offline_processed_image_folder = '',
         template_name=r'REC',
     ),
     recvg=dict(
@@ -30,6 +34,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GC_genome196_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/Visual Genome',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/recvg',
+        offline_processed_image_folder = '',
         template_name=r'REC',
     ),
     reg=dict(
@@ -37,6 +43,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/reg',
+        offline_processed_image_folder = '',
         template_name=r'REG',
     ),
     gc=dict(
@@ -44,6 +52,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GC_genome196_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/Visual Genome',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gc',
+        offline_processed_image_folder = '',
         template_name=r'GC',
     ),
     caption=dict(
@@ -51,6 +61,8 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CAP_coco2014_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/caption',
+        offline_processed_image_folder = '',
         template_name=r'image_cap',
     ),
     llavacc3m=dict(

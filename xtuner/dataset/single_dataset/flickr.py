@@ -227,10 +227,11 @@ class FlickrDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
 
-    def __len__(self):
-        return len(self.text_data)
-
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+
         item = self.get_raw_item(index)
         img_path = f"{item['image_id']}.jpg"
         caption = item['sentence']

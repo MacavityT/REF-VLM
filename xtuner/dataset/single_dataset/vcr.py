@@ -63,6 +63,10 @@ class VCRDataset(MInstrDataset):
         # R: 'qac-r' 'qc-a-qc-r'
 
     def __getitem__(self, index, force_answer_label=None, force_rationale_label=None):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         image = self.get_image(item['img_fn'])
 

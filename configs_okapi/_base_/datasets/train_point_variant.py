@@ -3,6 +3,7 @@ point_train_common_cfg_local = dict(
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_local_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
     image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
+    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
@@ -11,6 +12,7 @@ point_train_common_cfg_twice = dict(
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_twice_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
     image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
+    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
@@ -19,24 +21,81 @@ point_train_common_cfg_v7w = dict(
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/v7w_pointing_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual7W/images',
     image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/visual7w_shape.jsonl',
+    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
 train_point_variant = dict(
-    point_local_b=dict(**point_train_common_cfg_local, version='b'),
-    point_local_p=dict(**point_train_common_cfg_local, version='p'),
-    point_local_bp=dict(**point_train_common_cfg_local, version='bp'),
-    point_twice_oq_b=dict(**point_train_common_cfg_twice, version='oq-b'),
-    point_twice_oq_p=dict(**point_train_common_cfg_twice, version='oq-p'),
-    point_twice_oq_bp=dict(**point_train_common_cfg_twice, version='oq-bp'),
-    point_twice_sq_b=dict(**point_train_common_cfg_twice, version='sq-b'),
-    point_twice_sq_p=dict(**point_train_common_cfg_twice, version='sq-p'),
-    point_twice_sq_bp=dict(**point_train_common_cfg_twice, version='sq-bp'),
-    point_twice_gq_b=dict(**point_train_common_cfg_twice, version='gq-b'),
-    point_twice_gq_p=dict(**point_train_common_cfg_twice, version='gq-p'),
-    point_twice_gq_bp=dict(**point_train_common_cfg_twice, version='gq-bp'),
-    point_v7w_p=dict(**point_train_common_cfg_v7w, version='p'),
-    point_v7w_b=dict(**point_train_common_cfg_v7w, version='b'),
+    point_local_b=dict(
+        **point_train_common_cfg_local, 
+        version='b',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_b',
+    ),
+    point_local_p=dict(
+        **point_train_common_cfg_local, 
+        version='p',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_p',
+    ),
+    point_local_bp=dict(
+        **point_train_common_cfg_local, 
+        version='bp',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_bp',
+    ),
+    point_twice_oq_b=dict(
+        **point_train_common_cfg_twice, 
+        version='oq-b',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_b',
+    ),
+    point_twice_oq_p=dict(
+        **point_train_common_cfg_twice, 
+        version='oq-p',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_p',
+    ),
+    point_twice_oq_bp=dict(
+        **point_train_common_cfg_twice, 
+        version='oq-bp',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_bp',
+    ),
+    point_twice_sq_b=dict(
+        **point_train_common_cfg_twice, 
+        version='sq-b',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_b',
+    ),
+    point_twice_sq_p=dict(
+        **point_train_common_cfg_twice, 
+        version='sq-p',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_p',
+    ),
+    point_twice_sq_bp=dict(
+        **point_train_common_cfg_twice, 
+        version='sq-bp',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_bp',
+    ),
+    point_twice_gq_b=dict(
+        **point_train_common_cfg_twice, 
+        version='gq-b',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_b',
+    ),
+    point_twice_gq_p=dict(
+        **point_train_common_cfg_twice, 
+        version='gq-p',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_p',
+    ),
+    point_twice_gq_bp=dict(
+        **point_train_common_cfg_twice, 
+        version='gq-bp',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_bp',
+    ),
+    point_v7w_p=dict(
+        **point_train_common_cfg_v7w, 
+        version='p',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_p',
+    ),
+    point_v7w_b=dict(
+        **point_train_common_cfg_v7w, 
+        version='b',
+        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_b',
+    ),
 )
 
 # from itertools import product

@@ -21,6 +21,10 @@ class Point_QA_local(MInstrDataset):
         self.qbp_p_prob = qbp_p_prob
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         # image
         img_path = item['file_path']
@@ -83,6 +87,10 @@ class Point_QA_twice(MInstrDataset):
         self.rtype = rtype
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         # image
         img_path = item['file_path']
@@ -146,10 +154,11 @@ class V7W_POINT(MInstrDataset):
         self.do_shuffle_choice = do_shuffle_choice
         assert version in ['p', 'b']
 
-    def __len__(self):
-        return len(self.text_data)
-
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
         item = self.get_raw_item(index)
         # image
         img_path = item['file_path']
