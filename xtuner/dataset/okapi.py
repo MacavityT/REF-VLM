@@ -131,7 +131,7 @@ class OkapiDataset(Dataset):
                 shard_idx += 1            
         all_shards.append(shard_ds_data) # append the last shard (or the only shard)
 
-        torch.distributed.barrier()
+        # torch.distributed.barrier()
 
         if return_shards: # for offline saving process
             return all_shards

@@ -29,7 +29,7 @@ dataloader_num_workers = 5
 #region okapi dataset
 gc = dict(
     type='SubSet',
-    portion=1/20,
+    portion=1,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['gc'],
@@ -37,7 +37,7 @@ gc = dict(
 
 recvg = dict(
     type='SubSet',
-    portion=1/20,
+    portion=1,
     do_shuffle=True,
     seed=43,
     cfg=train_all_dataset['recvg'],

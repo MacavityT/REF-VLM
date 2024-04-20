@@ -109,6 +109,14 @@ class OkapiModel(BaseModel):
             pad_token_id=self.tokenizer.pad_token_id
             if self.tokenizer.pad_token_id is not None else
             self.tokenizer.eos_token_id)
+        
+    #     self.gen_config = GenerationConfig(
+    #             max_new_tokens=100,
+    #             do_sample=False,
+    #             eos_token_id=self.tokenizer.eos_token_id,
+    #             pad_token_id=(self.tokenizer.pad_token_id if self.tokenizer.pad_token_id
+    #                   is not None else self.tokenizer.eos_token_id),
+    # )
         self.max_new_tokens = max_new_tokens
         self.gen_config = GenerationConfig(**default_generation_kwargs)
 
@@ -259,7 +267,7 @@ class OkapiModel(BaseModel):
                 output_hidden_states=True)
             pixel_values = self.projector(
                 visual_outputs.hidden_states[self.visual_select_layer][:, 1:])
-            data['pixel_values'] = pixel_values
+            data['pixel_values'] = pixel_values # [1，3，336，336]
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
 
         if mode == 'loss':
@@ -267,6 +275,7 @@ class OkapiModel(BaseModel):
 
         # TODO: Aaron: 重写一下predict的mode，调用generate方法
         elif mode == 'predict':
+
             return self.predict(data,data_samples)
 
             # return self.predict(data, data_samples)
@@ -283,13 +292,16 @@ class OkapiModel(BaseModel):
     
     # TODO： Aaron add
     def predict(self,data,data_samples=None):
-
+        output = self._forward(data, data_samples)
+        print("forward success")
         generate_ids = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
                 generation_config=self.gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
                 stopping_criteria=self.stop_criteria)
+        print("generate success")
+
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
         return generate_ids_dict
 
