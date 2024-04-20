@@ -60,13 +60,15 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 image_info_folder=None, 
                 offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
-                seed=None, 
+                enforce_online=False, 
+                seed=None,
                 **kwargs):
         super().__init__(**kwargs)
         self.text_path = text_path
         self.image_folder = image_folder
         self.image_info_folder = image_info_folder
         self.rng = np.random.default_rng(seed)
+        self.enforce_online = enforce_online
         self.offline_processed_text_folder = offline_processed_text_folder
         self.offline_processed_image_folder = offline_processed_image_folder
 
@@ -81,7 +83,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 level=logging.WARNING)
 
         assert offline_processed_text_folder or text_path
-        if offline_processed_text_folder and os.path.exists(offline_processed_text_folder) and text_path:
+        if offline_processed_text_folder and os.path.exists(offline_processed_text_folder) \
+            and text_path and (not enforce_online):
             print_log(
                 'Both `offline_processed_text_folder` and '
                 '`data_path` are set, and we load dataset from'
@@ -96,7 +99,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
         self.image_data_info = None
         if (offline_processed_text_folder is not None) and \
-            os.path.exists(offline_processed_text_folder):
+            os.path.exists(offline_processed_text_folder) and (not enforce_online):
             self.text_data = self.load_offline_text_data(offline_processed_text_folder)
         else:
             self.text_data = self.get_file_data(text_path)

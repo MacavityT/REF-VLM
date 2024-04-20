@@ -14,7 +14,9 @@ from .yi import yi_attn_forward
 
 IS_LOW_VERSION_TRANSFORMERS = digit_version(
     transformers.__version__) < digit_version('4.38')
-SUPPORT_FLASH1 = digit_version(torch.__version__) >= digit_version('2.0.0')
+# Transformers requires torch version >= 2.1.1 when using Torch SDPA.
+# Refer to https://github.com/huggingface/transformers/blob/caa5c65db1f4db617cdac2ad667ba62edf94dd98/src/transformers/modeling_utils.py#L1611  # noqa: E501
+SUPPORT_FLASH1 = digit_version(torch.__version__) >= digit_version('2.1.1')
 SUPPORT_FLASH2 = False
 
 try:
@@ -249,21 +251,27 @@ def dispatch_yi_attn_forward(model):
 
 
 def dispatch_mistral_attn_forward(model, use_varlen_attn):
-    if (not SUPPORT_FLASH) or (not use_varlen_attn):
-        return
     if use_varlen_attn:
         assert SUPPORT_FLASH2 and SUPPORT_TRITON, \
             'flash_attn and triton is required if you want to use varlen_attn.'
+    elif not SUPPORT_FLASH2:
+        return
 
-    from .mistral import mistral_varlen_attn_forward
+    from .mistral import mistral_attn_forward, mistral_varlen_attn_forward
 
     print_log(NO_ATTN_WEIGHTS_MSG, 'current', logging.WARNING)
     for module in model.modules():
         if type(module).__name__ in ('MistralAttention',
-                                     'MistralFlashAttention2'):
-            print_log('dispatch mistral varlen attn forward', 'current')
-            module.forward = types.MethodType(mistral_varlen_attn_forward,
-                                              module)
+                                     'MistralFlashAttention2',
+                                     'MixtralAttention',
+                                     'MixtralFlashAttention2'):
+            if use_varlen_attn:
+                print_log('dispatch mistral varlen attn forward', 'current')
+                module.forward = types.MethodType(mistral_varlen_attn_forward,
+                                                  module)
+            else:
+                print_log('dispatch mistral attn forward', 'current')
+                module.forward = types.MethodType(mistral_attn_forward, module)
 
 
 def dispatch_mistral_rmsnorm_forward(model):
@@ -273,9 +281,16 @@ def dispatch_mistral_rmsnorm_forward(model):
     from .triton_kernels import rms_norm_forward
 
     for module in model.modules():
-        if type(module).__name__ == 'MistralRMSNorm':
+        if type(module).__name__ in ('MistralRMSNorm', 'MixtralRMSNorm'):
             print_log('dispatch mistral rmsnorm forward', 'current')
             module.forward = types.MethodType(rms_norm_forward, module)
+
+
+def set_mixtral_moe_blocks_z3_leaf_modules(model):
+    from deepspeed.utils import set_z3_leaf_modules
+    from transformers.models.mixtral.modeling_mixtral import \
+        MixtralSparseMoeBlock
+    set_z3_leaf_modules(model, [MixtralSparseMoeBlock])
 
 
 def replace_mistral_rote(model):
@@ -285,7 +300,8 @@ def replace_mistral_rote(model):
 
     def traverse(module):
         for name, child in module.named_children():
-            if type(child).__name__ == 'MistralRotaryEmbedding':
+            if type(child).__name__ in ('MistralRotaryEmbedding',
+                                        'MixtralRotaryEmbedding'):
                 print_log('replace mistral rope', 'current')
                 dim_model = child.inv_freq.shape[0] * 2
                 child_new = MistralRotaryEmbedding(
@@ -297,6 +313,80 @@ def replace_mistral_rote(model):
                 traverse(child)
 
     traverse(model)
+
+
+def dispatch_cohere_attn_forward(model, use_varlen_attn):
+    if use_varlen_attn:
+        raise NotImplementedError
+    elif not SUPPORT_FLASH2:
+        return
+
+    from .cohere import cohere_attn_forward
+
+    print_log(NO_ATTN_WEIGHTS_MSG, 'current', logging.WARNING)
+    for module in model.modules():
+        # Do not need to dispatch if
+        # type(module).__name__ == 'CohereSdpaAttention', as flash_attn is
+        # required when using sequence parallel
+        if type(module).__name__ in ('CohereAttention',
+                                     'CohereFlashAttention2'):
+            print_log('dispatch cohere attn forward', 'current')
+            module.forward = types.MethodType(cohere_attn_forward, module)
+
+
+def dispatch_cohere_layernorm_forward(model):
+    from .triton_kernels import layer_norm_forward
+
+    for module in model.modules():
+        if type(module).__name__ == 'CohereLayerNorm':
+            print_log('dispatch cohere layernorm forward', 'current')
+            module.forward = types.MethodType(layer_norm_forward, module)
+
+
+def dispatch_qwen2_attn_forward(model, use_varlen_attn):
+    if use_varlen_attn:
+        assert SUPPORT_FLASH2 and SUPPORT_TRITON, \
+            'flash_attn and triton is required if you want to use varlen_attn.'
+    elif not SUPPORT_FLASH2:
+        return
+
+    from .qwen2 import qwen2_attn_forward, qwen2_varlen_attn_forward
+
+    print_log(NO_ATTN_WEIGHTS_MSG, 'current', logging.WARNING)
+    for module in model.modules():
+        if type(module).__name__ in ('Qwen2Attention', 'Qwen2FlashAttention2',
+                                     'Qwen2MoeAttention',
+                                     'Qwen2MoeFlashAttention2'):
+            if use_varlen_attn:
+                print_log('dispatch qwen2 varlen attn forward', 'current')
+                module.forward = types.MethodType(qwen2_varlen_attn_forward,
+                                                  module)
+            else:
+                print_log('dispatch qwen2 attn forward', 'current')
+                module.forward = types.MethodType(qwen2_attn_forward, module)
+
+
+def dispatch_qwen2_rmsnorm_forward(model):
+    if not SUPPORT_TRITON:
+        return
+
+    from .triton_kernels import rms_norm_forward
+
+    for module in model.modules():
+        if type(module).__name__ == 'Qwen2RMSNorm':
+            print_log('dispatch qwen2 rmsnorm forward', 'current')
+            module.forward = types.MethodType(rms_norm_forward, module)
+
+
+def set_qwen_moe_blocks_z3_leaf_modules(model):
+    from deepspeed.utils import set_z3_leaf_modules
+    try:
+        from transformers.models.qwen2_moe.modeling_qwen2_moe import \
+            Qwen2MoeSparseMoeBlock
+    except ImportError:
+        raise ImportError('QWen moe requires transformers version at least'
+                          f'4.40.0, but got {transformers.__version__}')
+    set_z3_leaf_modules(model, [Qwen2MoeSparseMoeBlock])
 
 
 def dispatch_modules(model, use_varlen_attn=False):
@@ -321,11 +411,19 @@ def dispatch_modules(model, use_varlen_attn=False):
         dispath_baichuan_13b_attn_forward(model)
     elif 'yi' in model_name:
         dispatch_yi_attn_forward(model)
-    elif 'mistral' in model_name:
+    elif ('mistral' in model_name) or ('mixtral' in model_name):
         dispatch_mistral_attn_forward(model, use_varlen_attn)
         if USE_TRITON_KERNEL:
             dispatch_mistral_rmsnorm_forward(model)
         replace_mistral_rote(model)
+    elif 'cohere' in model_name:
+        dispatch_cohere_attn_forward(model, use_varlen_attn)
+        dispatch_cohere_layernorm_forward(model)
+    elif 'qwen2' in model_name:
+        # qwen2 and qwen2moe
+        dispatch_qwen2_attn_forward(model, use_varlen_attn)
+        if USE_TRITON_KERNEL:
+            dispatch_qwen2_rmsnorm_forward(model)
 
 
 __all__ = ['dispatch_modules']
