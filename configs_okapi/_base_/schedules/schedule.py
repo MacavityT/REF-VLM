@@ -41,4 +41,5 @@ param_scheduler = [
 ]
 
 # train, val, test setting
-train_cfg = dict(type=TrainLoop, max_epochs=max_epochs)
+train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
+

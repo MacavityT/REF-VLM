@@ -33,7 +33,7 @@ val_all_dataset = dict(
 val_dataset_args = [
     dict(
         type='SubSet',
-        portion=1/10,
+        portion=1/20,
         do_shuffle=True,
         seed=43,
         cfg=val_all_dataset['caption'],

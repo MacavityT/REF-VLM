@@ -268,6 +268,10 @@ class OkapiModel(BaseModel):
             pixel_values = self.projector(
                 visual_outputs.hidden_states[self.visual_select_layer][:, 1:])
             data['pixel_values'] = pixel_values # [1，3，336，336]
+            if mode == 'predict':
+                data['labels'] = None
+                data['attention_mask'] = None
+                data['position_ids'] = None
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
 
         if mode == 'loss':
@@ -292,15 +296,13 @@ class OkapiModel(BaseModel):
     
     # TODO： Aaron add
     def predict(self,data,data_samples=None):
-        output = self._forward(data, data_samples)
-        print("forward success")
+
         generate_ids = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
                 generation_config=self.gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
                 stopping_criteria=self.stop_criteria)
-        print("generate success")
 
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
         return generate_ids_dict

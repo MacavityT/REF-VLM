@@ -63,17 +63,16 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         cider_rst, _ = cider_score.compute_score(targets, preds)
         meteor_rst, _ = meteor_score.compute_score(targets, preds)
         blue_rst, _ = bleu_score.compute_score(targets,preds)
-        spice_rst, _ = spice_score.compute_score(targets,preds)
+        # spice_rst, _ = spice_score.compute_score(targets,preds)
 
         metrics = {
             "CIDEr": cider_rst*100,
             "Meteor": meteor_rst,
             "BLEU4": blue_rst,
-            "SPICE": spice_rst
+            # "SPICE": spice_rst
         }
 
-
-        self._print_results(metrics)
+        # self._print_results(metrics)
 
         return metrics
     

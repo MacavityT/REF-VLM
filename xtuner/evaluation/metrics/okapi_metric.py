@@ -26,6 +26,7 @@ class BaseComputeMetrics(BaseMetric):
     """
 
     def __init__(self, tokenizer,preprocessor=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.tokenizer = BUILDER.build(tokenizer)
         self.preprocessor = preprocessor
 
@@ -49,11 +50,10 @@ class BaseComputeMetrics(BaseMetric):
         table_title = ' Caption Evaluation Results '
         table = Table(title=table_title)
         console = Console()
-        table.add_column('Task',justify='left')
-        table.add_column('Metrics', justify='center')
+        table.add_column('Metrics', justify='left')
         table.add_column('Eval_results', justify='right')
         for cat, acc in table_metrics.items():
-            table.add_row(cat, f'{acc:.2f}')
+            table.add_row(cat, acc)
         with console.capture() as capture:
             console.print(table, end='')
         print_log('\n' + capture.get(), 'current')
