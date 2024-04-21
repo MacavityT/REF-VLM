@@ -68,7 +68,9 @@ class OkapiDataset(Dataset):
             self.tokenizer = tokenizer
 
         # Build datasets
+        print_log("Okapi Datasets Building ...")
         self.dataset = self.build_dataset(dataset)
+        print_log("Okapi Datasets Build Success.")
         if not save_offline_dataset:
             print_log("Okapi Datasets Processing ...")
             self.data_list = self.dataset_process()
@@ -162,6 +164,8 @@ class OkapiDataset(Dataset):
                 f.write(json.dumps(content))
         
         for ds_idx, ds in enumerate(self.dataset):
+            assert type(ds).__name__ not in REFORM_DATASET, \
+                f"Dataset {ds_idx} with type of {type(ds).__name__}, offline save process not supported!"
             assert ds.offline_processed_text_folder is not None, \
                 f"Dataset {ds_idx} offline text folder is None."
             if os.path.exists(ds.offline_processed_text_folder) and \
@@ -224,7 +228,10 @@ class OkapiDataset(Dataset):
     def dataset_process(self):
         data_list = []
         for idx, ds in enumerate(self.dataset):
-            if isinstance(ds, OfflineDataset):
+            if type(ds).__name__ in REFORM_DATASET and (not ds.enforce_online):
+                ds_data_hf = ds
+                print_log(f"Dataset {idx} with type of {type(ds).__name__} offline prepared, please make sure all datasets in it with offline.")
+            elif isinstance(ds.text_data, OfflineDataset):
                 ds_data_hf = ds
                 print_log(f"Dataset {idx} offline prepared.")
             else:
