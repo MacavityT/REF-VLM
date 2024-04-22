@@ -39,7 +39,8 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-
+            print("decode prediction:",decode_pred)
+            print("target",target)
             self.results.append((decode_pred, target))
 
 

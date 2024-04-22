@@ -231,7 +231,7 @@ class OkapiDataset(Dataset):
             if type(ds).__name__ in REFORM_DATASET and (not ds.enforce_online):
                 ds_data_hf = ds
                 print_log(f"Dataset {idx} with type of {type(ds).__name__} offline prepared, please make sure all datasets in it with offline.")
-            elif isinstance(ds.text_data, OfflineDataset):
+            elif (type(ds).__name__ not in REFORM_DATASET) and isinstance(ds.text_data, OfflineDataset):
                 ds_data_hf = ds
                 print_log(f"Dataset {idx} offline prepared.")
             else:

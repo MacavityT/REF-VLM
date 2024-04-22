@@ -54,6 +54,7 @@ class OkapiModel(BaseModel):
         self.projector = ProjectorModel(projector_config).to(
             self.visual_encoder.dtype)
 
+
         if self.freeze_llm:
             self.llm.requires_grad_(False)
         if self.freeze_visual_encoder:
@@ -110,13 +111,6 @@ class OkapiModel(BaseModel):
             if self.tokenizer.pad_token_id is not None else
             self.tokenizer.eos_token_id)
         
-    #     self.gen_config = GenerationConfig(
-    #             max_new_tokens=100,
-    #             do_sample=False,
-    #             eos_token_id=self.tokenizer.eos_token_id,
-    #             pad_token_id=(self.tokenizer.pad_token_id if self.tokenizer.pad_token_id
-    #                   is not None else self.tokenizer.eos_token_id),
-    # )
         self.max_new_tokens = max_new_tokens
         self.gen_config = GenerationConfig(**default_generation_kwargs)
 

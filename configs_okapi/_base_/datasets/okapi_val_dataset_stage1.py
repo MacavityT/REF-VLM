@@ -7,7 +7,6 @@ from mmengine.config import read_base
 from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics
 
 with read_base():
-    from .train_all_dataset import train_all_dataset
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
@@ -36,11 +35,11 @@ val_dataset_args = [
         portion=1/20,
         do_shuffle=True,
         seed=43,
+        enforce_online=True,
         cfg=val_all_dataset['caption'],
             )
     
 ]
-
 
 okapi_dataset_val = dict(
     type=OkapiDataset,

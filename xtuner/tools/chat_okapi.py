@@ -12,12 +12,17 @@ from transformers import (AutoModel, AutoModelForCausalLM, AutoTokenizer,
                           BitsAndBytesConfig, CLIPImageProcessor,
                           CLIPVisionModel, GenerationConfig)
 from transformers.generation.streamers import TextStreamer
-
+from mmengine.config import Config, DictAction
+from xtuner.configs import cfgs_name_path
 from xtuner.dataset.utils import expand2square, load_image
 from xtuner.model.utils import prepare_inputs_labels_for_multimodal
 from xtuner.tools.utils import get_stop_criteria
 from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
+from xtuner.registry import BUILDER
+
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
 
 TORCH_DTYPE_MAP = dict(
     fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')
@@ -36,13 +41,17 @@ def remove_prefix(state_dict, prefix):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
-    parser.add_argument(
-        'model_name_or_path', help='Hugging Face model name or path')
-    adapter_group = parser.add_mutually_exclusive_group()
+
+
+
+    adapter_group = parser.add_mutually_exclusive_group()  # 创建一个互斥组
     adapter_group.add_argument(
         '--adapter', default=None, help='adapter name or path')
     adapter_group.add_argument(
         '--okapi', default=None, help='okapi name or path')
+    parser.add_argument('--config', default=None,help='config file name or path.')
+    parser.add_argument(
+        '--llm', default=None, help='llm path')
     parser.add_argument(
         '--visual-encoder', default=None, help='visual encoder name or path')
     parser.add_argument(
@@ -50,7 +59,7 @@ def parse_args():
     parser.add_argument('--image', default=None, help='image')
     parser.add_argument(
         '--torch-dtype',
-        default='fp16',
+        default='fp32',
         choices=TORCH_DTYPE_MAP.keys(),
         help='Override the default `torch.dtype` and load the model under '
         'a specific `dtype`.')
@@ -124,6 +133,16 @@ def parse_args():
         type=int,
         default=0,
         help='Random seed for reproducible text generation')
+    parser.add_argument(
+        '--cfg-options',
+        nargs='+',
+        action=DictAction,
+        help='override some settings in the used config, the key-value pair '
+        'in xxx=yyy format will be merged into config file. If the value to '
+        'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
+        'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
+        'Note that the quotation marks are necessary and that no white space '
+        'is allowed.')
     args = parser.parse_args()
     return args
 
@@ -146,6 +165,17 @@ def get_input():
 def main():
     args = parse_args()
     torch.manual_seed(args.seed)
+
+    # parse config
+    if args.config is not None:
+        if not osp.isfile(args.config):
+            try:
+                args.config = cfgs_name_path[args.config]
+            except KeyError:
+                raise FileNotFoundError(f'Config arg is not None but cannot find {args.config}')
+        cfg = Config.fromfile(args.config)
+        if args.cfg_options is not None:
+            cfg.merge_from_dict(args.cfg_options)
 
     # build llm
     quantization_config = None
@@ -183,8 +213,9 @@ def main():
             sys.exit(1)
 
         model_kwargs.pop('trust_remote_code')
+        assert args.llm is not None
         llm = HFTransformerCasualLM(
-            args.model_name_or_path, model_kwargs=model_kwargs)
+            args.llm, model_kwargs=model_kwargs)
         if args.adapter is not None:
             print(f'Loading adapter from {args.adapter}...')
             llm.model = PeftModel.from_pretrained(
@@ -231,14 +262,30 @@ def main():
                 from plugins import solve  # noqa: F401
             if search_open:
                 from plugins import search  # noqa: F401
-        # build llm
-        llm = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                   **model_kwargs)
-        tokenizer = AutoTokenizer.from_pretrained(
-            args.model_name_or_path,
-            trust_remote_code=True,
-            encode_special_tokens=True)
-        print(f'Load LLM from {args.model_name_or_path}')
+        
+        # load model
+        if args.config is not None:
+            model_name = cfg.model.type if isinstance(cfg.model.type,
+                                              str) else cfg.model.type.__name__
+            model = BUILDER.build(cfg.model)
+
+            if cfg.model.get('llm') and cfg.model.get('freeze_llm', True):
+                llm = model.llm
+                tokenizer = model.tokenizer
+                print(f'Load LLM directly from {model_name}')
+
+            if cfg.model.get('visual_encoder') and cfg.model.get('freeze_visual_encoder', True):
+                visual_encoder = model.visual_encoder
+                image_processor = BUILDER.build(cfg.okapi_dataset['image_processor'])
+                print(f'Load visual encoder directly from {model_name}')
+
+        if args.llm is not None:
+            llm = AutoModelForCausalLM.from_pretrained(args.llm,**model_kwargs)
+            tokenizer = AutoTokenizer.from_pretrained(
+                args.llm,
+                trust_remote_code=True,
+                encode_special_tokens=True)
+            print(f'Load LLM from {args.llm}')
         if args.adapter is not None:
             llm = PeftModel.from_pretrained(
                 llm,
@@ -246,21 +293,19 @@ def main():
                 offload_folder=args.offload_folder,
                 trust_remote_code=True)
             print(f'Load adapter from {args.adapter}')
+
         if args.okapi is not None:
             okapi_path = snapshot_download(
                 repo_id=args.okapi) if not osp.isdir(
                     args.okapi) else args.okapi
 
-            # build visual_encoder
-            if 'visual_encoder' in os.listdir(okapi_path):
-                assert args.visual_encoder is None, (
-                    "Please don't specify the `--visual-encoder` since passed "
-                    '`--okapi` contains a visual encoder!')
-                visual_encoder_path = osp.join(okapi_path, 'visual_encoder')
-            else:
-                assert args.visual_encoder is not None, (
-                    'Please specify the `--visual-encoder`!')
-                visual_encoder_path = args.visual_encoder
+        # build visual_encoder
+        visual_encoder_path = None
+        if 'visual_encoder' in os.listdir(okapi_path):
+            visual_encoder_path = osp.join(okapi_path, 'visual_encoder')
+        elif args.visual_encoder is not None: 
+            visual_encoder_path = args.visual_encoder
+        if visual_encoder_path is not None:
             visual_encoder = CLIPVisionModel.from_pretrained(
                 visual_encoder_path,
                 torch_dtype=TORCH_DTYPE_MAP[args.torch_dtype])
@@ -268,19 +313,24 @@ def main():
                 visual_encoder_path)
             print(f'Load visual_encoder from {visual_encoder_path}')
 
-            # build projector
+        # build projector
+        projector_path = None
+        if 'projector' in os.listdir(okapi_path):
             projector_path = osp.join(okapi_path, 'projector')
+        elif args.projector is not None:
+            projector_path = args.projector
+        if projector_path is not None:
             projector = AutoModel.from_pretrained(
                 projector_path,
                 torch_dtype=TORCH_DTYPE_MAP[args.torch_dtype],
                 trust_remote_code=True)
-            print(f'Load projector from {args.okapi}')
+            print(f'Load projector from {projector_path}')
 
-            projector.cuda()
-            projector.eval()
-            visual_encoder.cuda()
-            visual_encoder.eval()
-
+        projector.cuda()
+        projector.eval()
+        visual_encoder.cuda()
+        visual_encoder.eval()
+        llm.cuda()
         llm.eval()
 
         if args.image is not None:
