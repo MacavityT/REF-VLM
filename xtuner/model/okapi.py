@@ -2,6 +2,7 @@
 import math
 from collections import OrderedDict
 import json
+import numpy as np
 import torch
 import torch.nn as nn
 from mmengine.config import Config, ConfigDict
@@ -264,7 +265,7 @@ class OkapiModel(BaseModel):
             data['pixel_values'] = pixel_values # [1，3，336，336]
             if mode == 'predict':
                 data['labels'] = None
-                data['attention_mask'] = None
+                # data['attention_mask'] = None
                 data['position_ids'] = None
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
 

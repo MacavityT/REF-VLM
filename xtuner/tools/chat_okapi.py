@@ -21,8 +21,8 @@ from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
 from xtuner.registry import BUILDER
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
+import debugpy
+debugpy.connect(('127.0.0.1', 5577))
 
 TORCH_DTYPE_MAP = dict(
     fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')
@@ -41,7 +41,6 @@ def remove_prefix(state_dict, prefix):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
-
 
 
     adapter_group = parser.add_mutually_exclusive_group()  # 创建一个互斥组
@@ -66,7 +65,7 @@ def parse_args():
     parser.add_argument(
         '--prompt-template',
         choices=PROMPT_TEMPLATE.keys(),
-        default=None,
+        default='vicuna',
         help='Specify a prompt template')
     system_group = parser.add_mutually_exclusive_group()
     system_group.add_argument(

@@ -100,8 +100,7 @@ llava_dataset = dict(
     pad_image_to_square=True)
 #endregion
 
-# train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
-train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
+train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
 
 train_dataloader = dict(
     batch_size=batch_size,

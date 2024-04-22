@@ -19,7 +19,7 @@ evaluation_freq = 500
 SYSTEM = ''
 evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
-pretrained_pth = '/model/Aaronzhu/OkapiModel/full0421/iter_14500.pth'
+pretrained_pth = '/model/Aaronzhu/OkapiModel/full0419/iter_2413.pth'
 
 prompt_template = PROMPT_TEMPLATE.vicuna
 
