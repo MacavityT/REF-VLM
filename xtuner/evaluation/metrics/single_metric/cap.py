@@ -40,8 +40,8 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-            print("decode prediction:",decode_pred)
-            print("target",target)
+            # print("decode prediction:",decode_pred)
+            # print("target",target)
             self.results.append((decode_pred, target))
 
 
@@ -61,7 +61,7 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         tokenizer = PTBTokenizer()
         targets  = tokenizer.tokenize(targets)
         preds = tokenizer.tokenize(preds)
-        cider_score, meteor_score, bleu_score,spice_score = Cider(), Meteor(), Bleu(4), Spice()
+        cider_score, meteor_score, bleu_score = Cider(), Meteor(), Bleu(4)
         cider_rst, _ = cider_score.compute_score(targets, preds)
         meteor_rst, _ = meteor_score.compute_score(targets, preds)
         blue_rst, _ = bleu_score.compute_score(targets,preds)

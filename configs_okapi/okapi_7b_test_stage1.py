@@ -9,7 +9,7 @@ from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
     from ._base_.models.all_visual_encoders import *
-    from ._base_.datasets.okapi_val_dataset_stage1 import *
+    from ._base_.datasets.okapi_test_dataset_stage1 import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
@@ -19,7 +19,7 @@ evaluation_freq = 500
 SYSTEM = ''
 evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
-pretrained_pth = '/model/Aaronzhu/OkapiModel/0419_1_20_gc_rvg/iter_2413.pth'
+
 
 prompt_template = PROMPT_TEMPLATE.vicuna
 
@@ -32,8 +32,8 @@ model = dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
-    visual_encoder=clip_patch14_336['visual_encoder'],
-    pretrained_pth=pretrained_pth)
+    visual_encoder=clip_patch14_336['visual_encoder'])
+
 
 
 # Log the dialogue periodically during the training process, optional

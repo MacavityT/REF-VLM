@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from xtuner.registry import BUILDER
 from .huggingface import process_hf_dataset
-from .utils import expand2square
+from .utils import expand2square,imfrombytes
 
 
 class LLaVADataset(Dataset):
@@ -87,8 +87,10 @@ class LLaVADataset(Dataset):
         data_dict = self.text_data[index]
         if data_dict.get('image', None) is not None:
             image_file = data_dict['image']
-            image = Image.open(os.path.join(self.image_folder,
-                                            image_file)).convert('RGB')
+            # image = Image.open(os.path.join(self.image_folder,
+            #                                 image_file)).convert('RGB')
+            image = imfrombytes(os.path.join(self.image_folder,image_file), flag='color', channel_order='rgb')
+            image = Image.fromarray(image) 
             if self.pad_image_to_square:
                 image = expand2square(
                     image,
