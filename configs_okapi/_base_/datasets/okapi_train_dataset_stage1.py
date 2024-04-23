@@ -23,7 +23,7 @@ with read_base():
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 
-batch_size = 16  # per_device
+batch_size = 32  # per_device
 dataloader_num_workers = 5
 
 #region okapi dataset
@@ -100,7 +100,8 @@ llava_dataset = dict(
     pad_image_to_square=True)
 #endregion
 
-train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
+# train_dataset = dict(type=ConcatDataset, datasets=[llava_dataset, okapi_dataset])
+train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
 
 train_dataloader = dict(
     batch_size=batch_size,

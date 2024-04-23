@@ -15,7 +15,7 @@ from mmengine import print_log
 from mmengine.config import Config, ConfigDict
 from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
-
+from xtuner.utils import IGNORE_INDEX
 from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
 from xtuner.dataset.single_dataset import OfflineDataset
 from .huggingface import process_hf_dataset

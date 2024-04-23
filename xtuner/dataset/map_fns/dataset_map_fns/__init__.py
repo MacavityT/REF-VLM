@@ -20,6 +20,7 @@ from .tiny_codes_map_fn import tiny_codes_map_fn
 from .wizardlm_map_fn import wizardlm_map_fn
 from .okapi_map_fn import okapi_map_fn
 
+
 DATASET_FORMAT_MAPPING = dict(
     alpaca=alpaca_map_fn,
     alpaca_zh=alpaca_zh_map_fn,
@@ -50,5 +51,5 @@ __all__ = [
     'crime_kg_assitant_map_fn', 'sql_map_fn', 'openai_map_fn',
     'wizardlm_map_fn', 'stack_exchange_map_fn', 'msagent_react_map_fn',
     'pretrain_map_fn', 'default_map_fn', 'llava_image_only_map_fn',
-    'llava_map_fn', 'DATASET_FORMAT_MAPPING', 'okapi_map_fn'
+    'llava_map_fn', 'DATASET_FORMAT_MAPPING', 'okapi_map_fn',
 ]

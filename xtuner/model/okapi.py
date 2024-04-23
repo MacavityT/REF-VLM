@@ -11,6 +11,7 @@ from peft import get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
+from xtuner.utils import IGNORE_INDEX
 from .modules import ProjectorConfig, ProjectorModel, dispatch_modules
 from .modules.dispatch import SUPPORT_FLASH1, SUPPORT_FLASH2
 from .utils import (LoadWoInit, find_all_linear_names,
@@ -264,8 +265,10 @@ class OkapiModel(BaseModel):
                 visual_outputs.hidden_states[self.visual_select_layer][:, 1:])
             data['pixel_values'] = pixel_values # [1，3，336，336]
             if mode == 'predict':
+                labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
+                data['input_ids'] = data['input_ids'][0][:labels_mask.index(False)].unsqueeze(0)
                 data['labels'] = None
-                # data['attention_mask'] = None
+                data['attention_mask'] = None
                 data['position_ids'] = None
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
 

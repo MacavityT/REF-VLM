@@ -5,6 +5,9 @@ from mmengine.config import Config
 
 from xtuner.registry import BUILDER
 
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Log processed dataset.')

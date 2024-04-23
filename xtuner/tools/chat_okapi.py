@@ -21,8 +21,8 @@ from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
 from xtuner.registry import BUILDER
 
-import debugpy
-debugpy.connect(('127.0.0.1', 5577))
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
 
 TORCH_DTYPE_MAP = dict(
     fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')

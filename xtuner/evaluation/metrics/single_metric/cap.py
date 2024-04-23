@@ -6,6 +6,7 @@ from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
+from xtuner.utils import IGNORE_INDEX
 from ..okapi_metric import BaseComputeMetrics
 
 
@@ -37,7 +38,7 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids)
-            gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
+            gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
             print("decode prediction:",decode_pred)
             print("target",target)

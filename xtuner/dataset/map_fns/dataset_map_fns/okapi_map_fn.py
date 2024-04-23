@@ -148,12 +148,9 @@ def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
 def okapi_mask_map_fn(example):
     pass
 
-def okapi_map_fn(example,val_flag=False):
+def okapi_map_fn(example):
     okapi_box_map_fn(example)
     okapi_point_map_fn(example)
     res = llava_map_fn(example)
-    if val_flag:
-        value_list = res['conversation']
-        for i,value in enumerate(value_list):
-            res['conversation'][i]['output'] = ""
+
     return res
