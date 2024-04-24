@@ -2,7 +2,7 @@
 import argparse
 
 from mmengine.config import Config
-
+from tqdm import tqdm
 from xtuner.registry import BUILDER
 
 

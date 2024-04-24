@@ -1,6 +1,6 @@
 vqav2_test_common_cfg = dict(
     type='VQAv2Dataset',
-    image_folder=r'/data/Aaronzhu/DatasetStage1/VQAv2/real_images/train2014',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/VQAv2/real_images/',
     template_name=r"VQA",
 )
 

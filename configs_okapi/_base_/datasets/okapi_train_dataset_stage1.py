@@ -89,7 +89,7 @@ okapi_dataset = dict(
 #region llava dataset
 llava_dataset = dict(
     type=LLaVADataset,
-    data_path=r"/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/blip_laion_cc_sbu_558k_filter.json",
+    data_path=r"/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/blip_laion_cc_sbu_558k_filter_new.json",
     image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images',
     tokenizer=vicuna_7b_path_tokenizer,
     image_processor=clip_patch14_336['image_processor'],

@@ -35,6 +35,41 @@ model = dict(
     visual_encoder=clip_patch14_336['visual_encoder'])
 
 
+test_dataset_args = [
+    dict(
+        type='SubSet',
+        portion=1/100,
+        do_shuffle=True,
+        seed=43,
+        enforce_online=True,
+        cfg=test_all_dataset['vqav2_val'],
+            )
+    
+]
+
+okapi_dataset_test = dict(
+    type=OkapiDataset,
+    dataset=test_dataset_args,
+    image_processor=clip_patch14_336['image_processor'],
+    tokenizer=vicuna_7b_path_tokenizer,
+    dataset_map_fn=okapi_map_fn,
+    template_map_fn=dict(
+        type=template_map_fn_factory, template=prompt_template),
+    max_length=max_length,
+    pad_image_to_square=True)
+
+test_dataloader = dict(
+    batch_size=1,
+    num_workers=dataloader_num_workers,
+    dataset=okapi_dataset_test,
+    sampler=dict(type=DefaultSampler, shuffle=True),
+    collate_fn=dict(type=default_collate_fn))
+
+
+test_evaluator = dict(
+    type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
+
+
 
 # Log the dialogue periodically during the training process, optional
 custom_hooks = [

@@ -8,6 +8,7 @@ from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
+from xtuner.utils import IGNORE_INDEX
 from ..okapi_metric import BaseComputeMetrics
 
 
@@ -38,7 +39,7 @@ class VQAComputeMetrics(BaseComputeMetrics):
             data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids)
-            gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
+            gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
 
             self.results.append((decode_pred, target))
@@ -49,6 +50,7 @@ class VQAComputeMetrics(BaseComputeMetrics):
         targets = []
         for i,(pred, target) in enumerate(results):
             pred = self.extract_ans(pred)
+            target = self.extract_ans(target)
             preds.append(pred)
             targets.append(target)
 
@@ -58,7 +60,7 @@ class VQAComputeMetrics(BaseComputeMetrics):
             'accuracy': acc,
         }
 
-        self._print_results(metrics)
+        # self._print_results(metrics)
         
         return metrics
         
@@ -67,8 +69,12 @@ class VQAComputeMetrics(BaseComputeMetrics):
 
         true = 0
         for pred, target in zip(preds,targets):  # ppl vqa 
-            if target in pred.split(" "):
-                true += 1
+            if len(target.split(" ")) == 1:
+                if target in pred.split(" "):
+                    true += 1
+            else:
+                if target == pred:
+                    true += 1
 
         acc = float(true) / float(len(preds))
         return acc
@@ -84,6 +90,7 @@ class VQAComputeMetrics(BaseComputeMetrics):
             """
             try:
                 string = string.split("ASSISTANT: ")[-1].lower().split("</s>")[0]
+                string = string.split("the answer is ")[-1].lower().split(".")[0]
                 return string
             except Exception as e:
                 print_log(f"Warning: extract_ans for {string} but get exception: {e}")

@@ -55,7 +55,6 @@ def parse_args():
         '--visual-encoder', default=None, help='visual encoder name or path')
     parser.add_argument(
         '--visual-select-layer', default=-2, help='visual select layer')
-    parser.add_argument('--image', default=None, help='image')
     parser.add_argument(
         '--torch-dtype',
         default='fp32',
@@ -152,13 +151,41 @@ def get_input():
     result = None
     while result is None:
         print(('\ndouble enter to end input (EXIT: exit chat, '
-               'RESET: reset history) >>> '),
+               'RESET: reset history, IMAGE: add a new image) >>> '),
               end='')
         try:
             result = '\n'.join(iter(input, sentinel))
         except UnicodeDecodeError:
             print('Invalid characters detected. Please enter again.')
     return result
+
+def get_image_input():
+    """Helper function for getting input from users."""
+    sentinel = ''  # ends when this string is seen
+    result = None
+    while result is None:
+        print(('\nInput image path, double enter to end input >>> '),
+              end='')
+        try:
+            result = '\n'.join(iter(input, sentinel))
+        except UnicodeDecodeError:
+            print('Invalid characters detected. Please enter again.')
+    return result
+
+def process_image(args,image_path,image_processor,visual_encoder,projector):
+    """Load image from image path and send it to the visual encoder and projector."""
+    if image_path == '':
+        return None
+    image = load_image(image_path)
+    image = expand2square(
+        image, tuple(int(x * 255) for x in image_processor.image_mean))
+    image = image_processor.preprocess(
+        image, return_tensors='pt')['pixel_values'][0]
+    image = image.cuda().unsqueeze(0).to(visual_encoder.dtype)
+    visual_outputs = visual_encoder(image, output_hidden_states=True)
+    pixel_values = projector(
+        visual_outputs.hidden_states[args.visual_select_layer][:, 1:])
+    return pixel_values
 
 
 def main():
@@ -332,17 +359,6 @@ def main():
         llm.cuda()
         llm.eval()
 
-        if args.image is not None:
-            image = load_image(args.image)
-            image = expand2square(
-                image, tuple(int(x * 255) for x in image_processor.image_mean))
-            image = image_processor.preprocess(
-                image, return_tensors='pt')['pixel_values'][0]
-            image = image.cuda().unsqueeze(0).to(visual_encoder.dtype)
-            visual_outputs = visual_encoder(image, output_hidden_states=True)
-            pixel_values = projector(
-                visual_outputs.hidden_states[args.visual_select_layer][:, 1:])
-
         stop_words = args.stop_words
         sep = ''
         if args.prompt_template:
@@ -351,7 +367,6 @@ def main():
             sep = template.get('SEP', '')
         stop_criteria = get_stop_criteria(
             tokenizer=tokenizer, stop_words=stop_words)
-
         if args.no_streamer:
             streamer = None
         else:
@@ -371,18 +386,31 @@ def main():
 
         n_turn = 0
         inputs = ''
+        pixel_values = None
         while True:
+            if n_turn == 0 :
+                image_path = get_image_input()
+                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                
             text = get_input()
             while text.strip() == 'RESET':
                 print('Log: History responses have been removed!')
                 n_turn = 0
                 inputs = ''
+                pixel_values = None
+                image_path = get_image_input()
+                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                text = get_input()
+            while text.strip() == 'IMAGE':
+                print('Log: Please input a new image path!')
+                image_path = get_image_input()
+                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
                 text = get_input()
             if text.strip() == 'EXIT':
                 print('Log: Exit!')
                 exit(0)
 
-            if args.image is not None and n_turn == 0:
+            if pixel_values is not None and n_turn == 0:
                 text = DEFAULT_IMAGE_TOKEN + '\n' + text
 
             if args.prompt_template:
@@ -422,7 +450,7 @@ def main():
             else:
                 prompt_text = text
             inputs += prompt_text
-            if args.image is None:
+            if pixel_values is None:
                 if n_turn == 0:
                     ids = tokenizer.encode(inputs, return_tensors='pt')
                 else:

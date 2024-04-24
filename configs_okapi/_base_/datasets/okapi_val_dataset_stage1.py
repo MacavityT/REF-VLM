@@ -4,7 +4,7 @@ from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory, okapi_map_fn
 from xtuner.utils import PROMPT_TEMPLATE
 from mmengine.config import read_base
-from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics
+from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComputeMetrics
 
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
@@ -26,7 +26,14 @@ val_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/val2017',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2017_val_shape.jsonl',
         template_name=r'image_cap',
-    )
+    ),
+    vqav2_val=dict(
+        type='VQAv2Dataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/v2_OpenEnded_mscoco_val2014_questions.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/VQAv2/real_images/',
+        image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vqav2_val_shape.jsonl',
+        template_name=r"VQA",
+    ),
 )
 
 val_dataset_args = [
@@ -63,7 +70,8 @@ val_dataloader = dict(
 val_evaluator = dict(
     type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
 
-
+# val_evaluator = dict(
+#     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
 
 
 

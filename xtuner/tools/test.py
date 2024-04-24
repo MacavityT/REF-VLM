@@ -13,6 +13,9 @@ from xtuner.model.utils import guess_load_checkpoint
 from xtuner.registry import MAP_FUNC
 
 
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Test model')
     parser.add_argument('config', help='config file name or path.')
