@@ -25,6 +25,7 @@ class OkapiModel(BaseModel):
     def __init__(self,
                  llm,
                  visual_encoder,
+                 projector=None,
                  tokenizer=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
@@ -46,15 +47,19 @@ class OkapiModel(BaseModel):
             self.llm = self._build_from_cfg_or_module(llm)
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder)
+            if projector is not None:
+                self.projector = self._build_from_cfg_or_module(
+                    projector)
         self.llm.config.use_cache = False
         dispatch_modules(self.llm)
 
-        projector_config = ProjectorConfig(
-            visual_hidden_size=self.visual_encoder.config.hidden_size,
-            llm_hidden_size=self.llm.config.hidden_size,
-            depth=projector_depth)
-        self.projector = ProjectorModel(projector_config).to(
-            self.visual_encoder.dtype)
+        if projector is None:
+            projector_config = ProjectorConfig(
+                visual_hidden_size=self.visual_encoder.config.hidden_size,
+                llm_hidden_size=self.llm.config.hidden_size,
+                depth=projector_depth)
+            self.projector = ProjectorModel(projector_config).to(
+                self.visual_encoder.dtype)
 
 
         if self.freeze_llm:

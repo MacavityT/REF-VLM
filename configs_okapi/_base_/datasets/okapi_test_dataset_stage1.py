@@ -71,6 +71,9 @@ test_dataloader = dict(
 test_evaluator = dict(
     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
 
+# test_evaluator = dict(
+#     type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
+
 
 
 

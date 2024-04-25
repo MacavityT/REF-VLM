@@ -390,7 +390,10 @@ def main():
         while True:
             if n_turn == 0 :
                 image_path = get_image_input()
-                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                if os.path.isfile(image_path):
+                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                else:
+                    print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 
             text = get_input()
             while text.strip() == 'RESET':
@@ -399,12 +402,18 @@ def main():
                 inputs = ''
                 pixel_values = None
                 image_path = get_image_input()
-                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                if os.path.isfile(image_path):
+                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                else:
+                    print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
             while text.strip() == 'IMAGE':
                 print('Log: Please input a new image path!')
                 image_path = get_image_input()
-                pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                if os.path.isfile(image_path):
+                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                else:
+                    print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
             if text.strip() == 'EXIT':
                 print('Log: Exit!')
@@ -506,7 +515,7 @@ def main():
                             generate_output[0][len(ids[0]):])
                         end = '' if output_text[-1] == '\n' else '\n'
                         print(output_text, end=end)
-                inputs = tokenizer.decode(generate_output[0])
+                inputs += tokenizer.decode(generate_output[0])
             else:
                 chunk_encode = []
                 for idx, chunk in enumerate(inputs.split(DEFAULT_IMAGE_TOKEN)):
@@ -539,7 +548,7 @@ def main():
                 inputs += tokenizer.decode(generate_output[0])
             n_turn += 1
             inputs += sep
-            if len(generate_output[0]) >= args.max_new_tokens:
+            if len(inputs) >= args.max_new_tokens:
                 print(
                     'Remove the memory of history responses, since '
                     f'it exceeds the length limitation {args.max_new_tokens}.')

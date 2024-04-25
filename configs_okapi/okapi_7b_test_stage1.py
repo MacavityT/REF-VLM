@@ -35,14 +35,26 @@ model = dict(
     visual_encoder=clip_patch14_336['visual_encoder'])
 
 
+# test_dataset_args = [
+#     dict(
+#         type='SubSet',
+#         portion=1/100,
+#         do_shuffle=True,
+#         seed=43,
+#         enforce_online=True,
+#         cfg=test_all_dataset['vqav2_val'],
+#             )
+    
+# ]
+
 test_dataset_args = [
     dict(
         type='SubSet',
-        portion=1/100,
+        portion=1/20,
         do_shuffle=True,
         seed=43,
         enforce_online=True,
-        cfg=test_all_dataset['vqav2_val'],
+        cfg=test_all_dataset['caption'],
             )
     
 ]
@@ -66,10 +78,11 @@ test_dataloader = dict(
     collate_fn=dict(type=default_collate_fn))
 
 
+# test_evaluator = dict(
+#     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
+
 test_evaluator = dict(
-    type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
-
-
+    type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
 
 # Log the dialogue periodically during the training process, optional
 custom_hooks = [
