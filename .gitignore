@@ -122,3 +122,13 @@ work_dirs/
 # srun
 *.out
 batchscript-*
+
+
+# taiyan
+*sketch*
+
+# aaronzhu
+Aaronzhu/
+*core*
+myhostfile.txt
+*wrong_output*
