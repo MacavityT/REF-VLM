@@ -64,7 +64,7 @@ test_dataloader = dict(
     batch_size=1,
     num_workers=dataloader_num_workers,
     dataset=okapi_dataset_test,
-    sampler=dict(type=DefaultSampler, shuffle=True),
+    sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=default_collate_fn))
 
 
