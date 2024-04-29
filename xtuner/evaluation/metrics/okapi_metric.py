@@ -32,7 +32,8 @@ class BaseComputeMetrics(BaseMetric):
 
     def post_process_generate_ids(self, ids: torch.Tensor):
         ids = copy.deepcopy(ids)  # do not modify origin preds and targets
-        ids[ids < 0] = self.tokenizer.pad_token_id
+        if ids[ids < 0].cpu().numpy().tolist() != []:
+            ids[ids < 0] = self.tokenizer.pad_token_id
         return ids
     
     def decode_generate_ids(self, ids: torch.Tensor) -> Union[List[str], str]:

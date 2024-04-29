@@ -2,7 +2,6 @@ from mmengine.dataset import DefaultSampler
 from xtuner.dataset import OkapiDataset,ConcatDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory, okapi_map_fn
-from xtuner.utils import PROMPT_TEMPLATE
 from mmengine.config import read_base
 from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComputeMetrics
 
@@ -12,11 +11,7 @@ with read_base():
 
 
 # Data
-prompt_template = PROMPT_TEMPLATE.vicuna
-max_length = int(2048 - (336 / 14)**2)
 
-
-dataloader_num_workers = 5
 val_cfg = dict(type='ValLoop')
 
 val_all_dataset = dict(
@@ -48,30 +43,6 @@ val_dataset_args = [
     
 ]
 
-okapi_dataset_val = dict(
-    type=OkapiDataset,
-    dataset=val_dataset_args,
-    image_processor=clip_patch14_336['image_processor'],
-    tokenizer=vicuna_7b_path_tokenizer,
-    dataset_map_fn=okapi_map_fn,
-    template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
-    max_length=max_length,
-    pad_image_to_square=True)
-
-val_dataloader = dict(
-    batch_size=1,
-    num_workers=dataloader_num_workers,
-    dataset=okapi_dataset_val,
-    sampler=dict(type=DefaultSampler, shuffle=False),
-    collate_fn=dict(type=default_collate_fn))
-
-
-val_evaluator = dict(
-    type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
-
-# val_evaluator = dict(
-#     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
 
 
 

@@ -10,6 +10,7 @@ with read_base():
     from ._base_.models.all_tokenizers import *
     from ._base_.models.all_visual_encoders import *
     from ._base_.datasets.okapi_test_dataset_stage1 import *
+    from ._base_.models.okapi_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
@@ -19,20 +20,6 @@ evaluation_freq = 500
 SYSTEM = ''
 evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
-
-
-prompt_template = PROMPT_TEMPLATE.vicuna
-
-model = dict(
-    type=OkapiModel,
-    freeze_llm=True,
-    tokenizer=vicuna_7b_path_tokenizer,
-    freeze_visual_encoder=True,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=vicuna_7b_path,
-        trust_remote_code=True),
-    visual_encoder=clip_patch14_336['visual_encoder'])
 
 
 # test_dataset_args = [
@@ -50,7 +37,7 @@ model = dict(
 test_dataset_args = [
     dict(
         type='SubSet',
-        portion=1,
+        portion=1/1000,
         do_shuffle=True,
         seed=43,
         enforce_online=True,
@@ -63,7 +50,7 @@ okapi_dataset_test = dict(
     type=OkapiDataset,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
-    tokenizer=vicuna_7b_path_tokenizer,
+    tokenizer=tokenizer,
     dataset_map_fn=okapi_map_fn,
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
@@ -79,17 +66,17 @@ test_dataloader = dict(
 
 
 # test_evaluator = dict(
-#     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
+#     type=VQAComputeMetrics, tokenizer=tokenizer, prefix='vqa')
 
 test_evaluator = dict(
-    type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
+    type=ImgCapComputeMetrics, tokenizer=tokenizer, prefix='caption')
 
 # Log the dialogue periodically during the training process, optional
 custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=vicuna_7b_path_tokenizer),
+    dict(type=DatasetInfoHook, tokenizer=tokenizer),
     dict(
         type=EvaluateChatHook,
-        tokenizer=vicuna_7b_path_tokenizer,
+        tokenizer=tokenizer,
         image_processor=clip_patch14_336['image_processor'],
         every_n_iters=evaluation_freq,
         evaluation_inputs=evaluation_inputs,
