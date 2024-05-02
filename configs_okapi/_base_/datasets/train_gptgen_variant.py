@@ -3,6 +3,7 @@ gptgen_train_common_cfg = dict(
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_BoxCoT_train.jsonl',
     image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
     image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/flickr30k_shape.jsonl',
+    stage=2,
     offline_processed_image_folder = '',
 )
 
@@ -30,6 +31,7 @@ train_gptgen_variant = dict(
         image_folder=gptgen_train_common_cfg['image_folder'],
         text_path='/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_RD_BoxCoT_train.jsonl',
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_rd_qbc',
+        stage=2,
         version='bc',
         template_name=r"VQA_BCoT"),
 )

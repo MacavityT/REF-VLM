@@ -10,7 +10,9 @@ from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
     IMAGE_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER,
-    PHRASE_ED_PLACEHOLDER
+    PHRASE_ED_PLACEHOLDER,
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2
     )
 from .mixin import MInstrDataset
 
@@ -237,7 +239,12 @@ class FlickrDataset(MInstrDataset):
         caption = item['sentence']
 
         image = self.get_image(img_path)
-        caption = caption.replace(PHRASE_ST_PLACEHOLDER, "").replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+        if self.stage == 1:
+            caption = caption.replace(PHRASE_ST_PLACEHOLDER, "").replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+        if self.stage == 2:
+            caption = caption.replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
+            caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+
         question = self.get_template()
 
         ret = {
@@ -255,6 +262,8 @@ class FlickrDataset(MInstrDataset):
                 }
             ]
         }
+
+        
         return ret
 
 
@@ -269,3 +278,4 @@ if __name__ == '__main__':
         annotation_dir = r'D:\home\dataset\flickr30kentities'
         indexes = [line.strip() for line in open(filename, 'r', encoding='utf8')]
         flatten_annotation(annotation_dir, indexes)
+

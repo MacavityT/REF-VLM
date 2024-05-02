@@ -4,7 +4,9 @@ from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER, 
-    PHRASE_ED_PLACEHOLDER)
+    PHRASE_ED_PLACEHOLDER,
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2)
 
 from .mixin import MInstrDataset
 
@@ -27,7 +29,11 @@ class GPT4Gen(MInstrDataset):
         boxes = raw['boxes']
         #
         question = raw['question']
-        question = question.replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+        if self.stage == 1:
+            question = question.replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+        if self.stage == 2:
+            question = question.replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
+            caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
         query_boxes_seq = raw['question_boxes_seq']
 
@@ -38,7 +44,11 @@ class GPT4Gen(MInstrDataset):
             final_answer = raw['cot_with_ans'].replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, '')
             answer_boxes_seq = None
         elif self.version == 'bc':
-            final_answer = raw['cot_with_ans'].replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+            if self.stage == 1:
+                final_answer = raw['cot_with_ans'].replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+            if self.stage == 2:
+                final_answer = raw['cot_with_ans'].replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
+                caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
             answer_boxes_seq = raw['answer_boxes_seq']
         else:
             assert False

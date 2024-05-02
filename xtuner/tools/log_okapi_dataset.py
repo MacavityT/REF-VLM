@@ -2,8 +2,9 @@
 import argparse
 import numpy as np
 from mmengine.config import Config
+from xtuner.dataset import *
+from xtuner.registry import BUILDER,DATASETS
 
-from xtuner.registry import BUILDER
 
 # import debugpy
 # debugpy.connect(('127.0.0.1', 5577))
@@ -26,7 +27,7 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
-
+    print(cfg.train_dataloader.dataset)
     tokenizer = BUILDER.build(cfg.tokenizer)
     if cfg.get('framework', 'mmengine').lower() == 'huggingface':
         train_dataset = BUILDER.build(cfg.train_dataset)

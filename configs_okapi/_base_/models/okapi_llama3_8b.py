@@ -1,6 +1,6 @@
 from transformers import AutoModelForCausalLM
 from xtuner.model import OkapiModel
-from xtuner.utils import PROMPT_TEMPLATE
+from xtuner.utils import PROMPT_TEMPLATE,SYSTEM_TEMPLATE
 from mmengine.config import read_base
 with read_base():
     from .all_tokenizers import llama3_8b_path, llama3_8b_path_tokenizer

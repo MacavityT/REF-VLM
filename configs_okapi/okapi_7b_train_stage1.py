@@ -15,7 +15,7 @@ with read_base():
 
 # Data configs
 max_length = int(2048 - (336 / 14)**2)
-batch_size = 32  # per_device
+batch_size = 8  # per_device
 dataloader_num_workers = 5
 
 okapi_dataset = dict(

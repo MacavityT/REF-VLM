@@ -12,6 +12,7 @@ from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
 from ..utils import imfrombytes
 
+
 class QuestionTemplateMixin:
     def __init__(
             self,
@@ -58,6 +59,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 text_path, 
                 image_folder=None,
                 image_info_folder=None, 
+                stage=1,
                 offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
                 enforce_online=False, 
@@ -67,6 +69,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.text_path = text_path
         self.image_folder = image_folder
         self.image_info_folder = image_info_folder
+        self.stage = stage
         self.rng = np.random.default_rng(seed)
         self.enforce_online = enforce_online
         self.offline_processed_text_folder = offline_processed_text_folder
