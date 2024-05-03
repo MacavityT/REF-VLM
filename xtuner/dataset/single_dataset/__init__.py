@@ -11,5 +11,7 @@ from .vcr import VCRDataset, VCRPredDataset
 from .vqav2 import VQAv2Dataset
 from .vqaex import VQAEXDataset
 from .pope import POPEVQADataset
+from .grit import GRITDataset
 from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
+

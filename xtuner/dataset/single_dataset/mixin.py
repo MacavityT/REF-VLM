@@ -4,6 +4,7 @@ import os
 import logging
 import jsonlines
 import numpy as np
+from typing import List
 from mmengine import print_log
 
 from torch.utils.data import Dataset
@@ -31,18 +32,36 @@ class QuestionTemplateMixin:
         assert template_name or template_file, ("assign neither template_name nor template_file")
         if template_name is not None and template_file is not None:
             raise ValueError(f"assign both template_name and template_file:\nstring:{template_name}\nfile:{template_file}")
+        
+        # Aaron: add template_name / template_file could be inputted as List format
         if template_name is not None:
-            self.template_file = dataset_template_path[template_name]
+            if isinstance(template_name,List):
+                self.templates = {}
+                for i,template_name_single in enumerate(template_name):
+                    self.template_file = dataset_template_path[template_name_single]
+                    self.templates[template_name_single] = json.load(open(self.template_file, 'r', encoding='utf8'))
+                    if self.max_dynamic_size is not None:
+                        self.templates[template_name_single] = self.templates[template_name_single][: self.max_dynamic_size]
 
-        self.templates = json.load(open(self.template_file, 'r', encoding='utf8'))
-        if self.max_dynamic_size is not None:
-            self.templates = self.templates[: self.max_dynamic_size]
+                    # sanity check
+                    assert self.placeholders is not None
+                    # because template name is list, placeholders should be list as well
+                    # [(Placeholder1, Placeholder2), (Placeholder3, Placeholder4)]
+                    assert self.placeholders is isinstance(self.placeholders,List)  
+                    for template in self.templates[template_name_single]:
+                        for placeholder in placeholders[i]:
+                            assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
+            else:
+                self.template_file = dataset_template_path[template_name]
+                self.templates = json.load(open(self.template_file, 'r', encoding='utf8'))
+                if self.max_dynamic_size is not None:
+                    self.templates = self.templates[: self.max_dynamic_size]
 
-        # sanity check
-        assert self.placeholders is not None
-        for template in self.templates:
-            for placeholder in placeholders:
-                assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
+                # sanity check
+                assert self.placeholders is not None
+                for template in self.templates:
+                    for placeholder in placeholders:
+                        assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
 
     def get_template(self):
         import random
@@ -105,7 +124,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             os.path.exists(offline_processed_text_folder) and (not enforce_online):
             self.text_data = self.load_offline_text_data(offline_processed_text_folder)
         else:
-            self.text_data = self.get_file_data(text_path)
+            if os.path.isfile(text_path):   # judge whether the input path is a jsonfile or a directory.
+                self.text_data = self.get_file_data(text_path)
             if image_info_folder is not None:
                 self.image_data_info = self.get_file_data(image_info_folder)
                 if isinstance(self.image_data_info, list):
@@ -162,9 +182,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 image = imfrombytes(image_path_abs)
                 width = image.shape[1]
                 height = image.shape[0]
-                
-            item['width'] = width
-            item['height'] = height
+        else:
+            image = imfrombytes(image_path_abs)
+            width = image.shape[1]
+            height = image.shape[0]
+            
+        item['width'] = width
+        item['height'] = height
         return item
 
     def get_template(self):

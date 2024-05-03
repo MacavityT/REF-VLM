@@ -8,6 +8,7 @@ with read_base():
     from .train_vcr_variant import train_vcr_variant
     from .train_vqav2_variant import train_vqav2_variant
     from .train_vqaex_variant import train_vqaex_variant
+    from .train_grit_variant import train_grit_variant
 
 
 train_all_dataset = dict(
@@ -90,4 +91,5 @@ train_all_dataset = dict(
     **train_vcr_variant,
     **train_vqav2_variant,
     **train_vqaex_variant,
+    **train_grit_variant,
 )

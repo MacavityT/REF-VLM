@@ -1,6 +1,6 @@
 gptgen_train_common_cfg = dict(
     type='GPT4Gen',
-    text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_BoxCoT_train.jsonl',
+    text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_BoxCoT_train_modified.jsonl',
     image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
     image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/flickr30k_shape.jsonl',
     stage=2,
