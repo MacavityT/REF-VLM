@@ -18,6 +18,11 @@ from .utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
                     make_inputs_require_grad,
                     prepare_inputs_labels_for_multimodal, traverse_dict)
+from xtuner.utils.constants import (
+    VISUAL_PROMPTS_PLACEHOLDER,
+    VISUAL_REPRESENTATION,
+    VISUAL_REFERENCE
+)
 
 
 class OkapiModel(BaseModel):
@@ -266,9 +271,18 @@ class OkapiModel(BaseModel):
             visual_outputs = self.visual_encoder(
                 data['pixel_values'].to(self.visual_encoder.dtype),
                 output_hidden_states=True)
-            pixel_values = self.projector(
-                visual_outputs.hidden_states[self.visual_select_layer][:, 1:])
-            data['pixel_values'] = pixel_values # [1，3，336，336]
+            selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
+            
+            visual_prompts = None
+            if 'visual_prompts' in data:
+                visual_prompts = data['visual_prompts'].to(self.visual_encoder.dtype)
+
+            pixel_values, visual_prompts = self.projector(selected_feats, visual_prompts)
+            data['pixel_values'] = pixel_values # [b, l, c]
+            data['visual_prompts'] = visual_prompts # [b, q, n, c]
+
+            #TODO: replace into input_ids
+
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
                 data['input_ids'] = data['input_ids'][0][:labels_mask.index(False)].unsqueeze(0)
