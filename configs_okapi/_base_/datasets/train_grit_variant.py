@@ -53,5 +53,12 @@ train_grit_variant = dict(
         template_name=r"flickr30k",
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
+    ),
+    grit_combine = dict(
+        **grit_train_common_cfg, 
+        version='combine', 
+        template_name=["image_cap","DET","Cond_DET","REC","flickr30k"],
+        placeholders=[(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,)],
+        offline_processed_text_folder='',
     )
 )

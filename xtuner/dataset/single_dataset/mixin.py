@@ -26,6 +26,7 @@ class QuestionTemplateMixin:
     ):
         super().__init__(*args, **kwargs)
         self.template_file = template_file
+        self.template_name = template_name
         self.max_dynamic_size = max_dynamic_size
         self.placeholders = placeholders
 
@@ -47,7 +48,7 @@ class QuestionTemplateMixin:
                     assert self.placeholders is not None
                     # because template name is list, placeholders should be list as well
                     # [(Placeholder1, Placeholder2), (Placeholder3, Placeholder4)]
-                    assert self.placeholders is isinstance(self.placeholders,List)  
+                    assert isinstance(self.placeholders,List)  
                     for template in self.templates[template_name_single]:
                         for placeholder in placeholders[i]:
                             assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
