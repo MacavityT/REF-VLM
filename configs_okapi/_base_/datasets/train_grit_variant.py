@@ -3,6 +3,7 @@ from xtuner.utils.constants import (
     BOXES_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
+    OBJS_PLACEHOLDER,
     EXPR_PLACEHOLDER,
     CLASS_PLACEHOLDER
 )
@@ -47,6 +48,13 @@ train_grit_variant = dict(
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
         offline_processed_text_folder='',
     ),
+    grit_g=dict(
+        **grit_train_common_cfg, 
+        version='g', 
+        template_name=r"REG",
+        placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
+        offline_processed_text_folder='',
+    ),
     grit_c_d=dict(
         **grit_train_common_cfg, 
         version='c_d', 
@@ -57,8 +65,8 @@ train_grit_variant = dict(
     grit_combine = dict(
         **grit_train_common_cfg, 
         version='combine', 
-        template_name=["image_cap","DET","Cond_DET","REC","flickr30k"],
-        placeholders=[(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,)],
+        template_name=["image_cap","DET","Cond_DET","REC","REG","flickr30k"],
+        placeholders=[(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,)],
         offline_processed_text_folder='',
     )
 )
