@@ -4,7 +4,7 @@ import json
 import jsonlines
 import numpy as np
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 from functools import partial
 from tqdm import tqdm, trange
 from PIL import Image
@@ -25,6 +25,7 @@ from .utils import (
     boxes_xyxy_expand2square,
     points_xy_expand2square
 )
+from xtuner.utils.constants import SPECIAL_TOKENS
 
 REFORM_DATASET = [
     'SubSet',
@@ -53,19 +54,7 @@ class OkapiDataset(Dataset):
         self.max_length = max_length
         self.shard_process_max_length=int(shard_process_max_length)
         self.pad_image_to_square = pad_image_to_square
-
-        if isinstance(image_processor, dict) or isinstance(
-                image_processor, Config) or isinstance(image_processor,
-                                                       ConfigDict):
-            self.image_processor = BUILDER.build(image_processor)
-        else:
-            self.image_processor = image_processor
-
-        if isinstance(tokenizer, dict) or isinstance(
-                tokenizer, Config) or isinstance(tokenizer, ConfigDict):
-            self.tokenizer = BUILDER.build(tokenizer)
-        else:
-            self.tokenizer = tokenizer
+        self.init_visual_tokenizer(image_processor, tokenizer)
 
         # Build datasets
         print_log("Okapi Datasets Building ...")
@@ -93,7 +82,23 @@ class OkapiDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
-    
+
+    def init_visual_tokenizer(self, image_processor, tokenizer):
+        if isinstance(image_processor, dict) or isinstance(
+                image_processor, Config) or isinstance(image_processor,
+                                                       ConfigDict):
+            self.image_processor = BUILDER.build(image_processor)
+        else:
+            self.image_processor = image_processor
+
+        if isinstance(tokenizer, dict) or isinstance(
+                tokenizer, Config) or isinstance(tokenizer, ConfigDict):
+            self.tokenizer = BUILDER.build(tokenizer)
+        else:
+            self.tokenizer = tokenizer
+
+        self.tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
+
     def build_dataset(self, dataset):
         if isinstance(dataset, list):
             dataset_build_fn = []
@@ -293,6 +298,10 @@ class OkapiDataset(Dataset):
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
         return image
+    
+    def visual_prompts_process(self, visual_prompts: List[torch.FloatTensor]):
+        #taiyan TODO: convert visual prompts to masks(tensor)
+        return visual_prompts
 
     def __getitem__(self, index):
         data_dict = self.data[index]
@@ -314,5 +323,11 @@ class OkapiDataset(Dataset):
                 crop_size = self.image_processor.size
             data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                     crop_size['width'])
+
+        if data_dict.get('visual_prompts', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'visual prompts set, but no image input.'
+            visual_prompts = self.visual_prompts_process(data_dict['visual_prompts'])
+            data_dict['visual_prompts'] = visual_prompts
         return data_dict
 

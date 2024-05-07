@@ -256,10 +256,6 @@ class LLaVAModel(BaseModel):
             return self.predict(data, data_samples)
         elif mode == 'tensor':
             return self._forward(data, data_samples)
-        
-        # TODO: edit by Aaronzhu
-        elif mode == 'generate':
-            return self.model.llm.generate(**data)
         else:
             raise NotImplementedError
 

@@ -10,6 +10,7 @@ import requests
 from PIL import Image
 
 from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
+from xtuner.utils import VISUAL_PROMPT_PLACEHOLDER ,VISUAL_PROMPT_INDEX
 
 import cv2
 import mmengine.fileio as fileio
@@ -91,15 +92,31 @@ def encode_fn(example,
     for single_turn_conversation in example['conversation']:
         input = single_turn_conversation['input']
         if DEFAULT_IMAGE_TOKEN in input and with_image_token:
-            chunk_encode = [
-                tokenizer.encode(chunk, add_special_tokens=False)
-                for chunk in input.split(DEFAULT_IMAGE_TOKEN)
-            ]
+            chunk_encode = []
+            for chunk_image in input.split(DEFAULT_IMAGE_TOKEN):
+                if VISUAL_PROMPT_PLACEHOLDER in chunk_image:
+                    chunk_vpt = [
+                            tokenizer.encode(chunk, add_special_tokens=False)
+                            for chunk in chunk_image.split(VISUAL_PROMPT_PLACEHOLDER)
+                    ]
+                else:
+                    chunk_vpt = tokenizer.encode(chunk_image, add_special_tokens=False)
+                
+                chunk_encode.append(chunk_vpt)
+
             assert len(chunk_encode) == 2
             input_encode = []
-            for idx, cur_chunk_encode in enumerate(chunk_encode):
-                input_encode.extend(cur_chunk_encode)
-                if idx != len(chunk_encode) - 1:
+            for idx_img, cur_chunk_encode in enumerate(chunk_encode):
+                if isinstance(cur_chunk_encode[0], list):
+                    for idx_vpt, cur_chunk_encode_vpt in enumerate(cur_chunk_encode):
+                        input_encode.extend(cur_chunk_encode_vpt)
+                        if idx_vpt != len(cur_chunk_encode) - 1:
+                            input_encode.append(VISUAL_PROMPT_INDEX)
+                    
+                else:
+                    input_encode.extend(cur_chunk_encode)
+                
+                if idx_img != len(chunk_encode) - 1:
                     input_encode.append(IMAGE_TOKEN_INDEX)
         else:
             input_encode = tokenizer.encode(input, add_special_tokens=False)

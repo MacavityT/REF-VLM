@@ -3,6 +3,8 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from xtuner.utils.constants import DEFAULT_PAD_TOKEN_INDEX
     
 # def transform_bbox_2_mask(self, bboxes, image_size, device, data_type=torch.float):
 #     batch_masks = []
@@ -25,6 +27,8 @@ class VPTProcessor:
         self.patch_size = patch_size
         self.vpt_div = vpt_div
 
+    def get_region_features(self, pad_val):
+        return 0
 
     def mask_patch_pooling(self, x, mask):
 
@@ -47,6 +51,28 @@ class VPTProcessor:
         b, q, n, h, w = mask_patches.shape
 
 
+
+        # import torch
+
+        # # 假设你有一个普通的矩阵
+        # M = torch.tensor([[0.0, 0.0, 0.0, 0.0],
+        #                 [0.0, 2.0, 0.0, 0.0],
+        #                 [0.0, 0.0, 0.0, 0.0],
+        #                 [0.0, 0.0, 0.0, 3.0]])
+
+        # # 提取非零元素的索引和值
+        # indices = torch.nonzero(M)
+        # values = M[indices[:, 0], indices[:, 1]]
+
+        # # 使用提取的索引和值创建稀疏张量
+        # M_sparse = torch.sparse_coo_tensor(indices.t(), values, M.size())
+
+        # print(M_sparse)
+
+
+
+
+
         mask_pooled_x = torch.einsum(
             "bcnhw,bqnhw->bqnc",
             x,
@@ -54,23 +80,26 @@ class VPTProcessor:
         )
         return mask_pooled_x
 
-    def preprocess(self, x, regions):
+    def __call__(self, x, regions):
         """
         To extract the region feartures based on the region mask.
         Args:
             x(`tensor`): [B, L, C], image feature -> [batch_size, 256, 1024]
-            regions(`List[List]`): [B, Q, H, W], mask
+            regions(`List[List[tensor]]`): [B, Q, H, W], mask
         Returns:
-            region features: [B, S, H]
-            return the region features based on the region mask.
+            region features: [B, Q, N, C]
+            return the mask patch pooling features based on the region mask.
         """
         b, l, c = x.shape
         w = h = int(math.sqrt(x.shape[1]))
         assert x.size(0) == len(regions)
 
-        region_masks = regions.unsqueeze(1)  # b, 1, h, w
+        # conver regions list to tensor
+        region_feats = self.get_region_features(regions) # b, q, h, w
+
+
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
-        region_feats = self.mask_patch_pooling(x, region_masks)  # b, q, n, c
+        region_feats = self.mask_patch_pooling(x, region_feats)  # b, q, n, c
         return region_feats
 
 

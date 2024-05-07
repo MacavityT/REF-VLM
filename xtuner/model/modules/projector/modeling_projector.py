@@ -34,10 +34,11 @@ class ProjectorModel(PreTrainedModel):
         self.model = nn.Sequential(*modules)
 
         # visual prompt encoding
-        self.vpt_processor = VPTProcessor(**config.vpt)
-        self.num_vpt_patches = config.vpt['vpt_div'] ** 2 # 9 = (336/14/8)^2
-        self.vpt_position_embedding = nn.Embedding(self.num_vpt_patches, self.visual_hidden_size)
-        self.register_buffer("vpt_position_ids", torch.arange(self.num_vpt_patches).expand((1, -1)), persistent=False)
+        if 'vpt' in config:
+            self.vpt_processor = VPTProcessor(**config.vpt)
+            self.num_vpt_patches = config.vpt['vpt_div'] ** 2 # 9 = (336/14/8)^2
+            self.vpt_position_embedding = nn.Embedding(self.num_vpt_patches, self.visual_hidden_size)
+            self.register_buffer("vpt_position_ids", torch.arange(self.num_vpt_patches).expand((1, -1)), persistent=False)
 
     def enable_input_require_grads(self):
 
@@ -56,16 +57,10 @@ class ProjectorModel(PreTrainedModel):
         else:
             layer_outputs = self.model(x)
         return layer_outputs
-
-    def visual_prompt_forward(self, x, regions):
-        vpt_feats = self.vpt_processor(x, regions)
-        if self.gradient_checkpointing and self.training:
-            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, vpt_feats)
-        else:
-            layer_outputs = self.model(vpt_feats)
-        return layer_outputs
-    
+   
     def forward(self, x, regions):
-        visual_outputs = self.visual_forward(x)
-        vpt_outputs = self.visual_prompt_forward(x, regions)
-        return visual_outputs, vpt_outputs
+        if self.gradient_checkpointing and self.training:
+            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
+        else:
+            layer_outputs = self.model(x)
+        return layer_outputs

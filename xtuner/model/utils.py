@@ -9,8 +9,7 @@ from peft import PeftType
 from torch import nn
 from transformers import PreTrainedModel
 
-from xtuner.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX
-
+from xtuner.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX, VISUAL_PROMPT_INDEX
 
 def set_obj_dtype(d):
     for key, value in d.items():
@@ -281,6 +280,24 @@ def prepare_inputs_labels_for_multimodal(
         'labels': new_labels
     }
 
+
+def prepare_inputs_labels_for_multimodal_vpt(
+        llm: PreTrainedModel,
+        input_ids: torch.LongTensor = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        past_key_values: Optional[List[torch.FloatTensor]] = None,
+        labels: Optional[torch.LongTensor] = None,
+        visual_prompts: Optional[List[List[torch.FloatTensor]]] = None):
+    if visual_prompts is None:
+        return {
+            'input_ids': input_ids,
+            'position_ids': position_ids,
+            'attention_mask': attention_mask,
+            'past_key_values': past_key_values,
+            'inputs_embeds': None,
+            'labels': labels
+        }
 
 def make_inputs_require_grad(module, input, output):
     output.requires_grad_(True)
