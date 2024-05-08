@@ -34,6 +34,13 @@ class CaptionDataset(MInstrDataset):
                 }
             ]
         }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'caption','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
         return ret
     
 

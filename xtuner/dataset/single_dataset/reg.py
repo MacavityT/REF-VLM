@@ -45,6 +45,14 @@ class REGDataset(MInstrDataset):
                 }
             ]
         }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'reg_detection','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
+
         return ret
 
 

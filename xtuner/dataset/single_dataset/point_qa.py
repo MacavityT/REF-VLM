@@ -51,6 +51,7 @@ class Point_QA_local(MInstrDataset):
             assert False
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
 
+
         ret = {
             'image': image,
             'target': {
@@ -70,6 +71,12 @@ class Point_QA_local(MInstrDataset):
                 }
             ]
         }
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
         return ret
 
 
@@ -123,6 +130,7 @@ class Point_QA_twice(MInstrDataset):
             assert False
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
 
+        
         ret = {
             'image': image,
             'target': {
@@ -142,6 +150,12 @@ class Point_QA_twice(MInstrDataset):
                 }
             ]
         }
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
         return ret
 
 
@@ -211,6 +225,18 @@ class V7W_POINT(MInstrDataset):
                 }
             ]
         }
+
+        if self.stage == 2:
+            if ret['conversations'][1]['boxes_seq'] is not None:
+                unit = 'box'
+            if ret['conversations'][1]['points_seq'] is not None:
+                unit = 'point'
+            value = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':[unit]}]
+            system = {
+                        'from':'system',
+                        'value': value,
+                    },  
+            ret['conversations'].insert(0,system)
         return ret
 
     # def shuffle_boxes(self, bboxes, query_boxes_seq, answer_boxes_seq):

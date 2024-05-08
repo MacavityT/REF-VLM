@@ -33,40 +33,69 @@ class GPT4Gen(MInstrDataset):
             question = question.replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
         if self.stage == 2:
             question = question.replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
-            caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+            question = question.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+            boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in raw['question_boxes_seq']]
+            question = question.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
         query_boxes_seq = raw['question_boxes_seq']
 
         if self.version == 'a':
             final_answer = raw['answer']
             answer_boxes_seq = None
+            values = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]
         elif self.version == 'c':
             final_answer = raw['cot_with_ans'].replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, '')
             answer_boxes_seq = None
+            values = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]
         elif self.version == 'bc':
             if self.stage == 1:
                 final_answer = raw['cot_with_ans'].replace(PHRASE_ST_PLACEHOLDER, '').replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
             if self.stage == 2:
-                final_answer = raw['cot_with_ans'].replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
-                caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+                final_answer = raw['cot_with_ans'].replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")    
+                final_answer = final_answer.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+                boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in raw['answer_boxes_seq']]
+                final_answer = final_answer.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
             answer_boxes_seq = raw['answer_boxes_seq']
+            values = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
         else:
             assert False
 
-        ret = {
-            'image': image,
-            'target': {'boxes': boxes},
-            'conversations': [
-                {
-                    'from': 'human',
-                    'value': final_question,
-                    'boxes_seq': query_boxes_seq,
-                },
-                {
-                    'from': 'gpt',
-                    'value': final_answer,
-                    'boxes_seq': answer_boxes_seq,
-                }
-            ]
-        }
+        if self.stage == 1:
+            ret = {
+                'image': image,
+                'target': {'boxes': boxes},
+                'conversations': [
+                    {
+                        'from': 'human',
+                        'value': final_question,
+                        'boxes_seq': query_boxes_seq,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': final_answer,
+                        'boxes_seq': answer_boxes_seq,
+                    }
+                ]
+            }
+        if self.stage == 2:
+            ret = {
+                'image': image,
+                'target': {'boxes': boxes},
+                'conversations': [
+                    {
+                        'from':'system',
+                        'value':values,
+                    },
+                    {
+                        'from': 'human',
+                        'value': final_question,
+                        'boxes_seq': query_boxes_seq,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': final_answer,
+                        'boxes_seq': answer_boxes_seq,
+                    }
+                ]
+            }
         return ret

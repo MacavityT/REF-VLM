@@ -7,6 +7,7 @@ import random
 from torch.utils.data import Dataset
 from pycocotools.mask import decode
 from .mixin import MInstrDataset
+from ..utils import de_norm_box_xyxy
 
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
@@ -36,9 +37,10 @@ def flatten(element,all_concat=False):
 
 @DATASETS.register_module()
 class GRITDataset(MInstrDataset):
-    def __init__(self, *args,version, **kwargs):
+    def __init__(self, *args,version, length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
+        self.length = length
         assert os.path.isdir(self.text_path), "GRIT dataset is composed of list of json files, not a single json!"
         self.text_path_file = os.listdir(self.text_path)
 
@@ -53,13 +55,27 @@ class GRITDataset(MInstrDataset):
         template = self.templates[template_name]
         return random.choice(template)
     
-    def random_select(self,conversations,length=None):
+    def random_select(self,conversations,length=None,system_value=None):
         if length is None:
             length = len(conversations)
+
+        shuffle_num = [i for i in range(len(conversations))]
+        random.shuffle(shuffle_num)
+
         rand_num = random.randint(1,length)
-        random.shuffle(conversations)
+        conversations = [conversations[i] for i in shuffle_num]
+        
+        if system_value is not None:
+            assert len(conversations) == len(system_value), \
+                "the length of conversations and system_values should be the same!"
+            conversations = conversations[:rand_num]
+            system_value = [system_value[i] for i in shuffle_num]
+            system_value = system_value[:rand_num]
+            return conversations,system_value
+        
         conversations = conversations[:rand_num]
         return conversations
+    
     
     def get_caption(self,ret,caption):
         try:
@@ -78,6 +94,7 @@ class GRITDataset(MInstrDataset):
                     }
                 ]
         ret['conversations'] = conversations
+        ret['values'] = [{'task':{'task_name':'caption','element':['sentence'],'use_unit':False}}]
         return ret
 
     def get_detection(self,ret,noun_chunks,caption):
@@ -114,11 +131,10 @@ class GRITDataset(MInstrDataset):
                     {
                         'from': 'gpt',
                         'value': caption_new,
-                        'box_seq': box_seq
+                        'boxes_seq': box_seq
                     }
                 ]
-        
-        ret['target'] = {'boxes':boxes}
+        ret['values'] = [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]
         ret['conversations'] = conversations
         return ret
     
@@ -137,7 +153,7 @@ class GRITDataset(MInstrDataset):
             if cls_name in cls_names:
                 previous_seq = cls_names.index(cls_name)
                 conversations[previous_seq][1]['value'] += BOXES_PLACEHOLDER  # add one <boxes> in the conversation
-                conversations[previous_seq][1]['box_seq'][0].append(i)
+                conversations[previous_seq][1]['boxes_seq'][0].append(i)
 
             else:
                 try:
@@ -147,7 +163,7 @@ class GRITDataset(MInstrDataset):
                 question = question.replace(CLASS_PLACEHOLDER,cls_name)
                 box_seq = [i]
                 conversation_human = {'from': 'human','value': question}
-                conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'box_seq': [box_seq]}
+                conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'boxes_seq': [box_seq]}
 
                 single_conversation = [conversation_human,conversation_gpt]
                 cls_names.append(cls_name)
@@ -155,8 +171,9 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
+
+        ret['values'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
         conversations = flatten(conversations)
-        ret['target'] = {'boxes':boxes,'class_names':cls_names}
         ret['conversations'] = conversations
         return ret 
 
@@ -203,7 +220,7 @@ class GRITDataset(MInstrDataset):
                 # find box_seq for expr in class_names
                 for cls_name in cls_box_dict.keys():
                     if cls_name in expr_name:
-                        conversation_gpt['box_seq'] = cls_box_dict[cls_name]
+                        conversation_gpt['boxes_seq'] = cls_box_dict[cls_name]
                         break
 
                 expr_names.append(expr_name)
@@ -212,6 +229,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
+        ret['values'] = [{'task':{'task_name':'rec_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
         return ret
@@ -251,12 +269,12 @@ class GRITDataset(MInstrDataset):
 
             if len(box_seq_exp) > 1:
                 for id in box_seq_exp:
-                    conversation_human = {'from': 'human','value': question,'box_seq':[[id]]}
+                    conversation_human = {'from': 'human','value': question,'boxes_seq':[[id]]}
                     conversation_gpt = {'from': 'gpt', 'value': expr_name}
                     conversations.append([conversation_human,conversation_gpt])
 
             else:
-                conversation_human = {'from': 'human','value': question,'box_seq':[box_seq_exp]}
+                conversation_human = {'from': 'human','value': question,'boxes_seq':[box_seq_exp]}
                 conversation_gpt = {'from': 'gpt', 'value': expr_name}
                 conversations.append([conversation_human,conversation_gpt])
 
@@ -264,6 +282,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
+        ret['values'] = [{'task':{'task':{'task_name':'reg_detection','element':['sentence'],'use_unit':False}}} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
 
@@ -295,7 +314,7 @@ class GRITDataset(MInstrDataset):
                 cls_names.append(cls_name)
         
         
-        ret['target'] = {'boxes': boxes}
+        ret['values'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
         ret['conversations'] = [
                 {
                     'from': 'human',
@@ -309,17 +328,18 @@ class GRITDataset(MInstrDataset):
             ]
         return ret
         
-    def make_conversations(self,name,ret,noun_chunks,ref_exps,caption):
+    def make_conversations(self,name,ret,noun_chunks,ref_exps,caption,length):
+        
         if name == 'image_cap':
             ret = self.get_caption(ret,caption)
         elif name == 'DET':
             ret = self.get_detection(ret,noun_chunks,caption)
         elif name == 'Cond_DET':
-            ret = self.get_cond_detection(ret,noun_chunks,caption,random_select=True)
+            ret = self.get_cond_detection(ret,noun_chunks,caption,random_select=True,length=length)
         elif name == 'REC':
-            ret = self.get_rec(ret,ref_exps,noun_chunks,caption,random_select=True)
+            ret = self.get_rec(ret,ref_exps,noun_chunks,caption,random_select=True,length=length)
         elif name == 'REG':
-            ret = self.get_reg(ret,ref_exps,noun_chunks,caption,random_select=True)
+            ret = self.get_reg(ret,ref_exps,noun_chunks,caption,random_select=True,length=length)
         elif name == 'flickr30k':
             ret = self.get_caption_detection(ret,noun_chunks,caption)
 
@@ -389,7 +409,7 @@ class GRITDataset(MInstrDataset):
                     {
                         'from': 'gpt',
                         'value': caption,
-                        'box_seq': box_seq
+                        'boxes_seq': box_seq
                     }
                 ]
             }
@@ -411,13 +431,13 @@ class GRITDataset(MInstrDataset):
                 if cls_name in cls_names:
                     previous_seq = cls_names.index(cls_name)
                     conversations[previous_seq*2+1]['value'] += BOXES_PLACEHOLDER  # add one <boxes> in the conversation
-                    conversations[previous_seq*2+1]['box_seq'][0].append(i)
+                    conversations[previous_seq*2+1]['boxes_seq'][0].append(i)
 
                 else:
                     question = question.replace(CLASS_PLACEHOLDER,cls_name)
                     box_seq = [i]
                     conversation_human = {'from': 'human','value': question}
-                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'box_seq': [box_seq]}
+                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'boxes_seq': [box_seq]}
 
                     cls_names.append(cls_name)
                     conversations.append(conversation_human)
@@ -443,13 +463,13 @@ class GRITDataset(MInstrDataset):
                 if expr_name in expr_names:
                     previous_seq = expr_names.index(expr_name)
                     conversations[previous_seq*2+1]['value'] += BOXES_PLACEHOLDER  # add one <boxes> in the conversation
-                    conversations[previous_seq*2+1]['box_seq'][0].append(i)
+                    conversations[previous_seq*2+1]['boxes_seq'][0].append(i)
 
                 else:
                     question = question.replace(EXPR_PLACEHOLDER,expr_name)
                     box_seq = [i]
                     conversation_human = {'from': 'human','value': question}
-                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'box_seq': [box_seq]}
+                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'boxes_seq': [box_seq]}
 
                     expr_names.append(expr_name)
                     conversations.append(conversation_human)
@@ -474,7 +494,7 @@ class GRITDataset(MInstrDataset):
                 boxes.append(box)
 
                 question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
-                conversation_human = {'from': 'human','value': question,'box_seq':[[i]]}
+                conversation_human = {'from': 'human','value': question,'boxes_seq':[[i]]}
                 conversation_gpt = {'from': 'gpt', 'value': expr_name}
 
                 conversations.append(conversation_human)
@@ -531,19 +551,26 @@ class GRITDataset(MInstrDataset):
             boxes = []
             for i,noun_chunk in enumerate(noun_chunks):
                 cls_name = annotations['caption'][int(noun_chunk[0]):int(noun_chunk[1])]
-                box = noun_chunk[2:-1]
+                box = list(de_norm_box_xyxy(noun_chunk[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 assert len(box) == 4
                 boxes.append(box)
-
+            ret['target'] = {'boxes':boxes}
+            
             all_conversations = []
+            all_system_values = []
             for template_name in self.template_name:
-                ret_for_single_task = self.make_conversations(template_name,ret,noun_chunks,ref_exps,caption)
+                ret_for_single_task = self.make_conversations(template_name,ret,noun_chunks,ref_exps,caption,length=self.length)
                 conversations = ret_for_single_task['conversations']
                 all_conversations.append(conversations)
+                all_system_values.append(ret_for_single_task['values'])
 
-            all_conversations = self.random_select(all_conversations)
-            ret['target'] = {'boxes':boxes}
-            ret['conversations'] = flatten(all_conversations)
+            all_conversations,all_system_values = self.random_select(all_conversations,system_value=all_system_values)
+            
+            ret['conversations'] = [{'from':'system','value':flatten(all_system_values)}]
+            ret['conversations'] += flatten(all_conversations,all_concat=True)
+
+            if 'values' in ret.keys():
+                 del ret['values']
 
         return ret
 

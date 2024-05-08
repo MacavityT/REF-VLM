@@ -47,23 +47,48 @@ class RECDataset(MInstrDataset):
         image = self.get_image(img_path)
         question = self.get_template().replace(EXPR_PLACEHOLDER, expr)
 
-        ret = {
-            'image': image,
-            'target': {
-                'boxes': [bbox],
-            },
-            'conversations': [
-                {
-                    'from': 'human',
-                    'value': question,
+        if self.stage == 1:
+            ret = {
+                'image': image,
+                'target': {
+                    'boxes': [bbox],
                 },
-                {
-                    'from': 'gpt',
-                    'value': f'Answer: {BOXES_PLACEHOLDER} .',
-                    'boxes_seq': [[0]],
-                }
-            ]
-        }
+                'conversations': [
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': f'Answer: {BOXES_PLACEHOLDER}.',
+                        'boxes_seq': [[0]],
+                    }
+                ]
+            }
+
+
+        if self.stage == 2:
+            ret = {
+                'image': image,
+                'target': {
+                    'boxes': [bbox],
+                },
+                'conversations': [
+                    {
+                        'from':'system',
+                        'value':[{'task':{'task_name':'rec_detection','element':[],'use_unit':True},'unit':['box']}],
+                    },
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': f'Answer: {BOXES_PLACEHOLDER}.',
+                        'boxes_seq': [[0]],
+                    }
+                ]
+            }
         return ret
 
 

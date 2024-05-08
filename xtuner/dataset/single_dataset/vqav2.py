@@ -40,4 +40,11 @@ class VQAv2Dataset(MInstrDataset):
                 },
             ]
         }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)        
         return ret
