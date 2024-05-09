@@ -49,8 +49,8 @@ def merge(packs, *, prefixs, postfixs=None):
 
 @DATASETS.register_module()
 class VCRDataset(MInstrDataset):
-    def __init__(self, *args, version, **kwargs):
-        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
+    def __init__(self, *args, version, map_placeholders, **kwargs):
+        super().__init__(*args, **kwargs,placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         assert version in [
             'q-a', 'q-ra',
@@ -61,6 +61,7 @@ class VCRDataset(MInstrDataset):
         # for evaluation:
         # A: 'qc-a' 'qc-ra' 'qc-rac'
         # R: 'qac-r' 'qc-a-qc-r'
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index, force_answer_label=None, force_rationale_label=None):
         offline_item = super().__getitem__(index)
@@ -100,7 +101,7 @@ class VCRDataset(MInstrDataset):
                 merge([question_pack], prefixs=['QUESTION:'], ),
                 answer_gold_pack,
             ]
-            values = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'q-ra':
             final_packs = [
                 merge([question_pack], prefixs=['QUESTION:'], ),

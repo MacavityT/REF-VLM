@@ -28,9 +28,12 @@ class QuestionTemplateMixin:
         self.template_file = template_file
         self.template_name = template_name
         self.max_dynamic_size = max_dynamic_size
-        self.placeholders = placeholders
+        self.template_placeholders = placeholders
 
-        assert template_name or template_file, ("assign neither template_name nor template_file")
+        # assert template_name or template_file, ("assign neither template_name nor template_file")
+        if template_name is None and template_file is None:
+            print_log("Warning: No template, please check whether the dataset has valid questions!")
+
         if template_name is not None and template_file is not None:
             raise ValueError(f"assign both template_name and template_file:\nstring:{template_name}\nfile:{template_file}")
         
@@ -45,12 +48,12 @@ class QuestionTemplateMixin:
                         self.templates[template_name_single] = self.templates[template_name_single][: self.max_dynamic_size]
 
                     # sanity check
-                    assert self.placeholders is not None
+                    assert self.template_placeholders is not None
                     # because template name is list, placeholders should be list as well
                     # [(Placeholder1, Placeholder2), (Placeholder3, Placeholder4)]
-                    assert isinstance(self.placeholders,List)  
+                    assert isinstance(self.template_placeholders,List)  
                     for template in self.templates[template_name_single]:
-                        for placeholder in placeholders[i]:
+                        for placeholder in self.template_placeholders[i]:
                             assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
             else:
                 self.template_file = dataset_template_path[template_name]
@@ -59,9 +62,9 @@ class QuestionTemplateMixin:
                     self.templates = self.templates[: self.max_dynamic_size]
 
                 # sanity check
-                assert self.placeholders is not None
+                assert self.template_placeholders is not None
                 for template in self.templates:
-                    for placeholder in placeholders:
+                    for placeholder in self.template_placeholders:
                         assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
 
     def get_template(self):
@@ -89,6 +92,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.text_path = text_path
         self.image_folder = image_folder
         self.image_info_folder = image_info_folder
+        self.map_placeholders = None
         self.stage = stage
         self.rng = np.random.default_rng(seed)
         self.enforce_online = enforce_online
@@ -152,10 +156,13 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         return json.loads(self.text_data[index])
     
     def get_file_data(self, file_path):
-        file_data = []
-        with open(file_path, 'r', encoding='utf8') as f:
-            for line in f:
-                file_data.append(line)
+        if file_path.endswith('.json'):
+            file_data = json.load(open(file_path))
+        elif file_path.endswith('.jsonl'):
+            file_data = []
+            with open(file_path, 'r', encoding='utf8') as f:
+                for line in f:
+                    file_data.append(line)
         return file_data
 
     def get_image(self, image_path):

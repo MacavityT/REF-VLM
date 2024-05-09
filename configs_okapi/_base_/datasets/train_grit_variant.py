@@ -15,7 +15,7 @@ grit_train_common_cfg = dict(
     text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/annotations',
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/GRIT/img',
     stage=2,
-    image_info_folder= None,
+    image_info_folder=None,
     offline_processed_image_folder = '',
 )
 
@@ -24,6 +24,7 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='c', 
         template_name=r"image_cap",
+        map_placeholders=None,
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
     ),
@@ -31,6 +32,9 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='d', 
         template_name=r"DET",
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        ), 
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
     ),
@@ -38,6 +42,9 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='cond_d', 
         template_name=r"Cond_DET",
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        ), 
         placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
         offline_processed_text_folder='',        
     ),
@@ -45,6 +52,9 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='r', 
         template_name=r"REC",
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        ), 
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
         offline_processed_text_folder='',
     ),
@@ -52,6 +62,9 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='g', 
         template_name=r"REG",
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        ), 
         placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
         offline_processed_text_folder='',
     ),
@@ -59,6 +72,9 @@ train_grit_variant = dict(
         **grit_train_common_cfg, 
         version='c_d', 
         template_name=r"flickr30k",
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        ), 
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
     ),
@@ -67,7 +83,23 @@ train_grit_variant = dict(
         version='combine',
         length=2,
         template_name=["image_cap","DET","Cond_DET","REC","REG","flickr30k"],
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),         
         placeholders=[(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,)],
         offline_processed_text_folder='',
-    )
+    ),
+    grit_combine_offline = dict(
+        type='GRITOfflineDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/grit_new.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/GRIT/img',
+        stage=2,
+        version='combine_off',
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),         
+        offline_processed_text_folder='',
+    ),
 )

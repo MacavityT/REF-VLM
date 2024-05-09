@@ -228,6 +228,7 @@ class FlickrDataset(MInstrDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+        self.map_placeholders = {'output':[BOXES_PLACEHOLDER]}
 
 
     def __getitem__(self, index):

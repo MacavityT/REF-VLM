@@ -37,12 +37,13 @@ def flatten(element,all_concat=False):
 
 @DATASETS.register_module()
 class GRITDataset(MInstrDataset):
-    def __init__(self, *args,version, length=None,**kwargs):
+    def __init__(self, *args,version, map_placeholders,length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.length = length
         assert os.path.isdir(self.text_path), "GRIT dataset is composed of list of json files, not a single json!"
         self.text_path_file = os.listdir(self.text_path)
+        self.map_placeholders = map_placeholders
 
     def get_file_data(self, path):
         with open(path, 'r') as f:
@@ -94,7 +95,7 @@ class GRITDataset(MInstrDataset):
                     }
                 ]
         ret['conversations'] = conversations
-        ret['values'] = [{'task':{'task_name':'caption','element':['sentence'],'use_unit':False}}]
+        ret['values'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]
         return ret
 
     def get_detection(self,ret,noun_chunks,caption):
@@ -229,7 +230,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
-        ret['values'] = [{'task':{'task_name':'rec_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
+        ret['values'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
         return ret
@@ -282,7 +283,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
-        ret['values'] = [{'task':{'task':{'task_name':'reg_detection','element':['sentence'],'use_unit':False}}} for _ in range(len(conversations))]
+        ret['values'] = [{'task':{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
 
@@ -575,5 +576,17 @@ class GRITDataset(MInstrDataset):
         return ret
 
 
+@DATASETS.register_module()
+class GRITOfflineDataset(MInstrDataset):
+    def __init__(self, *args,version, map_placeholders,**kwargs):
+        super().__init__(*args, **kwargs)
+        self.version = version
+        assert self.version == 'combine_off'
+        assert os.path.isfile(self.text_path), "GRIT post process dataset is a single json file!"
+        self.map_placeholders = map_placeholders
+    
+    def __getitem__(self, index):
 
+        item = self.get_raw_item(index)
 
+        return item

@@ -10,6 +10,7 @@ with read_base():
     from .train_vqaex_variant import train_vqaex_variant
     from .train_grit_variant import train_grit_variant
     from .train_grand_variant import train_grand_variant
+    from .train_ospery_variant import train_osprey_variant
 
 
 train_all_dataset = dict(
@@ -80,10 +81,15 @@ train_all_dataset = dict(
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/llava_sbu_558k_shape.jsonl',
     ),
     instruct=dict(
-        type='InstructDataset',
-        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/llava_instruct_150k.jsonl',
+        type='InstructMixDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter.json',
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
-        add_coco_prefix=True,
+    ),
+    cocointeract=dict(
+        type='COCOInteract',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/coco_interactive_train_psalm.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/train2017',
+        template_name=r'REG_SEG',
     ),
     **train_gqa_variant,
     **train_clevr_variant,
@@ -94,4 +100,5 @@ train_all_dataset = dict(
     **train_vqaex_variant,
     **train_grit_variant,
     **train_grand_variant,
+    **train_osprey_variant,
 )

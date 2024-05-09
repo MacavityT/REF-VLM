@@ -12,10 +12,11 @@ from .mixin import MInstrDataset
 
 @DATASETS.register_module()
 class GPT4Gen(MInstrDataset):
-    def __init__(self, *args, version, **kwargs):
+    def __init__(self, *args, version,map_placeholders, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         assert version in ['a', 'c', 'bc']
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)

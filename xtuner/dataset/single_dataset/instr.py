@@ -26,3 +26,36 @@ class InstructDataset(MInstrDataset):
             'conversations': conversations,
         }
         return ret
+
+@DATASETS.register_module()
+class InstructMixDataset(MInstrDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
+        item = self.text_data[index]
+        img_path = item['image']
+        conversations = item['conversations']
+        assert len(conversations) % 2 == 0, "Conversations are incomplete!"
+        image = self.get_image(img_path)
+        
+        ret = {
+            'image': image,
+            'conversations': conversations,
+        }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations)//2)],
+                    }
+            ret['conversations'].insert(0,system)
+
+
+        return ret
+
+

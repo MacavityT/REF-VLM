@@ -33,6 +33,7 @@ logging.basicConfig(
 class RECDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, EXPR_PLACEHOLDER))
+        self.map_placeholders = {'output':[BOXES_PLACEHOLDER]}
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -76,7 +77,7 @@ class RECDataset(MInstrDataset):
                 'conversations': [
                     {
                         'from':'system',
-                        'value':[{'task':{'task_name':'rec_detection','element':[],'use_unit':True},'unit':['box']}],
+                        'value':[{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']}],
                     },
                     {
                         'from': 'human',
