@@ -228,6 +228,8 @@ class FlickrDataset(MInstrDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+        self.map_placeholders = {'output':[BOXES_PLACEHOLDER]}
+
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -239,30 +241,51 @@ class FlickrDataset(MInstrDataset):
         caption = item['sentence']
 
         image = self.get_image(img_path)
+        question = self.get_template()
+
         if self.stage == 1:
             caption = caption.replace(PHRASE_ST_PLACEHOLDER, "").replace(PHRASE_ED_PLACEHOLDER, BOXES_PLACEHOLDER)
+            ret = {
+                'image': image,
+                'target': {'boxes': item['boxes']},  # 'seg' /
+                'conversations': [
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': caption,
+                        'boxes_seq': item['boxes_seq'],
+                    }
+                ]
+            }
+
         if self.stage == 2:
             caption = caption.replace(PHRASE_ED_PLACEHOLDER,f"{PHRASE_ED_PLACEHOLDER}{BOXES_PLACEHOLDER}")
             caption = caption.replace(PHRASE_ST_PLACEHOLDER,PHRASE_ST_PLACEHOLDER_STAGE2).replace(PHRASE_ED_PLACEHOLDER,PHRASE_ED_PLACEHOLDER_STAGE2)
+            boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in item['boxes_seq']]
+            caption = caption.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
 
-        question = self.get_template()
-
-        ret = {
-            'image': image,
-            'target': {'boxes': item['boxes']},  # 'seg' /
-            'conversations': [
-                {
-                    'from': 'human',
-                    'value': question,
-                },
-                {
-                    'from': 'gpt',
-                    'value': caption,
-                    'boxes_seq': item['boxes_seq'],
-                }
-            ]
-        }
-
+            ret = {
+                'image': image,
+                'target': {'boxes': item['boxes']},  # 'seg' /
+                'conversations': [
+                    {
+                        'from': 'system',
+                        'value':[{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
+                    },
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': caption,
+                        'boxes_seq': item['boxes_seq'],
+                    }
+                ]
+            }
         
         return ret
 

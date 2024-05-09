@@ -49,8 +49,8 @@ def merge(packs, *, prefixs, postfixs=None):
 
 @DATASETS.register_module()
 class VCRDataset(MInstrDataset):
-    def __init__(self, *args, version, **kwargs):
-        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
+    def __init__(self, *args, version, map_placeholders, **kwargs):
+        super().__init__(*args, **kwargs,placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         assert version in [
             'q-a', 'q-ra',
@@ -61,6 +61,7 @@ class VCRDataset(MInstrDataset):
         # for evaluation:
         # A: 'qc-a' 'qc-ra' 'qc-rac'
         # R: 'qac-r' 'qc-a-qc-r'
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index, force_answer_label=None, force_rationale_label=None):
         offline_item = super().__getitem__(index)
@@ -100,36 +101,43 @@ class VCRDataset(MInstrDataset):
                 merge([question_pack], prefixs=['QUESTION:'], ),
                 answer_gold_pack,
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'q-ra':
             final_packs = [
                 merge([question_pack], prefixs=['QUESTION:'], ),
                 merge([rationale_gold_pack, answer_gold_pack], prefixs=['', '']),
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qc-a':
             final_packs = [
                 merge([question_pack, answer_choices_pack], prefixs=['QUESTION:', '\nOPTIONS:'], postfixs=['', 'You should decide on the best choice and output the corresponding letter.']),
                 answer_choice,
             ]
+            values = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
         elif version == 'qc-ra':
             final_packs = [
                 merge([question_pack, answer_choices_pack], prefixs=['QUESTION:', '\nOPTIONS:'], postfixs=['', 'You should decide on the best choice and output the corresponding letter.']),
                 merge([rationale_gold_pack, answer_choice], prefixs=['', '']),
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qc-rac':
             final_packs = [
                 merge([question_pack, answer_choices_pack], prefixs=['QUESTION:', '\nOPTIONS:'], postfixs=['', 'You should decide on the best choice and output the corresponding letter.']),
                 merge([rationale_gold_pack, answer_gold_pack, answer_choice], prefixs=['', '', '']),
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qa-r':
             final_packs = [
                 merge([question_pack, answer_gold_pack], prefixs=['QUESTION:', '\nANSWER:'], postfixs=['', 'You should explain the reason for the above answer.']),
                 rationale_gold_pack,
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qac-r':
             final_packs = [
                 merge([question_pack, answer_gold_pack, rationale_choices_pack], prefixs=['QUESTION:', '\nANSWER:', '\nRATIONALE OPTIONS:'], postfixs=['', '', 'You should decide on the best choice that explains the above answer and output the corresponding letter.']),
                 rationale_choice,
             ]
+            values = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
         elif version == 'q-a-q-r':
             final_packs = [
                 merge([question_pack], prefixs=['QUESTION:'], ),
@@ -137,6 +145,7 @@ class VCRDataset(MInstrDataset):
                 ('You should explain the reason for the above answer.', ()),
                 rationale_gold_pack,
             ]
+            values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qc-a-qc-r':
             final_packs = [
                 merge([question_pack, answer_choices_pack], prefixs=['QUESTION:', '\nOPTIONS:'], postfixs=['', 'You should decide on the best choice and output the corresponding letter.']),
@@ -144,19 +153,27 @@ class VCRDataset(MInstrDataset):
                 merge([rationale_choices_pack], prefixs=['RATIONALE OPTIONS:'], postfixs=['You should decide on the best choice that explains the above answer and output the corresponding letter.']),
                 rationale_choice,
             ]
+            values = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
         else:
             assert False
 
         conversations = []
         roles = ['human', 'gpt']
         for idx, pack in enumerate(final_packs):
+            value = pack[0]
+            boxes_seq = pack[1]
+            if self.stage == 2:
+                boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in boxes_seq]
+                value = value.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
             conversations.append({
                 'from': roles[idx % 2],
-                'value': pack[0],
-                'boxes_seq': pack[1],
+                'value': value,
+                'boxes_seq': boxes_seq,
             })
         conversations[0]['value'] = self.get_template().replace(QUESTION_PLACEHOLDER, conversations[0]['value'])
 
+        if self.stage == 2:
+            conversations.insert(0,{'from':'system','value':[values for _ in range(len(conversations)//2)]})
         ret = {
             'image': image,
             'target': {'boxes': boxes},

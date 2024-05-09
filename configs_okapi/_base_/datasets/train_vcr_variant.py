@@ -1,3 +1,5 @@
+from xtuner.utils.constants import BOXES_PLACEHOLDER
+
 vcr_train_common_cfg = dict(
     type='VCRDataset',
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_train.jsonl',
@@ -10,54 +12,87 @@ train_vcr_variant = dict(
     vcr_q_a=dict(
         **vcr_train_common_cfg, 
         version='q-a', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a',
     ),
     vcr_q_ra=dict(
         **vcr_train_common_cfg, 
         version='q-ra', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_ra'
     ),
     vcr_qc_a=dict(
         **vcr_train_common_cfg, 
         version='qc-a', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a'
     ),
     vcr_qc_ra=dict(
         **vcr_train_common_cfg, 
         version='qc-ra', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_ra'
     ),
     vcr_qc_rac=dict(
         **vcr_train_common_cfg, 
         version='qc-rac', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_rac'
     ),
     vcr_qa_r=dict(
         **vcr_train_common_cfg, 
         version='qa-r', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qa_r'
     ),
     vcr_q_a_q_r=dict(
         **vcr_train_common_cfg, 
         version='q-a-q-r', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+            output=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a_q_r'
     ),
     vcr_qac_r=dict(
         **vcr_train_common_cfg, 
         version='qac-r', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qac_r'
     ),
     vcr_qc_a_qc_r=dict(
         **vcr_train_common_cfg, 
         version='qc-a-qc-r', 
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a_qc_r'
     ),

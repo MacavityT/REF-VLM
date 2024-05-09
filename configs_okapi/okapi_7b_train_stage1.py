@@ -6,16 +6,16 @@ with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336
     from ._base_.datasets.okapi_train_dataset_stage1 import *
     from ._base_.datasets.okapi_val_dataset_stage1 import *
-    # from ._base_.models.okapi_vicuna_7b import *
+    from ._base_.models.okapi_vicuna_7b import *
     # from ._base_.models.okapi_llama3_8b import *
-    from ._base_.models.okapi_mistral_7b import *
+    # from ._base_.models.okapi_mistral_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
 
 # Data configs
 max_length = int(2048 - (336 / 14)**2)
-batch_size = 8  # per_device
+batch_size = 32  # per_device
 dataloader_num_workers = 5
 
 okapi_dataset = dict(

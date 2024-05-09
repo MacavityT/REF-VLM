@@ -14,11 +14,12 @@ from .mixin import MInstrDataset
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class Point_QA_local(MInstrDataset):
-    def __init__(self, *args, version='p', qbp_p_prob=0.5, **kwargs):
+    def __init__(self, *args, map_placeholders, version='p', qbp_p_prob=0.5, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         assert version in ['b', 'p', 'bp']
         self.version = version
         self.qbp_p_prob = qbp_p_prob
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -51,6 +52,7 @@ class Point_QA_local(MInstrDataset):
             assert False
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
 
+
         ret = {
             'image': image,
             'target': {
@@ -70,13 +72,19 @@ class Point_QA_local(MInstrDataset):
                 }
             ]
         }
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
         return ret
 
 
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class Point_QA_twice(MInstrDataset):
-    def __init__(self, *args, version='gq-p', bp_p_prob=0.5, **kwargs):
+    def __init__(self, *args, map_placeholders,version='gq-p', bp_p_prob=0.5, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         self.bp_p_prob = bp_p_prob
@@ -85,6 +93,7 @@ class Point_QA_twice(MInstrDataset):
         assert rtype in ['b', 'p', 'bp']
         self.qtype = qtype
         self.rtype = rtype
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -123,6 +132,7 @@ class Point_QA_twice(MInstrDataset):
             assert False
         final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
 
+        
         ret = {
             'image': image,
             'target': {
@@ -142,17 +152,24 @@ class Point_QA_twice(MInstrDataset):
                 }
             ]
         }
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
         return ret
 
 
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class V7W_POINT(MInstrDataset):
-    def __init__(self, *args, version, do_shuffle_choice=True, **kwargs):
+    def __init__(self, *args, version, map_placeholders, do_shuffle_choice=True, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         self.do_shuffle_choice = do_shuffle_choice
         assert version in ['p', 'b']
+        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -211,6 +228,18 @@ class V7W_POINT(MInstrDataset):
                 }
             ]
         }
+
+        if self.stage == 2:
+            if ret['conversations'][1]['boxes_seq'] is not None:
+                unit = 'box'
+            if ret['conversations'][1]['points_seq'] is not None:
+                unit = 'point'
+            value = [{'task':{'task_name':'gcg_detection','element':['sentence','phrase'],'use_unit':True},'unit':[unit]}]
+            system = {
+                        'from':'system',
+                        'value': value,
+                    },  
+            ret['conversations'].insert(0,system)
         return ret
 
     # def shuffle_boxes(self, bboxes, query_boxes_seq, answer_boxes_seq):

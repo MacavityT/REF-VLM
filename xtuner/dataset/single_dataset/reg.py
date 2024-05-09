@@ -13,6 +13,7 @@ from .mixin import MInstrDataset
 class REGDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, placeholders=(IMAGE_PLACEHOLDER, OBJS_PLACEHOLDER), **kwargs)
+        self.map_placeholders = {'input':[BOXES_PLACEHOLDER]}
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -45,6 +46,14 @@ class REGDataset(MInstrDataset):
                 }
             ]
         }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    }
+            ret['conversations'].insert(0,system)
+
         return ret
 
 

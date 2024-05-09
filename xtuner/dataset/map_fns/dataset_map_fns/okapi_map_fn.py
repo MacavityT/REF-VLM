@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Tuple, Union
 from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
     POINTS_PLACEHOLDER, 
-    MASK_PLACEHOLDER,
+    MASKS_PLACEHOLDER,
     DEFAULT_IMAGE_TOKEN
     )
 from xtuner.dataset.utils import norm_box_xyxy, norm_point_xyxy, de_norm_box_xyxy
