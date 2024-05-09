@@ -4,31 +4,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from xtuner.utils.constants import DEFAULT_PAD_TOKEN_INDEX
-    
-# def transform_bbox_2_mask(self, bboxes, image_size, device, data_type=torch.float):
-#     batch_masks = []
-#     for bbox in bboxes:
-#         mask = torch.zeros((image_size, image_size), dtype=data_type).to(device)
-#         x1, y1, x2, y2 = bbox
-#         # x2, y2 = int(x1 + w), int(y1 + h)
-#         mask[int(x1):int(x2),int(y1):int(y2)] = 1
-#         batch_masks.append(mask)
-#     return torch.stack(batch_masks, dim=0)
-
 class VPTProcessor:
-    def __init__(self, in_dim=1024, out_dim=4096, patch_size=14, image_size=224, vpt_div=9):
+    def __init__(self, vpt_grid=(3, 3)):
         """
         Args:
-            image_size: the image size of ViT when inputing images
-            patch_size: the patch size of ViT when encoding images
+            vpt_grid: shape of visual prompts grid
         """
-        self.image_size = image_size
-        self.patch_size = patch_size
-        self.vpt_div = vpt_div
+        self.vpt_grid = vpt_grid
 
-    def get_region_features(self, pad_val):
-        return 0
+    def pad_regions(self, regions, dtype):
+        region_count = []
+        max_h, max_w = 0, 0
+        for regions_in_batch in regions:
+            if regions_in_batch is None:
+                region_count.append(0)
+                continue
+            assert isinstance(regions_in_batch, list)
+            region_count.append(len(regions_in_batch))
+            for region in regions_in_batch:
+                assert isinstance(region, torch.Tensor)
+                h, w = region.shape
+                if h > max_h: max_h = h
+                if w > max_w: max_w = w
+
+        batch_size = len(regions)
+        max_num = max(region_count)
+        tensor_regions = torch.zeros((batch_size, max_num, max_h, max_w), dtype=dtype)
+        for batch_idx, num in enumerate(region_count):
+            if num == 0: continue
+            regions_in_batch = regions[batch_idx]
+            for region_index, region in enumerate(regions_in_batch):
+                tensor_regions[batch_idx, region_index, ...] = region.to(dtype)
+            
+        return tensor_regions, region_count
 
     def mask_patch_pooling(self, x, mask):
 
@@ -39,40 +47,16 @@ class VPTProcessor:
         denorm = mask_patches.sum(dim=(-1, -2), keepdim=True) + 1e-8
         normed_mask = mask / denorm
 
-        div = self.vpt_div
         b, c, h ,w = x.shape
         b, q, h, w = mask.shape
-        n = div**2
+        grid_h, grid_w = self.vpt_grid
+        n = grid_h * grid_w
 
-        x_patches = x.reshape(b, c, n, h//div, w//div)
-        mask_patches = normed_mask.reshape(b, q, n, h//div, w//div)
+        x_patches = x.reshape(b, c, n, h // grid_h, w // grid_w)
+        mask_patches = normed_mask.reshape(b, q, n, h // grid_h, w // grid_w)
 
         b, c, n, h, w = x_patches.shape
         b, q, n, h, w = mask_patches.shape
-
-
-
-        # import torch
-
-        # # 假设你有一个普通的矩阵
-        # M = torch.tensor([[0.0, 0.0, 0.0, 0.0],
-        #                 [0.0, 2.0, 0.0, 0.0],
-        #                 [0.0, 0.0, 0.0, 0.0],
-        #                 [0.0, 0.0, 0.0, 3.0]])
-
-        # # 提取非零元素的索引和值
-        # indices = torch.nonzero(M)
-        # values = M[indices[:, 0], indices[:, 1]]
-
-        # # 使用提取的索引和值创建稀疏张量
-        # M_sparse = torch.sparse_coo_tensor(indices.t(), values, M.size())
-
-        # print(M_sparse)
-
-
-
-
-
         mask_pooled_x = torch.einsum(
             "bcnhw,bqnhw->bqnc",
             x,
@@ -80,12 +64,12 @@ class VPTProcessor:
         )
         return mask_pooled_x
 
-    def __call__(self, x, regions):
+    def __call__(self, x, regions, return_dict=True):
         """
         To extract the region feartures based on the region mask.
         Args:
             x(`tensor`): [B, L, C], image feature -> [batch_size, 256, 1024]
-            regions(`List[List[tensor]]`): [B, Q, H, W], mask
+            regions(`List[List[torch.Tensor]]`): mask
         Returns:
             region features: [B, Q, N, C]
             return the mask patch pooling features based on the region mask.
@@ -94,13 +78,19 @@ class VPTProcessor:
         w = h = int(math.sqrt(x.shape[1]))
         assert x.size(0) == len(regions)
 
-        # conver regions list to tensor
-        region_feats = self.get_region_features(regions) # b, q, h, w
-
-
+        # pad regions list to tensor
+        regions, vpt_count = self.pad_regions(regions, x.dtype) # b, q, h, w
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
-        region_feats = self.mask_patch_pooling(x, region_feats)  # b, q, n, c
-        return region_feats
+        vpt_feats = self.mask_patch_pooling(x, regions)  # b, q, n, c
+
+        if return_dict:
+            result = dict(
+                vpt_feats = vpt_feats,
+                vpt_count = vpt_count
+            )
+        else:
+            result = (vpt_feats, vpt_count)
+        return result
 
 
 

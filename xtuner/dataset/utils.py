@@ -5,6 +5,7 @@ import io
 from io import BytesIO
 from itertools import chain
 
+import torch
 import numpy as np
 import requests
 from PIL import Image
@@ -387,3 +388,19 @@ def norm_point_xyxy(point, *, w, h):
     norm_y = max(0.0, min(y / h, 1.0))
     point = norm_x, norm_y
     return point
+
+
+def point2mask(points, image_size, device, data_type=torch.float):
+    pass
+
+
+def bbox2mask(bboxes, image_size, device, data_type=torch.float):
+    batch_masks = []
+    for bbox in bboxes:
+        mask = torch.zeros((image_size, image_size), dtype=data_type).to(device)
+        x1, y1, x2, y2 = bbox
+        # x2, y2 = int(x1 + w), int(y1 + h)
+        mask[int(x1):int(x2),int(y1):int(y2)] = 1
+        batch_masks.append(mask)
+    return torch.stack(batch_masks, dim=0)
+

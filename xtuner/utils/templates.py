@@ -1,5 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.config import ConfigDict
+from .constants import (
+    BOT_TOKEN, EOT_TOKEN,
+    BOU_TOKEN, EOU_TOKEN
+)
 
 # - Turn 0: SYSTEM + INSTRUCTION, [output + SUFFIX], SEP
 # - Turn 1: INSTRUCTION, [output + SUFFIX], SEP
@@ -89,6 +93,14 @@ PROMPT_TEMPLATE = ConfigDict(
                 'intelligence assistant. The assistant gives '
                 'helpful, detailed, and polite answers to the '
                 'user\'s questions. {system}\n '),
+        INSTRUCTION=('USER: {input} ASSISTANT:'),
+        SEP='\n'),
+    okapi=dict(
+        SYSTEM=('You are an AI assistant.\n'
+                'Capabilities and tools that you can possess.\n'
+                '- Image and text understanding: Give according answer to the user\'s questions.\n'
+                '- Visual tasks decode: \n'
+                '- Unknown visual tasks fit \n{system}\n'),
         INSTRUCTION=('USER: {input} ASSISTANT:'),
         SEP='\n'),
     deepseek_coder=dict(

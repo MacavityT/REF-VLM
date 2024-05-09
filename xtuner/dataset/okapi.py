@@ -22,6 +22,8 @@ from .huggingface import process_hf_dataset
 from .utils import (
     imfrombytes,
     expand2square,
+    bbox2mask,
+    point2mask,
     boxes_xyxy_expand2square,
     points_xy_expand2square
 )
@@ -258,6 +260,11 @@ class OkapiDataset(Dataset):
                     },
                     "conversations": [
                         {
+                            'from': 'system',
+                            'value': [dict(task=xxx, unit=xxx)],
+                        
+                        },
+                        {
                             'from': 'human',
                             'value': 'What is the relation between the two dogs <boxes> and the man <boxes> in the image <image> ?',
                             'boxes_seq': [[0, 1], [2], ],
@@ -301,6 +308,11 @@ class OkapiDataset(Dataset):
     
     def visual_prompts_process(self, visual_prompts: List[torch.FloatTensor]):
         #taiyan TODO: convert visual prompts to masks(tensor)
+        if 'box':
+            res = bbox2mask()
+        elif 'point':
+            res = point2mask()
+        
         return visual_prompts
 
     def __getitem__(self, index):
