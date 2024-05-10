@@ -146,7 +146,7 @@ train_grand_variant = dict(
         **grand_train_common_cfg, 
         version='mix', 
         use_floating_objects=True,
-        length=2,
+        max_conv_length=2,
         template_name=["image_cap","DET","SEG","Cond_DET","Cond_SEG","REC","RES","REG","REG_SEG","flickr30k","flickr30k_SEG"],
         map_placeholders=dict(
             input=[BOXES_PLACEHOLDER,MASKS_PLACEHOLDER],

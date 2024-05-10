@@ -11,6 +11,7 @@ with read_base():
     from .train_grit_variant import train_grit_variant
     from .train_grand_variant import train_grand_variant
     from .train_ospery_variant import train_osprey_variant
+    from .train_interact_variant import train_interact_variant
 
 
 train_all_dataset = dict(
@@ -85,12 +86,7 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter.json',
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
     ),
-    cocointeract=dict(
-        type='COCOInteract',
-        text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/coco_interactive_train_psalm.json',
-        image_folder=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/train2017',
-        template_name=r'REG_SEG',
-    ),
+
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,
@@ -101,4 +97,5 @@ train_all_dataset = dict(
     **train_grit_variant,
     **train_grand_variant,
     **train_osprey_variant,
+    **train_interact_variant,
 )

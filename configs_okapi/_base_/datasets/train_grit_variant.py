@@ -81,7 +81,7 @@ train_grit_variant = dict(
     grit_combine = dict(
         **grit_train_common_cfg, 
         version='combine',
-        length=2,
+        max_conv_length=2,
         template_name=["image_cap","DET","Cond_DET","REC","REG","flickr30k"],
         map_placeholders=dict(
             input=[BOXES_PLACEHOLDER],

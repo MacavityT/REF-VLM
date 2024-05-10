@@ -27,11 +27,11 @@ from xtuner.utils.constants import (
 @DATASETS.register_module()
 class GranDDataset(MInstrDataset):
 
-    def __init__(self, *args,version,map_placeholders,use_floating_objects=True,length=None,**kwargs):
+    def __init__(self, *args,version,map_placeholders,use_floating_objects=True,max_conv_length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.use_floating_objects = use_floating_objects
-        self.length = length
+        self.length = max_conv_length
         assert os.path.isdir(self.text_path), "GRIT dataset is composed of list of json files, not a single json!"
         self.text_path_file = os.listdir(self.text_path)
         self.map_placeholders = map_placeholders
@@ -839,8 +839,8 @@ class GranDDataset(MInstrDataset):
             ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length)
             return ret
         
-
-
+    def __len__(self):
+        return len(self.text_path_file)
 
     def __getitem__(self, index):
         text_file = self.text_path_file[index]
