@@ -27,11 +27,33 @@ PHRASE_ED_PLACEHOLDER_STAGE2 = '</Phrase>'
 CLASS_PLACEHOLDER = '<cls>'
 REGION_PLACEHOLDER = '<region>'
 
-# encode
-VISUAL_PROMPTS_PLACEHOLDER = '<VPT>'
+""" Okapi constants: 
+1. "xx_TOKEN" means special token and will be added into "added_tokens.json", denote as "<xxx>";
+2. "xx_PLACEHOLDER" means placeholder and will be replace with processed features, denote as "[xxx]"
+"""
 
-# decode 
-DEFAULT_BOI_TOKEN = "<i>" #TODO: MUST?
-DEFAULT_EOI_TOKEN = "</i>"
-VISUAL_REPRESENTATION = '<VRT>'
-VISUAL_REFERENCE = '<REF>'
+# system: unit also used in decode process
+BOT_TOKEN = "<Task>"
+EOT_TOKEN = "</Task>"
+BOU_TOKEN = "<Unit>"
+EOU_TOKEN = "</Unit>"
+
+# encode
+VISUAL_PROMPT_PLACEHOLDER = '[VPT]'
+VISUAL_PROMPT_INDEX = -300
+
+# decode
+BOV_TOKEN = "<v>" # VRT start
+EOV_TOKEN = "</v>" # VRT end
+VISUAL_REPRESENTATION_TOKEN = '<VRT>'
+VISUAL_REFERENCE_TOKEN = '<REF>'
+
+SPECIAL_TOKENS = [
+    BOT_TOKEN, EOT_TOKEN,
+    BOU_TOKEN, EOU_TOKEN,
+    BOV_TOKEN, EOV_TOKEN, 
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
+    VISUAL_REPRESENTATION_TOKEN,
+    VISUAL_REFERENCE_TOKEN
+]

@@ -9,8 +9,7 @@ from peft import PeftType
 from torch import nn
 from transformers import PreTrainedModel
 
-from xtuner.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX
-
+from xtuner.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX, VISUAL_PROMPT_INDEX
 
 def set_obj_dtype(d):
     for key, value in d.items():
@@ -134,7 +133,9 @@ def prepare_inputs_labels_for_multimodal(
         attention_mask: Optional[torch.Tensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         labels: Optional[torch.LongTensor] = None,
-        pixel_values: Optional[torch.FloatTensor] = None):
+        pixel_values: Optional[torch.FloatTensor] = None,
+        vpt_count: Optional[List[int]] = None,
+        vpt_feats: Optional[List[List[torch.FloatTensor]]] = None):
     if pixel_values is None:
         return {
             'input_ids': input_ids,
@@ -144,6 +145,11 @@ def prepare_inputs_labels_for_multimodal(
             'inputs_embeds': None,
             'labels': labels
         }
+    
+    assert not (vpt_count is None) ^ (vpt_feats is None)
+    if vpt_feats:
+        assert vpt_feats.size(0) == len(input_ids)
+        assert vpt_feats(0) == len(vpt_count)
 
     _labels = labels
     _position_ids = position_ids
@@ -172,8 +178,15 @@ def prepare_inputs_labels_for_multimodal(
     new_labels = []
     cur_image_idx = 0
     for batch_idx, cur_input_ids in enumerate(input_ids):
+        num_vpt = (cur_input_ids == VISUAL_PROMPT_INDEX).sum()
+        cur_vpt_feats = None
+        if vpt_feats:
+            assert vpt_count[batch_idx] == num_vpt, 'vpt count not equal to placeholder num'
+            cur_vpt_feats = vpt_feats[batch_idx] # [q, n, c]
+
         num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
         if num_images == 0:
+            if vpt_count: assert vpt_count[batch_idx] == 0
             cur_pixel_values = pixel_values[cur_image_idx]
             cur_inputs_embeds_1 = llm.get_input_embeddings()(cur_input_ids)
             cur_inputs_embeds = torch.cat(
@@ -183,19 +196,27 @@ def prepare_inputs_labels_for_multimodal(
             cur_image_idx += 1
             continue
 
-        image_token_indices = [-1] + torch.where(
-            cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist() + [
-                cur_input_ids.shape[0]
-            ]
+        image_token_indices = torch.where(
+            cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist()
+        vpt_token_indices = torch.where(
+            cur_input_ids == VISUAL_PROMPT_INDEX)[0].tolist()
+        
+        all_indices = image_token_indices + vpt_token_indices
+        vpt_flag = [False] * len(image_token_indices) + [True] * len(vpt_token_indices)
+        sorted_id = sorted(zip(all_indices, vpt_flag))
+        all_indices = [id[0] for id in sorted_id]
+        vpt_flag = [id[1] for id in sorted_id]
+
+        traverse_indices = [-1] + all_indices + [cur_input_ids.shape[0]]
         cur_input_ids_noim = []
         cur_labels = labels[batch_idx]
         cur_labels_noim = []
-        for i in range(len(image_token_indices) - 1):
-            cur_input_ids_noim.append(cur_input_ids[image_token_indices[i] +
-                                                    1:image_token_indices[i +
-                                                                          1]])
-            cur_labels_noim.append(cur_labels[image_token_indices[i] +
-                                              1:image_token_indices[i + 1]])
+        for i in range(len(traverse_indices) - 1):
+            start = traverse_indices[i] + 1
+            end = traverse_indices[i + 1]
+            cur_input_ids_noim.append(cur_input_ids[start:end])
+            cur_labels_noim.append(cur_labels[start:end])
+
         split_sizes = [x.shape[0] for x in cur_labels_noim]
         cur_inputs_embeds = llm.get_input_embeddings()(
             torch.cat(cur_input_ids_noim))
@@ -204,18 +225,25 @@ def prepare_inputs_labels_for_multimodal(
         cur_new_inputs_embeds = []
         cur_new_labels = []
 
-        for i in range(num_images + 1):
+        cur_vpt_idx = 0
+        for i in range(len(all_indices) + 1):
             cur_new_inputs_embeds.append(cur_inputs_embeds_no_im[i])
             cur_new_labels.append(cur_labels_noim[i])
-            if i < num_images:
-                cur_pixel_values = pixel_values[cur_image_idx]
+            if i == len(all_indices): break # append last slice and break
+
+            vpt_append = vpt_flag[i]
+            if vpt_append:
+                feats_slice = cur_vpt_feats[cur_vpt_idx] # [n, c]
+                cur_vpt_idx += 1
+            else:
+                feats_slice = pixel_values[cur_image_idx]
                 cur_image_idx += 1
-                cur_new_inputs_embeds.append(cur_pixel_values)
-                cur_new_labels.append(
-                    torch.full((cur_pixel_values.shape[0], ),
-                               IGNORE_INDEX,
-                               device=cur_labels.device,
-                               dtype=cur_labels.dtype))
+            cur_new_inputs_embeds.append(feats_slice)
+            cur_new_labels.append(
+                torch.full((feats_slice.shape[0], ),
+                            IGNORE_INDEX,
+                            device=cur_labels.device,
+                            dtype=cur_labels.dtype))
 
         cur_new_inputs_embeds = torch.cat(cur_new_inputs_embeds)
         cur_new_labels = torch.cat(cur_new_labels)

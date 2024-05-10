@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
+from mmengine.logging import print_log
 from peft import get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
 
@@ -16,14 +17,9 @@ from .modules import ProjectorConfig, ProjectorModel, dispatch_modules
 from .modules.dispatch import SUPPORT_FLASH1, SUPPORT_FLASH2
 from .utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
-                    make_inputs_require_grad,
-                    prepare_inputs_labels_for_multimodal, traverse_dict)
-from xtuner.utils.constants import (
-    VISUAL_PROMPTS_PLACEHOLDER,
-    VISUAL_REPRESENTATION,
-    VISUAL_REFERENCE
-)
-
+                    make_inputs_require_grad, traverse_dict,
+                    prepare_inputs_labels_for_multimodal)
+from xtuner.utils.constants import SPECIAL_TOKENS
 
 class OkapiModel(BaseModel):
 
@@ -40,11 +36,12 @@ class OkapiModel(BaseModel):
                  llm_lora=None,
                  visual_encoder_lora=None,
                  use_activation_checkpointing=True,
-                 max_position_embeddings=None,
-                 max_new_tokens=600):
+                 cutoff_len=None,
+                 max_position_embeddings=None):
         super().__init__()
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
+        self.cutoff_len = cutoff_len
         with LoadWoInit():
             if isinstance(llm, dict):
                 llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
@@ -52,6 +49,8 @@ class OkapiModel(BaseModel):
             self.llm = self._build_from_cfg_or_module(llm)
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder)
+            if tokenizer is not None:
+                self._prepare_tokenizer(tokenizer)
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector)
@@ -108,12 +107,14 @@ class OkapiModel(BaseModel):
 
         self._is_init = True
 
-        # default generation config
+    def _prepare_tokenizer(self, tokenizer):
+        self.tokenizer = BUILDER.build(tokenizer)
+        self.tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
+        self.llm.resize_token_embeddings(len(self.tokenizer))
 
-        if tokenizer is not None:
-            self.tokenizer = BUILDER.build(tokenizer)
+        # generate config
         default_generation_kwargs = dict(
-            max_new_tokens=max_new_tokens,
+            max_new_tokens=512,
             do_sample=True,
             temperature=0.1,
             top_p=0.75,
@@ -123,9 +124,8 @@ class OkapiModel(BaseModel):
             if self.tokenizer.pad_token_id is not None else
             self.tokenizer.eos_token_id)
         
-        self.max_new_tokens = max_new_tokens
+        self.max_new_tokens = 512
         self.gen_config = GenerationConfig(**default_generation_kwargs)
-
         self.stop_criteria = StoppingCriteriaList()
 
     def _parse_lora_config(self, lora_config):
@@ -272,16 +272,19 @@ class OkapiModel(BaseModel):
                 data['pixel_values'].to(self.visual_encoder.dtype),
                 output_hidden_states=True)
             selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
-            
-            visual_prompts = None
+
             if 'visual_prompts' in data:
-                visual_prompts = data['visual_prompts'].to(self.visual_encoder.dtype)
+                visual_prompts = self.projector.vpt_processor(
+                    selected_feats,
+                    regions = data['visual_prompts'], 
+                    return_dict = True
+                )
+                vpt_feats = self.projector.forward_vpt(visual_prompts['vpt_feats'])
+                data['vpt_feats'] = vpt_feats
+                data['vpt_count'] = visual_prompts['vpt_count']
 
-            pixel_values, visual_prompts = self.projector(selected_feats, visual_prompts)
-            data['pixel_values'] = pixel_values # [b, l, c]
-            data['visual_prompts'] = visual_prompts # [b, q, n, c]
-
-            #TODO: replace into input_ids
+            pixel_values = self.projector(selected_feats)
+            data['pixel_values'] = pixel_values
 
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
@@ -289,17 +292,18 @@ class OkapiModel(BaseModel):
                 data['labels'] = None
                 data['attention_mask'] = None
                 data['position_ids'] = None
+            
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
+            if len(data['inputs_embeds'].shape[1]) > self.cutoff_len:
+                data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
+                data['labels'] = data['labels'][:, :self.cutoff_len]
+                data['position_ids'] = data['position_ids'][:, :self.cutoff_len]
+                data['attention_mask'] = data['attention_mask'][:, :self.cutoff_len]
 
         if mode == 'loss':
             return self.compute_loss(data, data_samples)
-
-        # TODO: Aaron: 重写一下predict的mode，调用generate方法
         elif mode == 'predict':
-
-            return self.predict(data,data_samples)
-
-            # return self.predict(data, data_samples)
+            return self.predict(data, data_samples)
         elif mode == 'tensor':
             return self._forward(data, data_samples)
         else:
@@ -312,7 +316,7 @@ class OkapiModel(BaseModel):
         return outputs
     
     # TODO： Aaron add
-    def predict(self,data,data_samples=None):
+    def predict(self, data, data_samples=None):
 
         generate_ids = self.llm.generate(
                 **data,
@@ -332,6 +336,10 @@ class OkapiModel(BaseModel):
 
     def compute_loss(self, data, data_samples=None):
         outputs = self.llm(**data)
+
+        #taiyan TODO: add decoder loss 部分
+        hidden_states = outputs.hidden_states
+
         loss_dict = {'loss': outputs.loss}
         return loss_dict
 

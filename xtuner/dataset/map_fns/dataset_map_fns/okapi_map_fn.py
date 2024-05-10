@@ -145,12 +145,14 @@ def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
         ret.append(bboxes)
     return ret
 
-def okapi_mask_map_fn(example):
-    pass
-
 def okapi_map_fn(example):
     okapi_box_map_fn(example)
     okapi_point_map_fn(example)
     res = llava_map_fn(example)
+    #TODO: 修改 llava map fn， 加 assert check length/2
+    return res
+
+def okapi_map_fn_stage2(example):
+    res = example
 
     return res
