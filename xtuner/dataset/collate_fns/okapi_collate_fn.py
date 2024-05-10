@@ -15,7 +15,7 @@ def okapi_collate_fn(instances: Sequence[Dict],
         return_hf_format, 
         use_varlen_attn)
     if return_hf_format:
-        pass
+        data_dict = collate_results
     else:
         data_dict = collate_results['data']
     has_vpt = any(inst.get('visual_prompts') is not None for inst in instances)

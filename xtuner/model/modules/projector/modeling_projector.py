@@ -69,9 +69,10 @@ class ProjectorModel(PreTrainedModel):
         self.model = nn.Sequential(*modules)
 
         # visual prompt encoding
-        if 'vpt_config' in config:
-            self.vpt_processor = VPTProcessor(**config.vpt_config)
-            self.num_vpt_patches = config.vpt_config['vpt_grid'][0] * config.vpt_config['vpt_grid'][1]
+        vpt_config = getattr(config, 'vpt_config', None)
+        if vpt_config:
+            self.vpt_processor = VPTProcessor(**vpt_config)
+            self.num_vpt_patches = vpt_config['vpt_grid'][0] * vpt_config['vpt_grid'][1]
             self.vpt_position_embedding = nn.Embedding(self.num_vpt_patches, self.visual_hidden_size)
             self.register_buffer("vpt_position_ids", torch.arange(self.num_vpt_patches).expand((1, -1)), persistent=False)
 
