@@ -71,8 +71,8 @@ class OkapiDataset(Dataset):
             #taiyan TODO: modify save offline dataset process to multi-thread real-time, avoiding use 'process_hf_dataset'
             if not save_offline_dataset:
                 print_log("Okapi Datasets PreTokenize Processing ...")
-                self.data_list = self.dataset_process()
-                self.data = TorchConcatDataset(self.data_list)
+                data_list = self.dataset_process()
+                self.data = TorchConcatDataset(data_list)
                 print_log("Okapi Datasets PreTokenize Process Success.")
             else:
                 print_log("Datasets build success, call function 'save_offline_dataset' to save.")
@@ -91,7 +91,7 @@ class OkapiDataset(Dataset):
                 isinstance(template_map_fn, Config) or \
                 isinstance(template_map_fn, ConfigDict):
                 self.template_map_fn = BUILDER.build(template_map_fn)
-            
+            self.data = TorchConcatDataset(self.dataset)
             print_log("'pretokenize' is set to False, getitem and map_fn real-time.")
 
 
@@ -306,7 +306,8 @@ class OkapiDataset(Dataset):
     def __getitem__(self, index):
         data_dict = self.data[index]
 
-        if not self.pretokenize:
+        # self.pretokenize = Flase or dataset offline loaded
+        if ['input_ids'] not in data_dict.keys():
             # add keys: 'conversation', 'input_ids', 'labels'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))

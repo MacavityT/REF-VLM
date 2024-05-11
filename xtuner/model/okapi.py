@@ -13,7 +13,11 @@ from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
 from xtuner.utils import IGNORE_INDEX
-from .modules import ProjectorConfig, ProjectorModel, dispatch_modules
+from .modules import (
+    ProjectorConfig, ProjectorModel,
+    VPTEncoderConfig, VPTEncoderModel,
+    dispatch_modules
+    )
 from .modules.dispatch import SUPPORT_FLASH1, SUPPORT_FLASH2
 from .utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
@@ -26,7 +30,8 @@ class OkapiModel(BaseModel):
     def __init__(self,
                  llm,
                  visual_encoder,
-                 visual_decoder,
+                 visual_decoder=None,
+                 vpt_encoder=None,
                  projector=None,
                  tokenizer=None,
                  freeze_llm=False,
@@ -71,6 +76,9 @@ class OkapiModel(BaseModel):
                 visual_encoder)
             #taiyan TODO: 增加 visual decoder 初始化
             # self.visual_decoder = 
+            if vpt_encoder is not None:
+                self.vpt_encoder = self._build_from_cfg_or_module(
+                    vpt_encoder)
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector)
@@ -81,8 +89,22 @@ class OkapiModel(BaseModel):
             projector_config = ProjectorConfig(
                 visual_hidden_size=self.visual_encoder.config.hidden_size,
                 llm_hidden_size=self.llm.config.hidden_size,
-                depth=projector_depth)
+                depth=projector_depth
+            )
             self.projector = ProjectorModel(projector_config).to(
+                self.visual_encoder.dtype)
+        if vpt_encoder is None:
+            image_size = self.visual_encoder.config.image_size
+            patch_size = self.visual_encoder.config.patch_size
+            vis_feats_len = (image_size // patch_size) ** 2
+            num_patches = 9
+            vpt_encoder_config = VPTEncoderConfig(
+                vis_feats_len=vis_feats_len,
+                mask_patch_len=vis_feats_len//num_patches,
+                visual_hidden_size=self.visual_encoder.config.hidden_size,
+                strategy='embedding'
+            )
+            self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
 
         if self.freeze_llm:
@@ -105,6 +127,7 @@ class OkapiModel(BaseModel):
                 self.visual_encoder.get_input_embeddings(
                 ).register_forward_hook(make_inputs_require_grad)
             self.projector.enable_input_require_grads()
+            self.vpt_encoder.enable_input_require_grads()
 
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
@@ -166,6 +189,7 @@ class OkapiModel(BaseModel):
     def activation_checkpointing_enable(self):
         self.llm.gradient_checkpointing_enable()
         self.visual_encoder.gradient_checkpointing_enable()
+        self.vpt_encoder.gradient_checkpointing_enable()
         self.projector.gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
@@ -280,12 +304,12 @@ class OkapiModel(BaseModel):
             selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
 
             if 'visual_prompts' in data:
-                visual_prompts = self.projector.vpt_processor(
+                visual_prompts = self.vpt_encoder(
                     selected_feats,
                     regions = data['visual_prompts'], 
                     return_dict = True
                 )
-                vpt_feats = self.projector.forward_vpt(visual_prompts['vpt_feats'])
+                vpt_feats = self.projector(visual_prompts['vpt_feats'])
                 data['vpt_feats'] = vpt_feats
                 data['vpt_count'] = visual_prompts['vpt_count']
 

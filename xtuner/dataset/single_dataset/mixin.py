@@ -194,7 +194,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             image = imfrombytes(image_path_abs)
             width = image.shape[1]
             height = image.shape[0]
-            
+     
         item['width'] = width
         item['height'] = height
         return item
@@ -209,6 +209,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 'path': '/path/to/image', # str
                 'width': 512, # int
                 'height': 512, # int 
+                'pixel_values': np.array
             },
             'target': {
                 # xmin, ymin, xmax, ymax
