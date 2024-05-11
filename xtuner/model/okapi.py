@@ -26,10 +26,12 @@ class OkapiModel(BaseModel):
     def __init__(self,
                  llm,
                  visual_encoder,
+                 visual_decoder,
                  projector=None,
                  tokenizer=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
+                 freeze_projector=False,
                  visual_select_layer=-2,
                  pretrained_pth=None,
                  projector_depth=2,
@@ -41,16 +43,34 @@ class OkapiModel(BaseModel):
         super().__init__()
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
+        self.freeze_projector = freeze_projector
         self.cutoff_len = cutoff_len
         with LoadWoInit():
             if isinstance(llm, dict):
                 llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
 
             self.llm = self._build_from_cfg_or_module(llm)
+            self.tokenizer = self._prepare_tokenizer(tokenizer)
+            self.llm.resize_token_embeddings(len(self.tokenizer))
+            # generate config
+            default_generation_kwargs = dict(
+                max_new_tokens=512,
+                do_sample=True,
+                temperature=0.1,
+                top_p=0.75,
+                top_k=40,
+                eos_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.pad_token_id
+                if self.tokenizer.pad_token_id is not None else
+                self.tokenizer.eos_token_id)
+            self.max_new_tokens = 512
+            self.gen_config = GenerationConfig(**default_generation_kwargs)
+            self.stop_criteria = StoppingCriteriaList()
+
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder)
-            if tokenizer is not None:
-                self._prepare_tokenizer(tokenizer)
+            #taiyan TODO: 增加 visual decoder 初始化
+            # self.visual_decoder = 
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector)
@@ -65,11 +85,12 @@ class OkapiModel(BaseModel):
             self.projector = ProjectorModel(projector_config).to(
                 self.visual_encoder.dtype)
 
-
         if self.freeze_llm:
             self.llm.requires_grad_(False)
         if self.freeze_visual_encoder:
             self.visual_encoder.requires_grad_(False)
+        if self.freeze_projector:
+            self.projector.requires_grad_(False)
 
         if use_activation_checkpointing:
             # For backward compatibility
@@ -107,26 +128,11 @@ class OkapiModel(BaseModel):
 
         self._is_init = True
 
-    def _prepare_tokenizer(self, tokenizer):
-        self.tokenizer = BUILDER.build(tokenizer)
-        self.tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
-        self.llm.resize_token_embeddings(len(self.tokenizer))
-
-        # generate config
-        default_generation_kwargs = dict(
-            max_new_tokens=512,
-            do_sample=True,
-            temperature=0.1,
-            top_p=0.75,
-            top_k=40,
-            eos_token_id=self.tokenizer.eos_token_id,
-            pad_token_id=self.tokenizer.pad_token_id
-            if self.tokenizer.pad_token_id is not None else
-            self.tokenizer.eos_token_id)
-        
-        self.max_new_tokens = 512
-        self.gen_config = GenerationConfig(**default_generation_kwargs)
-        self.stop_criteria = StoppingCriteriaList()
+    @staticmethod
+    def _prepare_tokenizer(tokenizer_cfg):
+        tokenizer = BUILDER.build(tokenizer_cfg)
+        tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
+        return tokenizer
 
     def _parse_lora_config(self, lora_config):
         if isinstance(lora_config, dict) or isinstance(

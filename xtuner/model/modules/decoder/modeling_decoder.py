@@ -1,11 +1,10 @@
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from zeta.nn import FeedForward, MultiQueryAttention
 from transformers import PreTrainedModel
 from transformers.activations import ACT2FN
 
-from configuration_decoder import DecoderConfig ,ProjectorConfig
+from .configuration_decoder import DecoderConfig, ProjectorConfig
 
 """
 Ref:

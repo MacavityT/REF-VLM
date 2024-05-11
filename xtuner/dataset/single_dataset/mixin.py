@@ -203,6 +203,43 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         return self.rng.choice(self.templates)
 
     def __getitem__(self, index):
+        '''region
+        item = {
+            'image': {
+                'path': '/path/to/image', # str
+                'width': 512, # int
+                'height': 512, # int 
+            },
+            'target': {
+                # xmin, ymin, xmax, ymax
+                'boxes': [
+                    [10, 10, 256, 265],  # dog1
+                    [24, 18, 378, 768],  # dog2
+                    [100, 310, 670, 653],  # man
+                    [278, 320, 809, 673],  # rope
+                ],
+            },
+            "conversations": [
+                {
+                    'from': 'system',
+                    'value': [dict(task=xxx, unit=xxx)],
+                
+                },
+                {
+                    'from': 'human',
+                    'value': 'What is the relation between the two dogs <boxes> and the man <boxes> in the image <image> ?',
+                    'boxes_seq': [[0, 1], [2], ],
+                },
+                {
+                    'from': 'gpt',
+                    'value': 'a rope <boxes> is connecting the left dog <boxes> with the man <boxes>. '
+                                'So the man <boxes> is walking the dog <boxes>.'
+                            'And the man <boxes> has no relationship with the right dog <boxes>',
+                    'boxes_seq': [[3], [0], [2], [2], [0], [2], [1]],
+                }
+            ]
+        }
+        endregion'''
         if isinstance(self.text_data, OfflineDataset):
             item = self.text_data[index]
         else:

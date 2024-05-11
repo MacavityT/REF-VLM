@@ -13,12 +13,14 @@ import torch
 from datasets import Dataset as HFDataset
 from mmengine import print_log
 from mmengine.config import Config, ConfigDict
+from mmengine.utils.misc import get_object_from_string
+
 from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
 from xtuner.utils import IGNORE_INDEX
-from xtuner.registry import BUILDER, DATASETS, FUNCTIONS
+from xtuner.registry import BUILDER, DATASETS, MAP_FUNC
 from xtuner.dataset.single_dataset import OfflineDataset
-from .huggingface import process_hf_dataset
+from .huggingface import process_hf_dataset, encode_fn
 from .utils import (
     imfrombytes,
     expand2square,
@@ -47,7 +49,8 @@ class OkapiDataset(Dataset):
                  max_length=2048,
                  shard_process_max_length=5e4,
                  pad_image_to_square=False,
-                 save_offline_dataset=False):
+                 save_offline_dataset=False,
+                 pretokenize=True):
         super().__init__()
 
         self.max_dataset_length = max_dataset_length
@@ -56,23 +59,45 @@ class OkapiDataset(Dataset):
         self.max_length = max_length
         self.shard_process_max_length=int(shard_process_max_length)
         self.pad_image_to_square = pad_image_to_square
+        self.pretokenize = pretokenize
         self.init_visual_tokenizer(image_processor, tokenizer)
 
         # Build datasets
         print_log("Okapi Datasets Building ...")
         self.dataset = self.build_dataset(dataset)
         print_log("Okapi Datasets Build Success.")
-        if not save_offline_dataset:
-            print_log("Okapi Datasets Processing ...")
-            self.data_list = self.dataset_process()
-            self.data = TorchConcatDataset(self.data_list)
-            print_log("Okapi Datasets Process Success.")
+
+        if self.pretokenize:
+            #taiyan TODO: modify save offline dataset process to multi-thread real-time, avoiding use 'process_hf_dataset'
+            if not save_offline_dataset:
+                print_log("Okapi Datasets PreTokenize Processing ...")
+                self.data_list = self.dataset_process()
+                self.data = TorchConcatDataset(self.data_list)
+                print_log("Okapi Datasets PreTokenize Process Success.")
+            else:
+                print_log("Datasets build success, call function 'save_offline_dataset' to save.")
         else:
-            print_log("Datasets build success, call function 'save_offline_dataset' to save.")
+            if isinstance(dataset_map_fn, str):
+                map_fn_obj = MAP_FUNC.get(dataset_map_fn) or \
+                    get_object_from_string(dataset_map_fn)
+                if map_fn_obj is not None:
+                    self.dataset_map_fn = map_fn_obj
+                else:
+                    raise TypeError('dataset_map_fn must be a function or a '
+                                    "registered function's string in MAP_FUNC, "
+                                    f"but got a string of '{dataset_map_fn}'")
+
+            if isinstance(template_map_fn, dict) or \
+                isinstance(template_map_fn, Config) or \
+                isinstance(template_map_fn, ConfigDict):
+                self.template_map_fn = BUILDER.build(template_map_fn)
+            
+            print_log("'pretokenize' is set to False, getitem and map_fn real-time.")
 
 
     @property
     def modality_length(self):
+        # only work when self.pretokenize = True
         length_list = []
         for data_dict in self.data:
             cur_len = len(data_dict['input_ids'])
@@ -242,43 +267,6 @@ class OkapiDataset(Dataset):
                 ds_data_hf = ds
                 print_log(f"Dataset {idx} offline prepared.")
             else:
-                '''
-                item = {
-                    'image': {
-                        'path': '/path/to/image', # str
-                        'width': 512, # int
-                        'height': 512, # int 
-                    },
-                    'target': {
-                        # xmin, ymin, xmax, ymax
-                        'boxes': [
-                            [10, 10, 256, 265],  # dog1
-                            [24, 18, 378, 768],  # dog2
-                            [100, 310, 670, 653],  # man
-                            [278, 320, 809, 673],  # rope
-                        ],
-                    },
-                    "conversations": [
-                        {
-                            'from': 'system',
-                            'value': [dict(task=xxx, unit=xxx)],
-                        
-                        },
-                        {
-                            'from': 'human',
-                            'value': 'What is the relation between the two dogs <boxes> and the man <boxes> in the image <image> ?',
-                            'boxes_seq': [[0, 1], [2], ],
-                        },
-                        {
-                            'from': 'gpt',
-                            'value': 'a rope <boxes> is connecting the left dog <boxes> with the man <boxes>. '
-                                        'So the man <boxes> is walking the dog <boxes>.'
-                                    'And the man <boxes> has no relationship with the right dog <boxes>',
-                            'boxes_seq': [[3], [0], [2], [2], [0], [2], [1]],
-                        }
-                    ]
-                }
-                '''
                 ds_data_hf = self.single_dataset_process(idx, ds)
             data_list.append(ds_data_hf)
 
@@ -317,6 +305,20 @@ class OkapiDataset(Dataset):
 
     def __getitem__(self, index):
         data_dict = self.data[index]
+
+        if not self.pretokenize:
+            # add keys: 'conversation', 'input_ids', 'labels'
+            data_dict.update(self.dataset_map_fn(data_dict))
+            data_dict.update(self.template_map_fn(data_dict))
+            data_dict.update(
+                encode_fn(
+                    example=data_dict,
+                    tokenizer=self.tokenizer,
+                    max_length=self.max_length,
+                    input_ids_with_output=True,
+                    with_image_token=True
+                )
+            )
 
         # image
         if data_dict.get('image', None) is not None:
