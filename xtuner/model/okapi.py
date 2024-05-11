@@ -300,11 +300,12 @@ class OkapiModel(BaseModel):
                 data['position_ids'] = None
             
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
-            if len(data['inputs_embeds'].shape[1]) > self.cutoff_len:
-                data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
-                data['labels'] = data['labels'][:, :self.cutoff_len]
-                data['position_ids'] = data['position_ids'][:, :self.cutoff_len]
-                data['attention_mask'] = data['attention_mask'][:, :self.cutoff_len]
+            if self.cutoff_len:
+                if data['inputs_embeds'].shape[1] > self.cutoff_len:
+                    data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
+                    data['labels'] = data['labels'][:, :self.cutoff_len]
+                    data['position_ids'] = data['position_ids'][:, :self.cutoff_len]
+                    data['attention_mask'] = data['attention_mask'][:, :self.cutoff_len]
 
         if mode == 'loss':
             return self.compute_loss(data, data_samples)
