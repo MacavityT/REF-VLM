@@ -26,7 +26,7 @@ class OkapiModel(BaseModel):
     def __init__(self,
                  llm,
                  visual_encoder,
-                 visual_decoder,
+                 visual_decoder=None,
                  projector=None,
                  tokenizer=None,
                  freeze_llm=False,
@@ -300,7 +300,7 @@ class OkapiModel(BaseModel):
                 data['position_ids'] = None
             
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
-            if len(data['inputs_embeds'].shape[1]) > self.cutoff_len:
+            if data['inputs_embeds'].shape[1] > self.cutoff_len:
                 data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
                 data['labels'] = data['labels'][:, :self.cutoff_len]
                 data['position_ids'] = data['position_ids'][:, :self.cutoff_len]
