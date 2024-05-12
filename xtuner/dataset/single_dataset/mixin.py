@@ -172,9 +172,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             image_path_abs = image_path
         # image = Image.open(image_path).convert('RGB')
 
-        # save images
         item = {'path': image_path_abs}
-
         if self.image_info_folder is not None:
             key_example = list(self.image_data_info.keys())[0]
             image_path_abs_list = image_path_abs.split("/")
@@ -186,17 +184,10 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             try:
                 width = self.image_data_info[image_path]['width']
                 height = self.image_data_info[image_path]['height']
+                item['width'] = width
+                item['height'] = height
             except:
-                image = imfrombytes(image_path_abs)
-                width = image.shape[1]
-                height = image.shape[0]
-        else:
-            image = imfrombytes(image_path_abs)
-            width = image.shape[1]
-            height = image.shape[0]
-     
-        item['width'] = width
-        item['height'] = height
+                Warning(f"get height and width info failed, image path: {image_path}")
         return item
 
     def get_template(self):

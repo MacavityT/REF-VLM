@@ -286,7 +286,6 @@ def expand2square(pil_img, background_color):
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
 
-
 def load_image(image_file):
     if image_file.startswith('http://') or image_file.startswith('https://'):
         response = requests.get(image_file)
@@ -331,6 +330,31 @@ def _box_xyxy_expand2square(box, w, h):
     box = x1, y1, x2, y2
     return box
 
+def _mask_expand2square(mask, image_processor):
+    height, width = mask.shape
+    if width == height:
+        result = mask
+    elif width > height:
+        result = np.zeros((width, width))
+        start = (width - height) // 2
+        stop = start + height
+        result[start:stop, :] = mask
+    else:
+        start = (height - width) // 2
+        stop = start + width
+        result = np.zeros((height, height))
+        result[:, start:stop] = mask
+
+    result = np.expand_dims(result, axis=2)
+    result = np.repeat(result, 3, axis=2)
+    result = image_processor.preprocess(
+        result,
+        do_rescale=False,
+        do_normalize=False)['pixel_values'][0]
+    result[result > 0] = 1
+    result = result[0, ...]
+    return result
+
 def _point_xy_expand2square(point, w, h):
     pseudo_box = (point[0], point[1], point[0], point[1])
     expanded_box = _box_xyxy_expand2square(box=pseudo_box, w=w, h=h)
@@ -344,6 +368,10 @@ def boxes_xyxy_expand2square(bboxes, width, height):
 def points_xy_expand2square(points, width, height):
     expanded_points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
     return expanded_points
+
+def masks_expand2square(masks, image_processor):
+    expanded_masks = [_mask_expand2square(mask, image_processor) for mask in masks]
+    return expanded_masks
 
 
 def de_norm_box_xyxy(box, *, w, h):
@@ -390,17 +418,16 @@ def norm_point_xyxy(point, *, w, h):
     return point
 
 
-def point2mask(points, image_size, device, data_type=torch.float):
+def point2mask(points, image_size):
     pass
 
 
-def bbox2mask(bboxes, image_size, device, data_type=torch.float):
+def bbox2mask(bboxes, image_size):
     batch_masks = []
     for bbox in bboxes:
-        mask = torch.zeros((image_size, image_size), dtype=data_type).to(device)
+        mask = torch.zeros((image_size, image_size))
         x1, y1, x2, y2 = bbox
         # x2, y2 = int(x1 + w), int(y1 + h)
         mask[int(x1):int(x2),int(y1):int(y2)] = 1
         batch_masks.append(mask)
     return torch.stack(batch_masks, dim=0)
-
