@@ -38,15 +38,21 @@ class InstructMixDataset(MInstrDataset):
             return offline_item
         
         item = self.text_data[index]
-        img_path = item['image']
+
         conversations = item['conversations']
         assert len(conversations) % 2 == 0, "Conversations are incomplete!"
-        image = self.get_image(img_path)
-        
-        ret = {
-            'image': image,
-            'conversations': conversations,
-        }
+
+        if 'image' in item.keys():
+            img_path = item['image']
+            image = self.get_image(img_path)            
+            ret = {
+                'image': image,
+                'conversations': conversations,
+            }
+        else:
+            ret = {
+                'conversations': conversations,
+            }
 
         if self.stage == 2:
             system = {

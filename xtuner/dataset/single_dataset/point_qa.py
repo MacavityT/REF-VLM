@@ -14,12 +14,11 @@ from .mixin import MInstrDataset
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class Point_QA_local(MInstrDataset):
-    def __init__(self, *args, map_placeholders, version='p', qbp_p_prob=0.5, **kwargs):
+    def __init__(self, *args, version='p', qbp_p_prob=0.5, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         assert version in ['b', 'p', 'bp']
         self.version = version
         self.qbp_p_prob = qbp_p_prob
-        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -84,7 +83,7 @@ class Point_QA_local(MInstrDataset):
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class Point_QA_twice(MInstrDataset):
-    def __init__(self, *args, map_placeholders,version='gq-p', bp_p_prob=0.5, **kwargs):
+    def __init__(self, *args,version='gq-p', bp_p_prob=0.5, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         self.bp_p_prob = bp_p_prob
@@ -93,7 +92,6 @@ class Point_QA_twice(MInstrDataset):
         assert rtype in ['b', 'p', 'bp']
         self.qtype = qtype
         self.rtype = rtype
-        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -164,12 +162,11 @@ class Point_QA_twice(MInstrDataset):
 # noinspection PyPep8Naming
 @DATASETS.register_module()
 class V7W_POINT(MInstrDataset):
-    def __init__(self, *args, version, map_placeholders, do_shuffle_choice=True, **kwargs):
+    def __init__(self, *args, version, do_shuffle_choice=True, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         self.do_shuffle_choice = do_shuffle_choice
         assert version in ['p', 'b']
-        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)

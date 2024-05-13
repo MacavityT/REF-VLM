@@ -4,7 +4,7 @@ import os
 import os.path as osp
 import re
 import sys
-
+import time
 import torch
 from huggingface_hub import snapshot_download
 from peft import PeftModel
@@ -493,7 +493,7 @@ def main():
                         add_special_tokens=False)
                     new_ids = torch.cat((generate_output, extent_text_ids),
                                         dim=1)
-
+                    
                     generate_output = llm.generate(
                         inputs=new_ids.cuda(),
                         generation_config=gen_config,
@@ -505,16 +505,20 @@ def main():
                         end = '' if output_text[-1] == '\n' else '\n'
                         print(output_text, end=end)
                 else:
+                    time1 = time.time()
                     generate_output = llm.generate(
                         inputs=ids.cuda(),
                         generation_config=gen_config,
                         streamer=streamer,
                         stopping_criteria=stop_criteria)
+                    time2 = time.time()
                     if streamer is None:
                         output_text = tokenizer.decode(
                             generate_output[0][len(ids[0]):])
                         end = '' if output_text[-1] == '\n' else '\n'
                         print(output_text, end=end)
+                        print(f"total inference time:{time2-time1}")
+                        print(f"token length = {len(generate_output[0][len(ids[0]):])}")
                 inputs += tokenizer.decode(generate_output[0])
             else:
                 chunk_encode = []

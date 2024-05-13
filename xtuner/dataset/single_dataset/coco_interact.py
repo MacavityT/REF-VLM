@@ -25,10 +25,9 @@ from pycocotools import mask as maskUtils
 @DATASETS.register_module()
 class COCOInteract(MInstrDataset):
 
-    def __init__(self, *args, version,map_placeholders,max_conv_length=None, **kwargs):
+    def __init__(self, *args, version,max_conv_length=None, **kwargs):
         super().__init__(*args, placeholders=(IMAGE_PLACEHOLDER, REGION_PLACEHOLDER), **kwargs)
         self.version = version
-        self.map_placeholders = map_placeholders
         self.coco_class_ids = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
             18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,

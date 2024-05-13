@@ -9,7 +9,7 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
 from xtuner.dataset import LLaVADataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
-from xtuner.dataset.samplers import LengthGroupedSampler
+from mmengine.dataset import DefaultSampler
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.engine.runner import TrainLoop
 from xtuner.model import LLaVAModel
@@ -29,7 +29,8 @@ data_root = './data/llava_data/'
 data_path = data_root + 'LLaVA-Instruct-150K/llava_v1_5_mix665k.json'
 image_folder = data_root + 'llava_images'
 prompt_template = PROMPT_TEMPLATE.vicuna
-max_length = int(2048 - (336 / 14)**2)
+# max_length = int(4096 - (336 / 14)**2) 
+max_length = 10000 # no use, apply cut_off length instead, function replace with cutoff_fn
 
 # Scheduler & Optimizer
 batch_size = 16  # per_device
@@ -100,7 +101,7 @@ train_dataloader = dict(
     num_workers=dataloader_num_workers,
     dataset=llava_dataset,
     sampler=dict(
-        type=LengthGroupedSampler,
+        type=DefaultSampler,
         length_property='modality_length',
         per_device_batch_size=batch_size * accumulative_counts),
     collate_fn=dict(type=default_collate_fn))

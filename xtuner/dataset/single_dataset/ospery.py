@@ -106,7 +106,7 @@ class ConversationDataset(MInstrDataset):
         super().__init__(*args, **kwargs)
         self.begin_str = f"<image>\n{random.choice(START_SENTENCE)}\n"
         self.data_infos = self.load_annotations(self.text_path)
-        self.map_placeholders = {'input':[MASKS_PLACEHOLDER]}
+
         
     def annToMask(self, mask_ann, h, w):
         if isinstance(mask_ann, list):

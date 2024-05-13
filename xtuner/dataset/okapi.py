@@ -91,7 +91,7 @@ class OkapiDataset(Dataset):
                 isinstance(template_map_fn, Config) or \
                 isinstance(template_map_fn, ConfigDict):
                 self.template_map_fn = BUILDER.build(template_map_fn)
-            
+            self.data = TorchConcatDataset(self.dataset)
             print_log("'pretokenize' is set to False, getitem and map_fn real-time.")
 
 
