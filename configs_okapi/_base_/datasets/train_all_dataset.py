@@ -1,4 +1,5 @@
 from mmengine.config import read_base
+from xtuner.utils.constants import BOXES_PLACEHOLDER
 
 with read_base():
     from .train_gqa_variant import train_gqa_variant
@@ -11,6 +12,7 @@ with read_base():
     from .train_grit_variant import train_grit_variant
     from .train_grand_variant import train_grand_variant
     from .train_ospery_variant import train_osprey_variant
+    from .train_interact_variant import train_interact_variant
 
 
 train_all_dataset = dict(
@@ -22,6 +24,9 @@ train_all_dataset = dict(
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/flickr',
         offline_processed_image_folder = '',
         template_name=r'flickr30k',
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        )
     ),
     rec=dict(
         type='RECDataset',
@@ -31,6 +36,9 @@ train_all_dataset = dict(
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/rec',
         offline_processed_image_folder = '',
         template_name=r'REC',
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        )
     ),
     recvg=dict(
         type='RECDataset',
@@ -40,6 +48,9 @@ train_all_dataset = dict(
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/recvg',
         offline_processed_image_folder = '',
         template_name=r'REC',
+        map_placeholders=dict(
+            output=[BOXES_PLACEHOLDER],
+        )
     ),
     reg=dict(
         type='REGDataset',
@@ -49,6 +60,9 @@ train_all_dataset = dict(
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/reg',
         offline_processed_image_folder = '',
         template_name=r'REG',
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        )
     ),
     gc=dict(
         type='GCDataset',
@@ -58,6 +72,9 @@ train_all_dataset = dict(
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gc',
         offline_processed_image_folder = '',
         template_name=r'GC',
+        map_placeholders=dict(
+            input=[BOXES_PLACEHOLDER],
+        )
     ),
     caption=dict(
         type='CaptionDataset',
@@ -82,15 +99,10 @@ train_all_dataset = dict(
     ),
     instruct=dict(
         type='InstructMixDataset',
-        text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter.json',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter_d.json',
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
     ),
-    cocointeract=dict(
-        type='COCOInteract',
-        text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/coco_interactive_train_psalm.json',
-        image_folder=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/train2017',
-        template_name=r'REG_SEG',
-    ),
+
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,
@@ -101,4 +113,5 @@ train_all_dataset = dict(
     **train_grit_variant,
     **train_grand_variant,
     **train_osprey_variant,
+    **train_interact_variant,
 )

@@ -28,10 +28,19 @@ gc = dict(
     cfg=train_all_dataset['gc'],
 )
 
+grit = dict(
+    type='SubSet',
+    portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grit_combine_offline'],
+)
+
 
 dataset_args = [
     # subsets
     gc,
+    grit,
 
     # general datasets
     train_all_dataset['flickr'],
@@ -70,17 +79,19 @@ dataset_args = [
     train_all_dataset['ospery_conversations'],
     train_all_dataset['ospery_detailed'],
 
-    # grit
-    train_all_dataset['grit_combine_offline'],
-
     # grand
     train_all_dataset['grand_mix'],
 
+    # interact
+    train_all_dataset['interact_mask'],
+    train_all_dataset['interact_box'],
 ]
 
 
 for dataset in dataset_args:
     if dataset['type'] == 'SubSet':
         dataset['cfg'].setdefault('stage',2)
+        dataset['cfg']['offline_processed_text_folder'] = ''
     else:
+        dataset['offline_processed_text_folder'] = ''
         dataset['stage'] = 2

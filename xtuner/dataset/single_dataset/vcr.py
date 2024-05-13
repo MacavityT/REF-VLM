@@ -49,7 +49,7 @@ def merge(packs, *, prefixs, postfixs=None):
 
 @DATASETS.register_module()
 class VCRDataset(MInstrDataset):
-    def __init__(self, *args, version, map_placeholders, **kwargs):
+    def __init__(self, *args, version, **kwargs):
         super().__init__(*args, **kwargs,placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
         self.version = version
         assert version in [
@@ -61,7 +61,6 @@ class VCRDataset(MInstrDataset):
         # for evaluation:
         # A: 'qc-a' 'qc-ra' 'qc-rac'
         # R: 'qac-r' 'qc-a-qc-r'
-        self.map_placeholders = map_placeholders
 
     def __getitem__(self, index, force_answer_label=None, force_rationale_label=None):
         offline_item = super().__getitem__(index)

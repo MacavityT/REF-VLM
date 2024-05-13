@@ -85,6 +85,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 stage=1,
                 offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
+                map_placeholders=None,
                 enforce_online=False, 
                 seed=None,
                 **kwargs):
@@ -92,7 +93,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.text_path = text_path
         self.image_folder = image_folder
         self.image_info_folder = image_info_folder
-        self.map_placeholders = None
+        self.map_placeholders = map_placeholders
         self.stage = stage
         self.rng = np.random.default_rng(seed)
         self.enforce_online = enforce_online

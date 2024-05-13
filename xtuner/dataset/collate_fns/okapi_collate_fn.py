@@ -9,6 +9,7 @@ def okapi_collate_fn(instances: Sequence[Dict],
                        pad_index: int = DEFAULT_PAD_TOKEN_INDEX,
                        return_hf_format: bool = False,
                        use_varlen_attn: bool = False):
+    
     collate_results = default_collate_fn(
         instances, 
         pad_index, 

@@ -37,13 +37,12 @@ def flatten(element,all_concat=False):
 
 @DATASETS.register_module()
 class GRITDataset(MInstrDataset):
-    def __init__(self, *args,version, map_placeholders,length=None,**kwargs):
+    def __init__(self, *args,version,max_conv_length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
-        self.length = length
+        self.length = max_conv_length
         assert os.path.isdir(self.text_path), "GRIT dataset is composed of list of json files, not a single json!"
         self.text_path_file = os.listdir(self.text_path)
-        self.map_placeholders = map_placeholders
 
     def get_file_data(self, path):
         with open(path, 'r') as f:

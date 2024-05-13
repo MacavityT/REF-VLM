@@ -13,7 +13,6 @@ from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     OBJS_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-    MASK_PLACEHOLDER,
     MASKS_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
@@ -27,14 +26,13 @@ from xtuner.utils.constants import (
 @DATASETS.register_module()
 class GranDDataset(MInstrDataset):
 
-    def __init__(self, *args,version,map_placeholders,use_floating_objects=True,length=None,**kwargs):
+    def __init__(self, *args,version,use_floating_objects=True,max_conv_length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.use_floating_objects = use_floating_objects
-        self.length = length
+        self.length = max_conv_length
         assert os.path.isdir(self.text_path), "GRIT dataset is composed of list of json files, not a single json!"
         self.text_path_file = os.listdir(self.text_path)
-        self.map_placeholders = map_placeholders
         self.detailed_template = [
             'Please describe it in details.',
             'Please describe it thoroughly.',
@@ -398,7 +396,7 @@ class GranDDataset(MInstrDataset):
                 if task == 'detection':
                     question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
                 elif task == 'segmentation':
-                    question = question.replace(MASK_PLACEHOLDER,MASKS_PLACEHOLDER)
+                    question = question
                 if j != 0:
                     question = question.replace(IMAGE_PLACEHOLDER,'')
                 single_conversation_dense = []
@@ -654,7 +652,7 @@ class GranDDataset(MInstrDataset):
                 question_reg_det = self.get_template_from_dict('REG')
                 question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
                 question_reg_seg = self.get_template_from_dict('REG_SEG')
-                question_reg_seg = question_reg_seg.replace(MASK_PLACEHOLDER,MASKS_PLACEHOLDER)
+                question_reg_seg = question_reg_seg
                 single_conversation_dense_det = []
                 single_conversation_dense_seg = []
                 single_conversation_short_det = []
@@ -839,8 +837,8 @@ class GranDDataset(MInstrDataset):
             ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length)
             return ret
         
-
-
+    def __len__(self):
+        return len(self.text_path_file)
 
     def __getitem__(self, index):
         text_file = self.text_path_file[index]

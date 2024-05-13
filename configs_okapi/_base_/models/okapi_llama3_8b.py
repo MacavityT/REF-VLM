@@ -14,6 +14,7 @@ model = dict(
     freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
+    cutoff_len=4096,
     llm=dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=llama3_8b_path,
