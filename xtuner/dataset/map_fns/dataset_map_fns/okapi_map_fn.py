@@ -151,10 +151,4 @@ def okapi_map_fn(example):
     okapi_box_map_fn(example)
     okapi_point_map_fn(example)
     res = llava_map_fn(example)
-    #TODO: 修改 llava map fn， 加 assert check length/2
-    return res
-
-def okapi_map_fn_stage2(example):
-    res = example
-
     return res

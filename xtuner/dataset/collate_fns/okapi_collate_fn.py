@@ -18,12 +18,10 @@ def okapi_collate_fn(instances: Sequence[Dict],
         data_dict = collate_results
     else:
         data_dict = collate_results['data']
-    has_vpt = any(inst.get('visual_prompts') is not None for inst in instances)
-
-    if not has_vpt:
-        return data_dict
     
     visual_prompts = []
+    ori_width_list = []
+    ori_height_list = []
     for example in instances:
         if example.get('visual_prompts'):
             assert example.get('pixel_values') is not None, \
@@ -34,7 +32,12 @@ def okapi_collate_fn(instances: Sequence[Dict],
         else:
             visual_prompts.append(None)
 
+        ori_width_list.append(example['ori_width'])
+        ori_height_list.append(example['ori_height'])
+
     data_dict['visual_prompts']  = visual_prompts
+    data_dict['ori_width'] = ori_width_list
+    data_dict['ori_height'] = ori_height_list
 
     if return_hf_format:
         return data_dict

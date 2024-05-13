@@ -330,6 +330,16 @@ def _box_xyxy_expand2square(box, w, h):
     box = x1, y1, x2, y2
     return box
 
+def _mask_transform(mask, image_processor):
+    result = np.expand_dims(mask, axis=2)
+    result = np.repeat(result, 3, axis=2)
+    result = image_processor.preprocess(
+        result,
+        do_rescale=False,
+        do_normalize=False)['pixel_values'][0]
+    result = result[0, ...]
+    return result
+
 def _mask_expand2square(mask, image_processor):
     height, width = mask.shape
     if width == height:
@@ -345,14 +355,7 @@ def _mask_expand2square(mask, image_processor):
         result = np.zeros((height, height))
         result[:, start:stop] = mask
 
-    result = np.expand_dims(result, axis=2)
-    result = np.repeat(result, 3, axis=2)
-    result = image_processor.preprocess(
-        result,
-        do_rescale=False,
-        do_normalize=False)['pixel_values'][0]
-    result[result > 0] = 1
-    result = result[0, ...]
+    result = _mask_transform(result, image_processor)
     return result
 
 def _point_xy_expand2square(point, w, h):
@@ -418,15 +421,21 @@ def norm_point_xyxy(point, *, w, h):
     return point
 
 
-def bbox2mask(bboxes, image_size):
-    batch_masks = []
-    for bbox in bboxes:
-        mask = torch.zeros((image_size, image_size))
-        x1, y1, x2, y2 = bbox
-        # x2, y2 = int(x1 + w), int(y1 + h)
-        mask[int(x1):int(x2),int(y1):int(y2)] = 1
-        batch_masks.append(mask)
-    return torch.stack(batch_masks, dim=0)
+def bbox2mask(box, width, height):
+    mask = np.zeros((height, width))
+    x1, y1, x2, y2 = box
+    mask[int(x1):int(x2), int(y1):int(y2)] = 1
+    return mask
 
-def point2mask(points, image_size):
+def point2mask(point, radius, height, width):
+    mask = np.zeros((height, width))
+    center_x, center_y, _, _ = point
+    center_x = int(center_x)
+    center_y = int(center_y)
+
+    y, x = np.ogrid[0:height, 0:width]
+    mask = (x-center_x)**2 + (y-center_y)**2 <= radius**2
+    return mask.astype(int)
+
+def scribble2mask(scribble, radus):
     pass
