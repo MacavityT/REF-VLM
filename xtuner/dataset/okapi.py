@@ -292,8 +292,8 @@ class OkapiDataset(Dataset):
         # load image
         image = imfrombytes(image, flag='color', channel_order='rgb') # array
         image = Image.fromarray(image) # PIL.Image
-        ori_height = image.shape[0]
-        ori_width = image.shape[1]
+        ori_height = image.size[0]
+        ori_width = image.size[1]
         # expand2square
         if self.pad_image_to_square:
             image = expand2square(
@@ -349,7 +349,7 @@ class OkapiDataset(Dataset):
 
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
-                data_dict = self.target_process(
+                self.target_process(
                     data_dict, 
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
