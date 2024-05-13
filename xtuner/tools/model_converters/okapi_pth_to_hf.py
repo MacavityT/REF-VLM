@@ -87,7 +87,7 @@ def main():
         else:
             llm_path = args.save_dir
             print(f'Saving LLM tokenizer to {llm_path}')
-            if hasattr(model, 'projector'):
+            if hasattr(model, 'vpt_encoder'):
                 tokenizer = OkapiModel._prepare_tokenizer(cfg.tokenizer)
             else:
                 tokenizer = BUILDER.build(cfg.tokenizer)

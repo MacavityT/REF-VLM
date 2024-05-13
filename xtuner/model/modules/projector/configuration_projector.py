@@ -13,7 +13,6 @@ class ProjectorConfig(PretrainedConfig):
         depth=2,
         hidden_act='gelu',
         bias=True,
-        vpt=None,
         **kwargs,
     ):
         self.visual_hidden_size = visual_hidden_size
@@ -21,5 +20,4 @@ class ProjectorConfig(PretrainedConfig):
         self.depth = depth
         self.hidden_act = hidden_act
         self.bias = bias
-        self.vpt = vpt
         super().__init__(**kwargs)

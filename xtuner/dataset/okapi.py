@@ -27,7 +27,8 @@ from .utils import (
     bbox2mask,
     point2mask,
     boxes_xyxy_expand2square,
-    points_xy_expand2square
+    points_xy_expand2square,
+    masks_expand2square
 )
 from xtuner.utils.constants import SPECIAL_TOKENS
 
@@ -71,8 +72,8 @@ class OkapiDataset(Dataset):
             #taiyan TODO: modify save offline dataset process to multi-thread real-time, avoiding use 'process_hf_dataset'
             if not save_offline_dataset:
                 print_log("Okapi Datasets PreTokenize Processing ...")
-                self.data_list = self.dataset_process()
-                self.data = TorchConcatDataset(self.data_list)
+                data_list = self.dataset_process()
+                self.data = TorchConcatDataset(data_list)
                 print_log("Okapi Datasets PreTokenize Process Success.")
             else:
                 print_log("Datasets build success, call function 'save_offline_dataset' to save.")
@@ -151,7 +152,9 @@ class OkapiDataset(Dataset):
                 image = imfrombytes(image_path, flag='unchanged') # array
                 item['image']['height'] = image.shape[0]
                 item['image']['width'] = image.shape[1]
-            
+
+            item['ori_height'] = item['image']['height']
+            item['ori_width'] = item['image']['width']
             if 'target' in item.keys():
                 self.target_process(item['target'],
                                     width=item['image']['width'],
@@ -278,36 +281,80 @@ class OkapiDataset(Dataset):
                 target['boxes'] = boxes_xyxy_expand2square(target['boxes'], width=width, height=height)
             if 'points' in target.keys():
                 target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
+            if 'masks' in target.keys():
+                target['masks'] = masks_expand2square(target['masks'], image_processor=self.image_processor)
+        else:
+            #taiyan TODO: masks need to resize and crop
+            if 'masks' in target.keys():
+                pass
 
     def image_process(self, image):
         # load image
         image = imfrombytes(image, flag='color', channel_order='rgb') # array
         image = Image.fromarray(image) # PIL.Image
+        ori_height = image.shape[0]
+        ori_width = image.shape[1]
         # expand2square
         if self.pad_image_to_square:
             image = expand2square(
                 image,
-                tuple(
-                    int(x * 255) for x in self.image_processor.image_mean))
+                tuple(int(x * 255) for x in self.image_processor.image_mean)
+            )
             
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
-        return image
-    
-    def visual_prompts_process(self, visual_prompts: List[torch.FloatTensor]):
-        #taiyan TODO: convert visual prompts to masks(tensor)
-        if 'box':
-            res = bbox2mask()
-        elif 'point':
-            res = point2mask()
         
-        return visual_prompts
+        return dict(
+            pixel_values = image,
+            ori_height = ori_height,
+            ori_width = ori_width
+        )
+    
+    def visual_prompts_process(self, visual_prompts):
+        converted_vpt = []
+        for vpt in visual_prompts:
+            if isinstance(vpt, list):
+                assert len(vpt) == 4
+                if any(value < 0 for value in vpt):
+                    converted_vpt.append(point2mask(vpt))
+                else:
+                    converted_vpt.append(bbox2mask(vpt))
+            else:
+                # scribble or mask
+                converted_vpt.append(vpt)
+        
+        return converted_vpt
 
     def __getitem__(self, index):
         data_dict = self.data[index]
 
-        if not self.pretokenize:
-            # add keys: 'conversation', 'input_ids', 'labels'
+        # image
+        if data_dict.get('image', None) is not None:
+            image_info = data_dict['image']
+            image_path = image_info['path']
+            image_meta = self.image_process(image_path)
+            data_dict['pixel_values'] = image_meta['pixel_values']
+            data_dict['ori_height'] = image_meta['ori_height']
+            data_dict['ori_width'] = image_meta['ori_width']
+            
+            # if image_path.split('.')[-1] == '.npy':
+            #     data_dict['tensor_image'] = True
+        else:
+            if hasattr(self.image_processor, 'crop_size'):
+                crop_size = self.image_processor.crop_size
+            else:
+                crop_size = self.image_processor.size
+            data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
+                                                    crop_size['width'])
+
+        if 'input_ids' not in data_dict.keys():
+            if 'target' in data_dict.keys():
+                data_dict = self.target_process(
+                    data_dict, 
+                    width=data_dict['ori_width'],
+                    height=data_dict['ori_height']
+                )
+            # add keys: 'visual_prompts', 'decode_labels', 'conversation', 'input_ids', 'labels'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))
             data_dict.update(
@@ -319,24 +366,6 @@ class OkapiDataset(Dataset):
                     with_image_token=True
                 )
             )
-
-        # image
-        if data_dict.get('image', None) is not None:
-            image_info = data_dict['image']
-            image_path = image_info['path']
-            image = self.image_process(image_path)
-            data_dict['pixel_values'] = image
-
-            if image_path.split('.')[-1] == '.npy':
-                data_dict['tensor_image'] = True
-
-        else:
-            if hasattr(self.image_processor, 'crop_size'):
-                crop_size = self.image_processor.crop_size
-            else:
-                crop_size = self.image_processor.size
-            data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
-                                                    crop_size['width'])
 
         if data_dict.get('visual_prompts', None) is not None:
             assert data_dict.get('image', None) is not None, \
