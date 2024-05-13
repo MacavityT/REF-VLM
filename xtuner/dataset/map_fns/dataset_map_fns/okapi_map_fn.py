@@ -59,13 +59,14 @@ def okapi_box_map_fn(example):
 
     # normalize target
     bboxes_token_pat = re.compile(BOXES_PLACEHOLDER)
-    image_info = example['image']
+    width = example['ori_width']
+    height = example['ori_height']
     target = example['target']
     normalized_boxes = []
     if target is not None and 'boxes' in target:
         for box in target['boxes']:
             normalized_boxes.append(
-                norm_box_xyxy(box, w=image_info['width'], h=image_info['height'])
+                norm_box_xyxy(box, w=width, h=height)
             )
 
     # convert bboxes_seq
@@ -91,13 +92,14 @@ def okapi_point_map_fn(example):
         return
     
     points_token_pat = re.compile(POINTS_PLACEHOLDER)
-    image_info = example['image']
+    width = example['ori_width']
+    height = example['ori_height']
     target = example['target']
     normalized_points = []
     if target is not None and 'points' in target:
         for point in target['points']:
             normalized_points.append(
-                norm_point_xyxy(point, w=image_info['width'], h=image_info['height'])
+                norm_point_xyxy(point, w=width, h=height)
             )
 
     messages = example['conversations']
