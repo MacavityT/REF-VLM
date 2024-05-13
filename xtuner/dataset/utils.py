@@ -418,10 +418,6 @@ def norm_point_xyxy(point, *, w, h):
     return point
 
 
-def point2mask(points, image_size):
-    pass
-
-
 def bbox2mask(bboxes, image_size):
     batch_masks = []
     for bbox in bboxes:
@@ -431,3 +427,6 @@ def bbox2mask(bboxes, image_size):
         mask[int(x1):int(x2),int(y1):int(y2)] = 1
         batch_masks.append(mask)
     return torch.stack(batch_masks, dim=0)
+
+def point2mask(points, image_size):
+    pass

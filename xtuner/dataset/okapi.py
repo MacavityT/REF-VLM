@@ -349,7 +349,7 @@ class OkapiDataset(Dataset):
 
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
-                data_dict = self.target_process(
+                self.target_process(
                     data_dict, 
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
