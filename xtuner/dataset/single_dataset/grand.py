@@ -13,7 +13,6 @@ from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     OBJS_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-    MASK_PLACEHOLDER,
     MASKS_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
@@ -397,7 +396,7 @@ class GranDDataset(MInstrDataset):
                 if task == 'detection':
                     question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
                 elif task == 'segmentation':
-                    question = question.replace(MASK_PLACEHOLDER,MASKS_PLACEHOLDER)
+                    question = question
                 if j != 0:
                     question = question.replace(IMAGE_PLACEHOLDER,'')
                 single_conversation_dense = []
@@ -653,7 +652,7 @@ class GranDDataset(MInstrDataset):
                 question_reg_det = self.get_template_from_dict('REG')
                 question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
                 question_reg_seg = self.get_template_from_dict('REG_SEG')
-                question_reg_seg = question_reg_seg.replace(MASK_PLACEHOLDER,MASKS_PLACEHOLDER)
+                question_reg_seg = question_reg_seg
                 single_conversation_dense_det = []
                 single_conversation_dense_seg = []
                 single_conversation_short_det = []

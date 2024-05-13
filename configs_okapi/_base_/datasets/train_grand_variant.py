@@ -1,7 +1,6 @@
 from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-    MASK_PLACEHOLDER,
     MASKS_PLACEHOLDER,
     OBJS_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
@@ -116,7 +115,7 @@ train_grand_variant = dict(
         map_placeholders=dict(
             input=[MASKS_PLACEHOLDER],
         ), 
-        placeholders=(IMAGE_PLACEHOLDER,MASK_PLACEHOLDER),
+        placeholders=(IMAGE_PLACEHOLDER,MASKS_PLACEHOLDER),
         offline_processed_text_folder='',
     ),
 
@@ -156,7 +155,7 @@ train_grand_variant = dict(
                       (IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),
                       (IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
                       (IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
-                      (IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,MASK_PLACEHOLDER),
+                      (IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,MASKS_PLACEHOLDER),
                       (IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,)],
         offline_processed_text_folder='',
     )

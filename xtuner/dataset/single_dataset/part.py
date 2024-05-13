@@ -11,11 +11,11 @@ import random
 # from osprey.train.train import preprocess, preprocess_multimodal
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
+    MASKS_PLACEHOLDER,
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
-    OBJS_PLACEHOLDER,
-    MASK_PLACEHOLDER)
+    OBJS_PLACEHOLDER,)
 from .mixin import MInstrDataset
 from .dataset_templates import DETAILED_QUESTIONS, WHY_QUESTIONS, Ref_WAY, QUESTIONS
 from pycocotools.coco import COCO
@@ -98,7 +98,7 @@ class CustomDataset(MInstrDataset):
         }
 
         for i in range(len(gt_labels)):
-            question = self.get_template().replace(OBJS_PLACEHOLDER, MASK_PLACEHOLDER)
+            question = self.get_template().replace(OBJS_PLACEHOLDER, MASKS_PLACEHOLDER)
             # print(question)
             if i == 0:
                 question = self.begin_str + question
