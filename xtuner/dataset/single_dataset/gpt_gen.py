@@ -98,4 +98,5 @@ class GPT4Gen(MInstrDataset):
                     }
                 ]
             }
+            ret['map_placeholders'] = self.map_placeholders
         return ret

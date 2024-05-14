@@ -204,6 +204,7 @@ class ConversationDataset(MInstrDataset):
             'target': {'masks': masks},
             'conversations': qas
         }
+        ret['map_placeholders'] = self.map_placeholders
 
         return ret
     

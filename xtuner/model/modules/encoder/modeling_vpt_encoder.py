@@ -18,7 +18,7 @@ class VPTEncoderModel(PreTrainedModel):
         self.gradient_checkpointing = False
 
         self.config = config
-        self.patch_size = math.sqrt(config.mask_patch_len)
+        self.patch_size = int(math.sqrt(config.mask_patch_len))
         self.patch_embedding = nn.Conv2d(
             in_channels=config.visual_hidden_size,
             out_channels=config.visual_hidden_size,

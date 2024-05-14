@@ -14,6 +14,7 @@ from .okapi_map_fn import map_obj
 # ret = {
 #     'image': image,
 #     'target': {'boxes': item['boxes']},  # 'seg' /
+#     'map_placeholders'
 #     'conversations': [
 #         {
 #             'from': 'system',
@@ -33,12 +34,18 @@ from .okapi_map_fn import map_obj
 
 def conversation_map_fn(example):
     messages = example['conversations']
-    # assert len(messages) == 0.5*
     input = ''
+    systems = None
     conversation = []
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt
         messages = messages[1:]
+    if messages[0]['from'] == 'system':
+        systems = messages[0]
+        messages = messages[1:]
+        assert 0.5 * len(messages) == len(systems['value'])
+
+    sys_idx = 0
     for msg in messages:
         if msg['from'] == 'human':
             if DEFAULT_IMAGE_TOKEN in msg['value']:
@@ -49,7 +56,19 @@ def conversation_map_fn(example):
             input += msg['value']
 
         elif msg['from'] == 'gpt':
-            conversation.append({'input': input, 'output': msg['value']})
+            if systems:
+                info = systems['value'][sys_idx]
+                task_name = f'- task name: {info['task']['task_name']}\n' 
+                element = f'- answer element: {info['task']['element']}\n'  
+                if info['task']['use_unit']:
+                    unit = f'- unit: {info['unit']}\n'
+                else:
+                    unit = ''
+                sys = 'Task Command:\n' + task_name + element + unit
+                conversation.append({'system': sys, 'input': input, 'output': msg['value']})
+                sys_idx += 1
+            else:
+                conversation.append({'input': input, 'output': msg['value']})
             input = ''
         else:
             raise NotImplementedError

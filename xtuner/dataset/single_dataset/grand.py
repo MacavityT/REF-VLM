@@ -851,5 +851,6 @@ class GranDDataset(MInstrDataset):
         ret['image'] = {'path': image_path_abs,'width':shape[0],'height':shape[1]}
 
         ret = self.make_conversations(ret,annotations)
+        ret['map_placeholders'] = self.map_placeholders
 
         return ret

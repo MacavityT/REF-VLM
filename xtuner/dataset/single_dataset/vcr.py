@@ -178,6 +178,7 @@ class VCRDataset(MInstrDataset):
             'target': {'boxes': boxes},
             'conversations': conversations,
         }
+        ret['map_placeholders'] = self.map_placeholders
         return ret
 
 

@@ -90,6 +90,7 @@ class RECDataset(MInstrDataset):
                     }
                 ]
             }
+            ret['map_placeholders'] = self.map_placeholders
         return ret
 
 

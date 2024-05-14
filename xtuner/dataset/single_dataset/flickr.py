@@ -284,7 +284,7 @@ class FlickrDataset(MInstrDataset):
                     }
                 ]
             }
-        
+            ret['map_placeholders'] = self.map_placeholders
         return ret
 
 

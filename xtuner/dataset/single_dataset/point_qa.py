@@ -76,7 +76,8 @@ class Point_QA_local(MInstrDataset):
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
                     }
-            ret['conversations'].insert(0,system)
+            ret['conversations'].insert(0, system)
+            ret['map_placeholders'] = self.map_placeholders
         return ret
 
 
@@ -155,7 +156,8 @@ class Point_QA_twice(MInstrDataset):
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
                     }
-            ret['conversations'].insert(0,system)
+            ret['conversations'].insert(0, system)
+            ret['map_placeholders'] = self.map_placeholders
         return ret
 
 
@@ -236,7 +238,8 @@ class V7W_POINT(MInstrDataset):
                         'from':'system',
                         'value': value,
                     },  
-            ret['conversations'].insert(0,system)
+            ret['conversations'].insert(0, system)
+            ret['map_placeholders'] = self.map_placeholders
         return ret
 
     # def shuffle_boxes(self, bboxes, query_boxes_seq, answer_boxes_seq):
