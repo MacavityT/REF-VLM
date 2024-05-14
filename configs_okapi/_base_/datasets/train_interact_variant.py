@@ -3,7 +3,7 @@ from xtuner.utils.constants import BOXES_PLACEHOLDER,MASKS_PLACEHOLDER,REGION_PL
 interact_train_common_cfg=dict(
     type='COCOInteract',
     text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/coco_interactive_train_psalm.json',
-    image_folder=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/train2017',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
 )
 
 

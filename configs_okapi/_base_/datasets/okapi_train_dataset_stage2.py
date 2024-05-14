@@ -79,12 +79,12 @@ dataset_args = [
     train_all_dataset['ospery_conversations'],
     train_all_dataset['ospery_detailed'],
 
-    # grand
-    train_all_dataset['grand_mix'],
-
     # interact
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
+
+    # grand
+    train_all_dataset['grand_mix'],
 ]
 
 

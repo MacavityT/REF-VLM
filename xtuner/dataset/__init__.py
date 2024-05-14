@@ -16,7 +16,6 @@ from .utils import decode_base64_to_image, expand2square, load_image
 
 from .okapi import OkapiDataset
 from .reform_dataset import (
-    ConcatDatasetWithObject,
     InterleaveDateset, 
     SubSet, 
     ConcatDatasetWithShuffle
@@ -38,5 +37,4 @@ __all__ = [
     'InterleaveDateset',
     'SubSet',
     'ConcatDatasetWithShuffle',
-    'ConcatDatasetWithObject'
 ]

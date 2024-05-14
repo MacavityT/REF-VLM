@@ -845,7 +845,10 @@ class GranDDataset(MInstrDataset):
         annotations_json = self.get_file_data(os.path.join(self.text_path,text_file))
         img_path = text_file[:-5] + '.jpg'
         annotations = annotations_json[img_path]
-        shape = annotations['objects'][0]['segmentation']['size']
+        try:
+            shape = annotations['objects'][0]['segmentation']['size']
+        except:
+            shape = annotations['floating_objects'][0]['segmentation']['size']
         image_path_abs = os.path.join(self.image_folder,img_path)
         ret = {}
         ret['image'] = {'path': image_path_abs,'width':shape[0],'height':shape[1]}
