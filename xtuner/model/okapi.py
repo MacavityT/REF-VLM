@@ -100,7 +100,7 @@ class OkapiModel(BaseModel):
             num_patches = 9
             vpt_encoder_config = VPTEncoderConfig(
                 vis_feats_len=vis_feats_len,
-                mask_patch_len=vis_feats_len//num_patches,
+                mask_patch_len=vis_feats_len // num_patches,
                 visual_hidden_size=self.visual_encoder.config.hidden_size,
                 strategy='embedding'
             )
