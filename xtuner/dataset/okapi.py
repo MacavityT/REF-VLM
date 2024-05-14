@@ -362,9 +362,10 @@ class OkapiDataset(Dataset):
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
                 )
-            # add keys: 'visual_prompts', 'decode_labels', 'conversation', 'input_ids', 'labels'
+            # 'visual_prompts', 'decode_labels', 'conversation'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))
+            # 'input_ids', 'labels'
             data_dict.update(
                 encode_fn(
                     example=data_dict,
