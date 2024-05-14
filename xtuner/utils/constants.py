@@ -20,12 +20,10 @@ POINTS_PLACEHOLDER = '<points>'
 PHRASE_ST_PLACEHOLDER = '<ph_st>'
 PHRASE_ED_PLACEHOLDER = '<ph_ed>'
 
-
 MASKS_PLACEHOLDER = '<masks>'
 PHRASE_ST_PLACEHOLDER_STAGE2 = '<Phrase>'
 PHRASE_ED_PLACEHOLDER_STAGE2 = '</Phrase>'
 CLASS_PLACEHOLDER = '<cls>'
-REGION_PLACEHOLDER = '<region>'
 
 """ Okapi constants: 
 1. "xx_TOKEN" means special token and will be added into "added_tokens.json", denote as "<xxx>";

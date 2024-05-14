@@ -21,6 +21,34 @@ small_brackets_point_pat = re.compile(r'\(\d(?:\.\d*)?(?:,\d(?:\.\d*)?)(?:;\d(?:
 middle_brackets_pat = re.compile(r'\[\d(?:\.\d*)?(?:,\d(?:\.\d*)?){3}(?:;\d(?:\.\d*)?(?:,\d(?:\.\d*)?){3})*\]')
 middle_brackets_point_pat = re.compile(r'\[\d(?:\.\d*)?(?:,\d(?:\.\d*)?)(?:;\d(?:\.\d*)?(?:,\d(?:\.\d*)?))*\]')
 
+# extract points from language, but not useful for okapi
+def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
+    point_pat = small_brackets_point_pat if use_small_brackets else middle_brackets_point_pat
+    """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
+    ret = []
+    for bboxes_str in point_pat.findall(string):
+        bboxes = []
+        bbox_strs = bboxes_str.replace("(", "").replace(")", "").replace("[", "").replace("]", "").split(";")
+        for bbox_str in bbox_strs:
+            bbox = list(map(float, bbox_str.split(',')))
+            bboxes.append(bbox)
+        ret.append(bboxes)
+    return ret
+
+# extract boxes from language, but not useful for okapi
+def extract(string: str, use_small_brackets = False) -> List[Boxes]:
+    """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
+    pat = small_brackets_pat if use_small_brackets else middle_brackets_pat
+    ret = []
+    for bboxes_str in pat.findall(string):
+        bboxes = []
+        bbox_strs = bboxes_str.replace("(", "").replace(")", "").replace("[", "").replace("]", "").split(";")
+        for bbox_str in bbox_strs:
+            bbox = list(map(float, bbox_str.split(',')))
+            bboxes.append(bbox)
+        ret.append(bboxes)
+    return ret
+
 def map_obj(boxes_value: List[List[float]], boxes_seq: List[List[int]]) -> List[List[List[float]]]:
     """
     >>> normalized_boxes = [[0.1, 0.1, 0.1, 0.1], [0.2, 0.2, 0.2, 0.2], [0.3, 0.3, 0.3, 0.3]]
@@ -119,42 +147,8 @@ def okapi_point_map_fn(example):
             # sentence['raw_value'] = sentence['value']
             sentence['value'] = converted
 
-# extract boxes from language, but not useful for okapi
-def extract(string: str, use_small_brackets = False) -> List[Boxes]:
-    """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
-    pat = small_brackets_pat if use_small_brackets else middle_brackets_pat
-    ret = []
-    for bboxes_str in pat.findall(string):
-        bboxes = []
-        bbox_strs = bboxes_str.replace("(", "").replace(")", "").replace("[", "").replace("]", "").split(";")
-        for bbox_str in bbox_strs:
-            bbox = list(map(float, bbox_str.split(',')))
-            bboxes.append(bbox)
-        ret.append(bboxes)
-    return ret
-
-# extract points from language, but not useful for okapi
-def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
-    point_pat = small_brackets_point_pat if use_small_brackets else middle_brackets_point_pat
-    """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
-    ret = []
-    for bboxes_str in point_pat.findall(string):
-        bboxes = []
-        bbox_strs = bboxes_str.replace("(", "").replace(")", "").replace("[", "").replace("]", "").split(";")
-        for bbox_str in bbox_strs:
-            bbox = list(map(float, bbox_str.split(',')))
-            bboxes.append(bbox)
-        ret.append(bboxes)
-    return ret
-
 def okapi_map_fn(example):
     okapi_box_map_fn(example)
     okapi_point_map_fn(example)
     res = llava_map_fn(example)
-    #TODO: 修改 llava map fn， 加 assert check length/2
-    return res
-
-def okapi_map_fn_stage2(example):
-    res = example
-
     return res

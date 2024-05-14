@@ -101,7 +101,7 @@ PROMPT_TEMPLATE = ConfigDict(
                 'The assistant provides an answer to the user\'s questions based on a specific task command.\n'
                 'Capabilities and tools that assistant can possess:\n'
                 '- Sentence: gives helpful, detailed, and polite answers.\n'
-                '- Phrase: gives short, precise answers to the user\'s questions.\n'
+                '- Phrase: gives short, precise answers, follow the format of \'<Phrase>phrase</Phrase>\'.\n'
                 '- Unit: gives answers with given unit name, follow the format of \'<Unit>unit name</Unit><REF>[number]\'.\n'
                 # 'The current the task command is:\n'
                 '{system}\n'),

@@ -46,5 +46,6 @@ class VQAv2Dataset(MInstrDataset):
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
                     }
-            ret['conversations'].insert(0,system)        
+            ret['conversations'].insert(0, system)        
+            ret['map_placeholders'] = self.map_placeholders
         return ret

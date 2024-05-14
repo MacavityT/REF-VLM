@@ -183,4 +183,5 @@ class COCOInteract(MInstrDataset):
                 'target':{'masks':gt_masks,'boxes':gt_boxes},
                 'conversations': all_conversations
             }
+        ret['map_placeholders'] = self.map_placeholders
         return ret

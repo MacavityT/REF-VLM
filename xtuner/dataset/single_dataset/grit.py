@@ -357,6 +357,7 @@ class GRITDataset(MInstrDataset):
 
         ret = {}
         ret['image'] = {'path': image_path_abs,'width':annotations['width'],'height':annotations['height']}
+        ret['map_placeholders'] = self.map_placeholders
 
         if self.version == 'c':  # caption task
             # question = self.get_template('caption')
@@ -577,7 +578,7 @@ class GRITDataset(MInstrDataset):
 
 @DATASETS.register_module()
 class GRITOfflineDataset(MInstrDataset):
-    def __init__(self, *args,version, map_placeholders,**kwargs):
+    def __init__(self, *args, version, map_placeholders, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         assert self.version == 'combine_off'
@@ -587,5 +588,5 @@ class GRITOfflineDataset(MInstrDataset):
     def __getitem__(self, index):
 
         item = self.get_raw_item(index)
-
+        item['map_placeholders'] = self.map_placeholders
         return item

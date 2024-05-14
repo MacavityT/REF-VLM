@@ -28,7 +28,8 @@ from .utils import (
     point2mask,
     boxes_xyxy_expand2square,
     points_xy_expand2square,
-    masks_expand2square
+    masks_expand2square,
+    _mask_transform
 )
 from xtuner.utils.constants import SPECIAL_TOKENS
 
@@ -284,9 +285,11 @@ class OkapiDataset(Dataset):
             if 'masks' in target.keys():
                 target['masks'] = masks_expand2square(target['masks'], image_processor=self.image_processor)
         else:
-            #taiyan TODO: masks need to resize and crop
             if 'masks' in target.keys():
-                pass
+                transformed_masks = []
+                for mask in target['masks']:
+                    transformed_masks.append(_mask_transform(mask, self.image_processor))
+                target['masks'] = transformed_masks
 
     def image_process(self, image):
         # load image
@@ -316,9 +319,12 @@ class OkapiDataset(Dataset):
             if isinstance(vpt, list):
                 assert len(vpt) == 4
                 if any(value < 0 for value in vpt):
-                    converted_vpt.append(point2mask(vpt))
+                    mask = point2mask(vpt)
                 else:
-                    converted_vpt.append(bbox2mask(vpt))
+                    mask = bbox2mask(vpt)
+                
+                transformed_mask = _mask_transform(mask, self.image_processor)
+                converted_vpt.append(transformed_mask)
             else:
                 # scribble or mask
                 converted_vpt.append(vpt)
@@ -346,7 +352,9 @@ class OkapiDataset(Dataset):
                 crop_size = self.image_processor.size
             data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                     crop_size['width'])
-
+            data_dict['ori_height'] = 0
+            data_dict['ori_width'] = 0
+        
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
                 self.target_process(
