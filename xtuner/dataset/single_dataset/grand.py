@@ -232,13 +232,13 @@ class GranDDataset(MInstrDataset):
             if task == 'detection':
                 boxes_or_masks.append(object['bbox'])
                 type = 'boxes'
-                unit_task = {'task_name':'grounding_detection','element':[],'use_unit':True}
+                unit_task = {'task_name':'grounding_detection','element':['phrase'],'use_unit':True}
                 unit= ['box']
                 seq_name = 'boxes_seq'
                 place_holder = BOXES_PLACEHOLDER
             elif task == 'segmentation':
                 boxes_or_masks.append(decode(object['segmentation']))
-                unit_task = {'task_name':'grounding_segmentation','element':[],'use_unit':True}
+                unit_task = {'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True}
                 unit= ['mask']
                 type = 'masks'
                 seq_name = 'masks_seq'
@@ -294,12 +294,12 @@ class GranDDataset(MInstrDataset):
             objects = objects + floating_objects
         if task == 'detection':
             type = 'boxes'
-            unit_task = {'task_name':'grounding_detection','element':[],'use_unit':True}
+            unit_task = {'task_name':'grounding_detection','element':['phrase'],'use_unit':True}
             unit= ['box']
             seq_name = 'boxes_seq'
             place_holder = BOXES_PLACEHOLDER
         elif task == 'segmentation':
-            unit_task = {'task_name':'grounding_segmentation','element':[],'use_unit':True}
+            unit_task = {'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True}
             unit= ['mask']
             type = 'masks'
             seq_name = 'masks_seq'
@@ -719,14 +719,14 @@ class GranDDataset(MInstrDataset):
         system_value_det = {key:None for key in list(det_dict['conversations'].keys())}
         system_value_seg = {key:None for key in list(seg_dict['conversations'].keys())}
         system_value_det['conversations_det'] = [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]
-        system_value_det['ground_conversations'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['ground_conversations']))]
-        system_value_det['rec_conversations'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['rec_conversations']))]
+        system_value_det['ground_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['ground_conversations']))]
+        system_value_det['rec_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['rec_conversations']))]
         system_value_det['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations']))]
         system_value_det['cap_det_conversations'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['cap_det_conversations']))]
 
         system_value_seg['conversations_seg'] = [{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]
-        system_value_seg['ground_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':[],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['ground_conversations']))]
-        system_value_seg['rec_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':[],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['rec_conversations']))]
+        system_value_seg['ground_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['ground_conversations']))]
+        system_value_seg['rec_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['rec_conversations']))]
         system_value_seg['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations']))]
         system_value_seg['cap_seg_conversations'] = [{'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['cap_seg_conversations']))]
 

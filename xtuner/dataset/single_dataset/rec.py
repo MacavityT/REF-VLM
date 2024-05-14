@@ -77,7 +77,7 @@ class RECDataset(MInstrDataset):
                 'conversations': [
                     {
                         'from':'system',
-                        'value':[{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']}],
+                        'value':[{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}],
                     },
                     {
                         'from': 'human',

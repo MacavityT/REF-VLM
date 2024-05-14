@@ -172,7 +172,7 @@ class GRITDataset(MInstrDataset):
         if random_select:
             conversations = self.random_select(conversations,length)
 
-        ret['values'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
+        ret['values'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
         return ret 
@@ -229,7 +229,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
-        ret['values'] = [{'task':{'task_name':'grounding_detection','element':[],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
+        ret['values'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
         return ret
@@ -588,5 +588,5 @@ class GRITOfflineDataset(MInstrDataset):
     def __getitem__(self, index):
 
         item = self.get_raw_item(index)
-        item['map_placeholders'] = self.map_placeholders
+        
         return item
