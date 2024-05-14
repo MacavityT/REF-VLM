@@ -588,5 +588,5 @@ class GRITOfflineDataset(MInstrDataset):
     def __getitem__(self, index):
 
         item = self.get_raw_item(index)
-        item['map_placeholders'] = self.map_placeholders
+        
         return item
