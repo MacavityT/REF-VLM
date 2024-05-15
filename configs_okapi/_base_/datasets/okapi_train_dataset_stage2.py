@@ -9,7 +9,7 @@ from xtuner.dataset.map_fns import (
     okapi_map_fn, 
     template_map_fn_factory
 )
-from xtuner.dataset.collate_fns import default_collate_fn
+from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.dataset import DefaultSampler
 from mmengine.config import read_base
@@ -79,12 +79,12 @@ dataset_args = [
     train_all_dataset['ospery_conversations'],
     train_all_dataset['ospery_detailed'],
 
-    # grand
-    train_all_dataset['grand_mix'],
-
     # interact
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
+
+    # grand
+    train_all_dataset['grand_mix'],
 ]
 
 

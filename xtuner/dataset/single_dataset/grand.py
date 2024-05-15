@@ -268,8 +268,9 @@ class GranDDataset(MInstrDataset):
                 box_mask_seq = [i]
                 if i != 0:
                     question = question.replace(IMAGE_PLACEHOLDER,'')
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder
                 conversation_human = {'from': 'human','value': question}
-                conversation_gpt = {'from': 'gpt', 'value': place_holder, seq_name: [box_mask_seq]}
+                conversation_gpt = {'from': 'gpt', 'value': value, seq_name: [box_mask_seq]}
 
                 cls_names.append(cls_name)
                 single_conversation = [conversation_human,conversation_gpt]
@@ -322,10 +323,12 @@ class GranDDataset(MInstrDataset):
                 phrase = detail['phrase']
                 if 'ids' in detail.keys():
                     seq = detail['ids']
-                    conversation_gpt = {'from': 'gpt', 'value': place_holder*len(seq), seq_name: [seq]}
+                    value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder * len(seq)
+                    conversation_gpt = {'from': 'gpt', 'value': value, seq_name: [seq]}
                 else:
                     seq = [detail['id']]
-                    conversation_gpt = {'from': 'gpt', 'value': place_holder, seq_name: [seq]}
+                    value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder
+                    conversation_gpt = {'from': 'gpt', 'value': value, seq_name: [seq]}
 
                 if not isinstance(self.template_name,List):
                     question = self.get_template()
@@ -584,13 +587,15 @@ class GranDDataset(MInstrDataset):
                         cls_name_cond = attributes
                 question_cond_det = question_cond_det.replace(CLASS_PLACEHOLDER,cls_name_cond)
                 conversation_human_cond_det = {'from': 'human','value': question_cond_det}
-                conversation_gpt_cond_det = {'from': 'gpt', 'value': det_dict['place_holder'], det_dict['seq_name']: [seq_cond_det]}
+                value_ground_det = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder']
+                conversation_gpt_cond_det = {'from': 'gpt', 'value': value_ground_det, det_dict['seq_name']: [seq_cond_det]}
                 single_conversation_cond_det = [conversation_human_cond_det,conversation_gpt_cond_det]
                 det_dict['conversations']['ground_conversations'].append(single_conversation_cond_det)
                 question_cond_seg = self.get_template_from_dict('Cond_SEG')
                 question_cond_seg = question_cond_seg.replace(CLASS_PLACEHOLDER,cls_name_cond)
                 conversation_human_cond_seg = {'from': 'human','value': question_cond_seg}
-                conversation_gpt_cond_seg = {'from': 'gpt', 'value': seg_dict['place_holder'], seg_dict['seq_name']: [seq_cond_seg]}
+                value_ground_seg = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + seg_dict['place_holder']
+                conversation_gpt_cond_seg = {'from': 'gpt', 'value': value_ground_seg, seg_dict['seq_name']: [seq_cond_seg]}
                 single_conversation_cond_seg = [conversation_human_cond_seg,conversation_gpt_cond_seg]
                 seg_dict['conversations']['ground_conversations'].append(single_conversation_cond_seg)
 
@@ -622,17 +627,21 @@ class GranDDataset(MInstrDataset):
                     rec_seq = detail['ids']
                     reg_seq = detail['ids']
                     # generate rec detection & segmentation answers
-                    conversation_gpt_rec_det = {'from': 'gpt', 'value': det_dict['place_holder']*len(seq), 
+                    value_rec_det = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder'] * len(seq)
+                    value_rec_seg = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + seg_dict['place_holder'] * len(seq)
+                    conversation_gpt_rec_det = {'from': 'gpt', 'value': value_rec_det, 
                                                 det_dict['seq_name']: [rec_seq]}
-                    conversation_gpt_rec_seg = {'from': 'gpt', 'value': seg_dict['place_holder']*len(seq), 
+                    conversation_gpt_rec_seg = {'from': 'gpt', 'value': value_rec_seg, 
                                                 seg_dict['seq_name']: [rec_seq]}
                 else:
                     rec_seq = [detail['id']]
                     reg_seq = detail['id']
                     # generate rec detection & segmentation answers
-                    conversation_gpt_rec_det = {'from': 'gpt', 'value': det_dict['place_holder'], 
+                    value_rec_det = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder']
+                    value_rec_seg = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + seg_dict['place_holder']
+                    conversation_gpt_rec_det = {'from': 'gpt', 'value': value_rec_det, 
                                                 det_dict['seq_name']: [rec_seq]}
-                    conversation_gpt_rec_seg = {'from': 'gpt', 'value': seg_dict['place_holder']*len(seq), 
+                    conversation_gpt_rec_seg = {'from': 'gpt', 'value': value_rec_seg, 
                                                 seg_dict['seq_name']: [rec_seq]}
 
                 # generate rec detection & segmentation conversations
@@ -845,7 +854,10 @@ class GranDDataset(MInstrDataset):
         annotations_json = self.get_file_data(os.path.join(self.text_path,text_file))
         img_path = text_file[:-5] + '.jpg'
         annotations = annotations_json[img_path]
-        shape = annotations['objects'][0]['segmentation']['size']
+        try:
+            shape = annotations['objects'][0]['segmentation']['size']
+        except:
+            shape = annotations['floating_objects'][0]['segmentation']['size']
         image_path_abs = os.path.join(self.image_folder,img_path)
         ret = {}
         ret['image'] = {'path': image_path_abs,'width':shape[0],'height':shape[1]}

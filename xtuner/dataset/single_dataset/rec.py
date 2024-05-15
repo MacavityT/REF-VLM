@@ -12,6 +12,8 @@ from torchvision.ops import box_iou
 
 from xtuner.registry import DATASETS, METRICS
 from xtuner.utils.constants import (
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     EXPR_PLACEHOLDER,
@@ -69,6 +71,7 @@ class RECDataset(MInstrDataset):
 
 
         if self.stage == 2:
+            value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
             ret = {
                 'image': image,
                 'target': {
@@ -85,7 +88,7 @@ class RECDataset(MInstrDataset):
                     },
                     {
                         'from': 'gpt',
-                        'value': f'Answer: {BOXES_PLACEHOLDER}.',
+                        'value': f'Answer: {value}.',
                         'boxes_seq': [[0]],
                     }
                 ]

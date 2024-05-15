@@ -1,5 +1,7 @@
 from xtuner.registry import DATASETS, METRICS
 from xtuner.utils.constants import (
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     QUESTION_PLACEHOLDER,
@@ -172,6 +174,9 @@ class VCRDataset(MInstrDataset):
         conversations[0]['value'] = self.get_template().replace(QUESTION_PLACEHOLDER, conversations[0]['value'])
 
         if self.stage == 2:
+            for conversation in conversations:
+                if conversation['from'] == 'gpt':
+                    conversation['value'] = conversation['value'].replace(BOXES_PLACEHOLDER,f"{PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER}")
             conversations.insert(0,{'from':'system','value':[values for _ in range(len(conversations)//2)]})
         ret = {
             'image': image,
