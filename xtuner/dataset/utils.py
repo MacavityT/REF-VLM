@@ -330,7 +330,7 @@ def _box_xyxy_expand2square(box, w, h):
     box = x1, y1, x2, y2
     return box
 
-def _mask_transform(mask, image_processor):
+def mask_transform(mask, image_processor):
     result = np.expand_dims(mask, axis=2)
     result = np.repeat(result, 3, axis=2)
     result = image_processor.preprocess(
@@ -340,7 +340,7 @@ def _mask_transform(mask, image_processor):
     result = result[0, ...]
     return result
 
-def _mask_expand2square(mask, image_processor):
+def _mask_expand2square(mask):
     height, width = mask.shape
     if width == height:
         result = mask
@@ -354,8 +354,6 @@ def _mask_expand2square(mask, image_processor):
         stop = start + width
         result = np.zeros((height, height))
         result[:, start:stop] = mask
-
-    result = _mask_transform(result, image_processor)
     return result
 
 def _point_xy_expand2square(point, w, h):
@@ -372,12 +370,12 @@ def points_xy_expand2square(points, width, height):
     expanded_points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
     return expanded_points
 
-def masks_expand2square(masks, image_processor):
-    expanded_masks = [_mask_expand2square(mask, image_processor) for mask in masks]
+def masks_expand2square(masks):
+    expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
 
 
-def de_norm_box_xyxy(box, *, w, h):
+def de_norm_box_xyxy(box, w, h):
     x1, y1, x2, y2 = box
     x1 = x1 * w
     x2 = x2 * w
@@ -387,7 +385,7 @@ def de_norm_box_xyxy(box, *, w, h):
     return box
 
 
-def box_xywh_to_xyxy(box, *, w=None, h=None):
+def box_xywh_to_xyxy(box, w=None, h=None):
     x, y, bw, bh = box
     x2 = x + bw
     y2 = y + bh
@@ -399,7 +397,7 @@ def box_xywh_to_xyxy(box, *, w=None, h=None):
     return box
 
 
-def norm_box_xyxy(box, *, w, h):
+def norm_box_xyxy(box, w, h):
     x1, y1, x2, y2 = box
 
     # Calculate the normalized coordinates with min-max clamping
@@ -413,7 +411,7 @@ def norm_box_xyxy(box, *, w, h):
     return normalized_box
 
 
-def norm_point_xyxy(point, *, w, h):
+def norm_point_xyxy(point, w, h):
     x, y = point
     norm_x = max(0.0, min(x / w, 1.0))
     norm_y = max(0.0, min(y / h, 1.0))
