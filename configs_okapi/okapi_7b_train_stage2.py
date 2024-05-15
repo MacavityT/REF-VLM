@@ -5,7 +5,7 @@ from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336
     from ._base_.datasets.okapi_train_dataset_stage2 import *
-    from ._base_.datasets.okapi_val_dataset_stage1 import *
+    from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
     # from ._base_.models.okapi_llama3_8b import *
     # from ._base_.models.okapi_mistral_7b import *
@@ -40,7 +40,7 @@ train_dataloader = dict(
     num_workers=dataloader_num_workers,
     dataset=train_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
-    collate_fn=dict(type=default_collate_fn))
+    collate_fn=dict(type=okapi_collate_fn))
 
 okapi_dataset_val = dict(
     type=OkapiDataset,

@@ -2,6 +2,8 @@ import re
 
 from xtuner.registry import DATASETS, METRICS
 from xtuner.utils.constants import (
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
@@ -190,13 +192,19 @@ class V7W_POINT(MInstrDataset):
         if self.version == 'p':
             final_question += f" answer in point format."
             points.append(item['point'])
-            final_answer = f"The answer is {POINTS_PLACEHOLDER} ."
+            if self.stage == 1:
+                final_answer = f"The answer is {POINTS_PLACEHOLDER} ."
+            elif self.stage == 2:
+                final_answer = f"The answer is {PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + POINTS_PLACEHOLDER} ."
             answer_boxes_seq = None
             answer_points_seq = [[0]]
         elif self.version == 'b':
             final_question += f" answer in box format."
             idx = bboxes.index(item['answer'])
-            final_answer = f"The answer is {BOXES_PLACEHOLDER} ."
+            if self.stage == 1:
+                final_answer = f"The answer is {BOXES_PLACEHOLDER} ."
+            elif self.stage == 2:
+                final_answer = f"The answer is {PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER}"
             answer_boxes_seq = [[idx]]
             answer_points_seq = None
         else:
