@@ -92,7 +92,7 @@ train_grit_variant = dict(
     ),
     grit_combine_offline = dict(
         type='GRITOfflineDataset',
-        text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/grit.jsonl',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/grit_latest.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/GRIT/img',
         stage=2,
         version='combine_off',
