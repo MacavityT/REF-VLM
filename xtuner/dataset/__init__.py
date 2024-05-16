@@ -36,5 +36,5 @@ __all__ = [
     'OkapiDataset',
     'InterleaveDateset',
     'SubSet',
-    'ConcatDatasetWithShuffle',
+    'ConcatDatasetWithShuffle'
 ]

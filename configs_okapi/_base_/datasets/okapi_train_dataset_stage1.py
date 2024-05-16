@@ -18,9 +18,6 @@ with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
-
-
-#region okapi dataset
 gc = dict(
     type='SubSet',
     portion=1/20,

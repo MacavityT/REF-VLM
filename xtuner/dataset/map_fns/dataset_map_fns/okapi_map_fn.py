@@ -7,7 +7,6 @@ from xtuner.utils.constants import (
     MASKS_PLACEHOLDER,
     DEFAULT_IMAGE_TOKEN
     )
-from xtuner.dataset.utils import norm_box_xyxy, norm_point_xyxy, de_norm_box_xyxy
 from xtuner.utils import IGNORE_INDEX
 from .llava_map_fn import llava_map_fn
 
@@ -84,18 +83,8 @@ def format_box_or_points(boxes: Boxes,
 def okapi_box_map_fn(example):
     if 'target' not in example.keys(): 
         return
-
-    # normalize target
     bboxes_token_pat = re.compile(BOXES_PLACEHOLDER)
-    width = example['ori_width']
-    height = example['ori_height']
     target = example['target']
-    normalized_boxes = []
-    if target is not None and 'boxes' in target:
-        for box in target['boxes']:
-            normalized_boxes.append(
-                norm_box_xyxy(box, w=width, h=height)
-            )
 
     # convert bboxes_seq
     messages = example['conversations']
@@ -104,7 +93,7 @@ def okapi_box_map_fn(example):
         boxes_seq: List[List[int]] = sentence.get('boxes_seq', None)
         if boxes_seq is not None:
             # map box seq
-            boxes_seq: List[Boxes] = map_obj(normalized_boxes, boxes_seq)
+            boxes_seq: List[Boxes] = map_obj(target['boxes'], boxes_seq)
             # reformat; replace <boxes> placeholder
             all_boxes = bboxes_token_pat.findall(words)
             assert len(all_boxes) == len(boxes_seq), f"not match. sentence: {words}. boxes:{boxes_seq}"
@@ -120,15 +109,7 @@ def okapi_point_map_fn(example):
         return
     
     points_token_pat = re.compile(POINTS_PLACEHOLDER)
-    width = example['ori_width']
-    height = example['ori_height']
     target = example['target']
-    normalized_points = []
-    if target is not None and 'points' in target:
-        for point in target['points']:
-            normalized_points.append(
-                norm_point_xyxy(point, w=width, h=height)
-            )
 
     messages = example['conversations']
     for sentence in messages:
@@ -136,7 +117,7 @@ def okapi_point_map_fn(example):
         points_seq: List[List[int]] = sentence.get('points_seq', None)
         if points_seq is not None:
             # map point seq
-            points_seq: List[Boxes] = map_obj(normalized_points, points_seq)
+            points_seq: List[Boxes] = map_obj(target['points'], points_seq)
             # reformat; replace <points> placeholder
             all_points = points_token_pat.findall(words)
             assert len(all_points) == len(points_seq), f"not match. sentence: {words}. points:{points_seq}"

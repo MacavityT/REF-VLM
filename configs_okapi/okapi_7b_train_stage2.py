@@ -1,5 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from functools import partial
+from xtuner.utils import PROMPT_TEMPLATE
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
+from xtuner.dataset.map_fns import (
+    okapi_map_fn_stage2,
+    okapi_template_map_fn_factory
+)
+from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
@@ -17,6 +24,10 @@ with read_base():
 max_length = 10000  # use cutoff lens instead
 batch_size = 32  # per_device
 dataloader_num_workers = 20
+vrt_length = 64
+ref_length = 1
+dataset_map_fn = partial(okapi_map_fn_stage2, vrt_len=vrt_length, ref_len=ref_length)
+prompt_template = PROMPT_TEMPLATE.okapi
 
 okapi_dataset = dict(
     type=OkapiDataset,
@@ -24,13 +35,11 @@ okapi_dataset = dict(
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=okapi_map_fn,
+    dataset_map_fn=dataset_map_fn,
     template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
+        type=okapi_template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
-#endregion
-
 
 
 train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
@@ -47,9 +56,9 @@ okapi_dataset_val = dict(
     dataset=val_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=okapi_map_fn,
+    dataset_map_fn=dataset_map_fn,
     template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
+        type=okapi_template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
 
@@ -58,7 +67,7 @@ val_dataloader = dict(
     num_workers=dataloader_num_workers,
     dataset=okapi_dataset_val,
     sampler=dict(type=DefaultSampler, shuffle=False),
-    collate_fn=dict(type=default_collate_fn))
+    collate_fn=dict(type=okapi_collate_fn))
 
 
 val_evaluator = dict(
@@ -68,8 +77,6 @@ val_evaluator = dict(
 #     type=VQAComputeMetrics, tokenizer=tokenizer, prefix='vqa')
 
 # config models
-prompt_template = PROMPT_TEMPLATE.vicuna
-tokenizer = vicuna_7b_path_tokenizer
 model = dict(
     type=OkapiModel,
     pretrained_pth='',

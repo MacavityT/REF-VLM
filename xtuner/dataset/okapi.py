@@ -29,7 +29,10 @@ from .utils import (
     boxes_xyxy_expand2square,
     points_xy_expand2square,
     masks_expand2square,
-    _mask_transform
+    mask_transform,
+    norm_box_xyxy, 
+    norm_point_xyxy,
+    de_norm_box_xyxy
 )
 from xtuner.utils.constants import SPECIAL_TOKENS
 
@@ -158,8 +161,8 @@ class OkapiDataset(Dataset):
             item['ori_width'] = item['image']['width']
             if 'target' in item.keys():
                 self.target_process(item['target'],
-                                    width=item['image']['width'],
-                                    height=item['image']['height'])
+                                    width=item['ori_width'],
+                                    height=item['ori_height'])
 
             if i < (shard_idx * self.shard_process_max_length):
                 shard_ds_data.append(item)
@@ -283,13 +286,32 @@ class OkapiDataset(Dataset):
             if 'points' in target.keys():
                 target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
             if 'masks' in target.keys():
-                target['masks'] = masks_expand2square(target['masks'], image_processor=self.image_processor)
-        else:
-            if 'masks' in target.keys():
-                transformed_masks = []
-                for mask in target['masks']:
-                    transformed_masks.append(_mask_transform(mask, self.image_processor))
-                target['masks'] = transformed_masks
+                target['masks'] = masks_expand2square(target['masks'])
+        
+        # normalize or transform all targets
+        if 'boxes' in target.keys():
+            normalized_boxes = []
+            for box in target['boxes']:
+                normalized_boxes.append(
+                    norm_box_xyxy(box, w=width, h=height)
+                )
+            target['boxes'] = normalized_boxes
+
+        if 'points' in target.keys():
+            normalized_points = []
+            for point in target['points']:
+                normalized_points.append(
+                    norm_point_xyxy(point, w=width, h=height)
+                )
+            target['points'] = normalized_points
+
+        if 'masks' in target.keys():
+            transformed_masks = []
+            for mask in target['masks']:
+                transformed_masks.append(
+                    mask_transform(mask, self.image_processor)
+                )
+            target['masks'] = transformed_masks
 
     def image_process(self, image):
         # load image
@@ -313,22 +335,23 @@ class OkapiDataset(Dataset):
             ori_width = ori_width
         )
     
-    def visual_prompts_process(self, visual_prompts):
+    def visual_prompts_process(self, visual_prompts, ori_width, ori_height):
         converted_vpt = []
-        for vpt in visual_prompts:
-            if isinstance(vpt, list):
-                assert len(vpt) == 4
-                if any(value < 0 for value in vpt):
-                    mask = point2mask(vpt)
-                else:
-                    mask = bbox2mask(vpt)
-                
-                transformed_mask = _mask_transform(mask, self.image_processor)
+        for vpt_one_turn in visual_prompts:
+            if vpt_one_turn is None: continue
+            for vpt in vpt_one_turn:
+                if vpt['type'] == 'box':
+                    box = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
+                    mask = bbox2mask(box, width=ori_height, height=ori_height)
+                elif vpt['type'] == 'point':
+                    assert all(vpt[2:4] < 0)
+                    point = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
+                    mask = point2mask(point, width=ori_height, height=ori_height)
+                elif vpt['type'] == 'mask':
+                    # scribble or mask
+                    mask = vpt['value']
+                transformed_mask = mask_transform(mask, self.image_processor)
                 converted_vpt.append(transformed_mask)
-            else:
-                # scribble or mask
-                converted_vpt.append(vpt)
-        
         return converted_vpt
 
     def __getitem__(self, index):
@@ -358,13 +381,14 @@ class OkapiDataset(Dataset):
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
                 self.target_process(
-                    data_dict, 
+                    data_dict['target'], 
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
                 )
-            # add keys: 'visual_prompts', 'decode_labels', 'conversation', 'input_ids', 'labels'
+            # 'visual_prompts', 'decode_labels', 'conversation'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))
+            # 'input_ids', 'labels'
             data_dict.update(
                 encode_fn(
                     example=data_dict,
@@ -378,7 +402,11 @@ class OkapiDataset(Dataset):
         if data_dict.get('visual_prompts', None) is not None:
             assert data_dict.get('image', None) is not None, \
                 'visual prompts set, but no image input.'
-            visual_prompts = self.visual_prompts_process(data_dict['visual_prompts'])
+            visual_prompts = self.visual_prompts_process(
+                data_dict['visual_prompts'],
+                ori_width=data_dict['ori_width'],
+                ori_height=data_dict['ori_height']
+            )
             data_dict['visual_prompts'] = visual_prompts
         return data_dict
 
