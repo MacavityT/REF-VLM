@@ -142,10 +142,8 @@ def target_map_fn(example):
             if not tgt_seq: continue
             
             tgt_value = target.get(TGT_KEY_MAP[placeholder], None)
-            tgt_seq = map_obj(tgt_value, tgt_seq)
-            target[TGT_KEY_MAP[placeholder]] = tgt_seq
-
-            flat_tgt_seq = flatten_obj(tgt_seq)
+            mapped_tgt_seq = map_obj(tgt_value, tgt_seq)
+            flat_tgt_seq = flatten_obj(mapped_tgt_seq)
             assert len(all_find) == len(flat_tgt_seq), \
                 f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
             if len(all_find) == 0: continue
@@ -172,7 +170,7 @@ def target_map_fn(example):
         result['visual_prompts'] = visual_prompts
     if len('decode_labels') > 0 \
         and any(label is not None for label in decode_labels):
-        result[decode_labels] = decode_labels
+        result['decode_labels'] = decode_labels
     return result
 
 def conversation_map_fn(example, vrt_len=64, ref_len=1):
@@ -243,7 +241,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                 output = cot + vrt + output
                 
                 for placeholder in output_placeholders:
-                    target_seq = msg[SEQ_MAP[placeholder]]
+                    target_seq = msg.get(SEQ_MAP[placeholder], None)
                     if not target_seq: continue
                     
                     units = []
