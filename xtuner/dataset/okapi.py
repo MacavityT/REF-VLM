@@ -337,20 +337,21 @@ class OkapiDataset(Dataset):
     
     def visual_prompts_process(self, visual_prompts, ori_width, ori_height):
         converted_vpt = []
-        for vpt in visual_prompts:
-            if isinstance(vpt, list):
-                assert len(vpt) == 4
-                vpt = de_norm_box_xyxy(vpt, w=ori_width, h=ori_height)
-                if any(value < 0 for value in vpt):
-                    mask = point2mask(vpt, width=ori_height, height=ori_height)
-                else:
-                    mask = bbox2mask(vpt, width=ori_height, height=ori_height)
-            else:
-                # scribble or mask
-                mask = vpt
-    
-            transformed_mask = mask_transform(mask, self.image_processor)
-            converted_vpt.append(transformed_mask)
+        for vpt_one_turn in visual_prompts:
+            if vpt_one_turn is None: continue
+            for vpt in vpt_one_turn:
+                if vpt['type'] == 'box':
+                    box = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
+                    mask = bbox2mask(box, width=ori_height, height=ori_height)
+                elif vpt['type'] == 'point':
+                    assert all(vpt[2:4] < 0)
+                    point = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
+                    mask = point2mask(point, width=ori_height, height=ori_height)
+                elif vpt['type'] == 'mask':
+                    # scribble or mask
+                    mask = vpt['value']
+                transformed_mask = mask_transform(mask, self.image_processor)
+                converted_vpt.append(transformed_mask)
         return converted_vpt
 
     def __getitem__(self, index):
@@ -380,7 +381,7 @@ class OkapiDataset(Dataset):
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
                 self.target_process(
-                    data_dict, 
+                    data_dict['target'], 
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
                 )

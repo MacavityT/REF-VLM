@@ -48,8 +48,14 @@ SEQ_MAP = {
     POINTS_PLACEHOLDER: 'points_seq'
 }
 
+TGT_KEY_MAP = {
+    BOXES_PLACEHOLDER: 'boxes',
+    MASKS_PLACEHOLDER: 'masks',
+    POINTS_PLACEHOLDER: 'points'
+}
+
 UNIT_MAP = {
-    BOXES_PLACEHOLDER: 'unit',
+    BOXES_PLACEHOLDER: 'box',
     MASKS_PLACEHOLDER: 'mask',
     POINTS_PLACEHOLDER: 'point'
 }
@@ -96,6 +102,15 @@ def map_units(str, units, placeholder):
     result = re.sub(re.escape(placeholder), _replacement, str)
     return result
 
+def get_placeholders_order(string, placeholders):
+    positions = []
+    for placeholders in placeholders:
+        for match in re.finditer(re.escape(placeholders), string):
+            positions.append((match.start(), placeholders))
+    
+    positions.sort()
+    ordered_placeholders = [placeholder for _, placeholder in positions]
+    return ordered_placeholders
 
 def target_map_fn(example):
     target = example['target']
@@ -107,15 +122,13 @@ def target_map_fn(example):
     if messages[0]['from'] == 'system':
         messages = messages[1:]
 
-    visual_prompts = {}
-    decode_labels = {}
+    visual_prompts = []
+    decode_labels = []
     for msg in messages:
         sentence = msg['value']
         if msg['from'] == 'human':
-            visual_prompts.append()
             placeholders = map_placeholders.get('input', [])
         elif msg['from'] == 'gpt':
-            decode_labels.append()
             placeholders = map_placeholders.get('output', [])
         else:
             raise NotImplementedError
@@ -126,29 +139,43 @@ def target_map_fn(example):
             all_find = pattern.findall(sentence)
 
             tgt_seq = msg.get(SEQ_MAP[placeholder], None)
-            tgt_seq = map_obj(target[placeholder], tgt_seq)
-            target[placeholder] = tgt_seq
+            if not tgt_seq: continue
+            
+            tgt_value = target.get(TGT_KEY_MAP[placeholder], None)
+            tgt_seq = map_obj(tgt_value, tgt_seq)
+            target[TGT_KEY_MAP[placeholder]] = tgt_seq
 
             flat_tgt_seq = flatten_obj(tgt_seq)
             assert len(all_find) == len(flat_tgt_seq), \
-                f"placeholder {placeholder} not match. sentence: {sentence}. targets:{flat_tgt_seq}"
+                f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
             if len(all_find) == 0: continue
-
             tgt_in_msg[placeholder] = flat_tgt_seq
 
+        items = []
+        ordered_placeholders = get_placeholders_order(sentence, placeholders)
+        for placeholder in ordered_placeholders:
+            value = tgt_in_msg[placeholder].pop(0)
+            items.append(
+                dict(
+                    type = UNIT_MAP[placeholder],
+                    value = value
+                )
+            )
         if msg['from'] == 'human':
-            visual_prompts = tgt_in_msg
+            visual_prompts.append(items if len(items) > 0 else None)
         elif msg['from'] == 'gpt':
-            decode_labels = tgt_in_msg
-        else:
-            raise NotImplementedError
+            decode_labels.append(items if len(items) > 0 else None)
 
-    return dict(
-        visual_prompts = visual_prompts,
-        decode_labels = decode_labels
-    )
+    result = dict()
+    if len(visual_prompts) > 0 \
+        and any(vpt is not None for vpt in visual_prompts):
+        result['visual_prompts'] = visual_prompts
+    if len('decode_labels') > 0 \
+        and any(label is not None for label in decode_labels):
+        result[decode_labels] = decode_labels
+    return result
 
-def conversation_map_fn(example, vrt_len, ref_len):
+def conversation_map_fn(example, vrt_len=64, ref_len=1):
     messages = example['conversations']
 
     system_list = []
@@ -165,7 +192,7 @@ def conversation_map_fn(example, vrt_len, ref_len):
                 unit = ', '.join(info['unit'])
                 unit = f'- unit: {unit}\n'
             else:
-                unit = ''
+                unit = '- unit: None'
             element = ', '.join(info['task']['element'])
             element = f'- answer element: {element}\n'  
             sys = 'Task Command:\n' + task_name + element + unit
@@ -200,57 +227,57 @@ def conversation_map_fn(example, vrt_len, ref_len):
                 if unit_decode and not vrt_exist:
                     # cot = f"{BOT_TOKEN}Unit needs to be decoded, but the visual representation \\
                     #     has not been generated. Now, let's generate it.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (True). VPT prepared (False). Generate VPT (True).{EOT_TOKEN}"
+                    cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (False). Generate VRT (True).{EOT_TOKEN}"
                     vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}"
+                    vrt_exist = True
                     
                 elif unit_decode and vrt_exist:
                     # cot = f"{BOT_TOKEN}Unit needs to be decoded, and the visual representation \\
                     #     has been generated. Now, let's generate it.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (True). VPT prepared (True). Generate VPT (False).{EOT_TOKEN}"
+                    cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (True). Generate VRT (False).{EOT_TOKEN}"
                     vrt = ''
                 else:
                     # cot = f"{BOT_TOKEN}Unit needs not to be decoded, skip visual representation process.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (False). Generate VPT (False).{EOT_TOKEN}"
+                    cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
                     vrt = ''
                 output = cot + vrt + output
                 
                 for placeholder in output_placeholders:
                     target_seq = msg[SEQ_MAP[placeholder]]
+                    if not target_seq: continue
                     
-                    all_units = []
+                    units = []
                     for tgts in target_seq:
-                        units = []
                         for tgt_idx, tgt in enumerate(tgts):
                             unit = BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + \
                                 VISUAL_REFERENCE_TOKEN * ref_len + f"[{tgt_idx}]"
+                            if tgt_idx == 0: unit = '(' + unit
+                            if tgt_idx == len(tgts) - 1: unit = unit + ')'
+                            if tgt_idx != 0 and tgt_idx != len(tgts) - 1: unit = ' ' + unit
                             units.append(unit)
-                        units[0] = '(' + units[0]
-                        units[-1] = units[-1] + ')'
-                        all_units.extend(units)
-
-                    output = map_units(output, all_units, placeholder)
+                    output = map_units(output, units, placeholder)
 
             conversation.append({'input': input, 'output': output})
             input = ''
         else:
             raise NotImplementedError
         
-        assert len(conversation) == len(system_list)
-        res_conversation = []
-        for conv, sys in zip(conversation, system_list):
-            conv['system'] = sys
-            res_conversation.append(conv)
+    assert len(conversation) == len(system_list)
+    res_conversation = []
+    for conv, sys in zip(conversation, system_list):
+        conv['system'] = sys
+        res_conversation.append(conv)
 
     return {'conversation': res_conversation}
 
 
-def okapi_map_fn_stage2(example):
+def okapi_map_fn_stage2(example, vrt_len=64, ref_len=1):
     messages = example['conversations']
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt
         example['conversations'] = example['conversations'][1:]
 
     res = target_map_fn(example)
-    conversation = conversation_map_fn(example)
+    conversation = conversation_map_fn(example, vrt_len, ref_len)
     res.update(conversation)
     return res

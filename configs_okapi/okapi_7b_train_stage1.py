@@ -28,7 +28,6 @@ okapi_dataset = dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
-#endregion
 
 #region llava dataset
 llava_dataset = dict(
