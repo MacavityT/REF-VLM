@@ -222,7 +222,7 @@ class GRITDataset(MInstrDataset):
                 # find box_seq for expr in class_names
                 for cls_name in cls_box_dict.keys():
                     if cls_name in expr_name:
-                        conversation_gpt['boxes_seq'] = cls_box_dict[cls_name]
+                        conversation_gpt['boxes_seq'] = [cls_box_dict[cls_name]]
                         break
 
                 expr_names.append(expr_name)

@@ -6,8 +6,11 @@ import torch
 import random
 from torch.utils.data import Dataset
 from pycocotools.mask import decode
-from .mixin import MInstrDataset
+import time
+from PIL import Image
 
+from .mixin import MInstrDataset
+from xtuner.dataset.utils import norm_box_xyxy,de_norm_box_xyxy
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
@@ -20,7 +23,43 @@ from xtuner.utils.constants import (
     CLASS_PLACEHOLDER
 )
 
+def insert_phrases(input_str, indices, place_holder):
+    # (0,"start",-1),(0,"end",[box_seq])
+    phrase_map = {
+        "start":PHRASE_ST_PLACEHOLDER_STAGE2,
+        "end":PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder,
+    }
+    for index, phrase, seq in sorted(indices, reverse=True):
+        input_str = input_str[:index] + phrase_map[phrase] + input_str[index:]
+    return input_str
 
+def sort_objects(objects):
+    for object in objects:
+        object['segmentation'] = decode(object['segmentation'])
+        area = object['segmentation'].sum().item()
+        object['area'] = area
+    objects = sorted(objects, key=lambda x: x['area'],reverse=True)
+    for i,item in enumerate(objects):
+        if i > 9:
+            item['segmentation'] = None
+    objects = sorted(objects, key=lambda x: x['id'],reverse=False)
+
+    return objects
+
+
+def resize_mask(mask,width,height,ratio=0.3):
+    if mask is None:
+        return None
+    mask = Image.fromarray(mask)
+    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.ANTIALIAS)
+    mask = np.array(mask)
+    mask[mask!=0] = 1
+    return mask.astype(np.uint8)
+
+def resize_box(box,width,height,ratio=0.3):
+    box = norm_box_xyxy(box,width,height)
+    box = de_norm_box_xyxy(box,int(width*ratio),int(height*ratio))
+    return box
 
 
 @DATASETS.register_module()
@@ -121,6 +160,93 @@ class GranDDataset(MInstrDataset):
 
         return all_conversations
     
+    def select_target(self,item):
+
+        def remove_ones_and_next(lst):
+            i = 0
+            while i < len(lst):
+                if lst[i] == 1:
+                    del lst[i:i+2]
+                else:
+                    i += 1
+            return lst
+
+        target = item['target']
+        boxes = target['boxes']
+        masks = target['masks']
+        conversations = item['conversations']
+        select_conversations = conversations.copy()
+
+        selected_masks = []
+        selected_boxes = []
+        remove_idx = []
+        for i, conversation in enumerate(conversations):
+            if i % 2 == 0:
+                assert conversation['from'] == 'human'
+                # {'from': 'human', 'value': xxx}
+                if 'masks_seq' in conversation.keys():
+                    seq_list = conversation['masks_seq']
+                    assert len(seq_list[0]) == 1
+                    seq = seq_list[0][0]
+                    mask = masks[seq]
+                    if mask is None:
+                        gpt_answer = conversations[i+1]
+                        select_conversations.remove(conversation)
+                        select_conversations.remove(gpt_answer)
+                        remove_idx.append(i)
+                    else:
+                        selected_masks.append(mask)
+                        idx = select_conversations.index(conversation)
+                        select_conversations[idx]['masks_seq'] = [[len(selected_masks)-1]]
+                
+                elif 'boxes_seq' in conversation.keys():
+                    seq_list = conversation['boxes_seq']
+                    assert len(seq_list[0]) == 1
+                    seq = seq_list[0][0]
+                    box = boxes[seq]
+                    selected_boxes.append(box)
+                    idx = select_conversations.index(conversation)
+                    select_conversations[idx]['boxes_seq'] = [[len(selected_boxes)-1]]
+            else:
+                assert conversation['from'] == 'gpt'
+                # {'from': 'gpt', 'value': xxx}
+                if 'masks_seq' in conversation.keys():
+                    seq_list = conversation['masks_seq']
+                    seq_list_selected = []
+                    for seqs in seq_list:
+                        seqs_selected = []
+                        for seq in seqs:
+                            mask = masks[seq]
+                            selected_masks.append(mask)
+                            selected_seq = len(selected_masks) - 1
+                            seqs_selected.append(selected_seq)
+                        seq_list_selected.append(seqs_selected)
+                    
+                    idx = select_conversations.index(conversation)
+                    select_conversations[idx]['masks_seq'] = seq_list_selected
+
+                elif 'boxes_seq' in conversation.keys():
+                    seq_list = conversation['boxes_seq']
+                    seq_list_selected = []
+                    for seqs in seq_list:
+                        seqs_selected = []
+                        for seq in seqs:
+                            box = boxes[seq]
+                            selected_boxes.append(box)
+                            selected_seq = len(selected_boxes) - 1
+                            seqs_selected.append(selected_seq)
+                        seq_list_selected.append(seqs_selected)
+                    
+                    idx = select_conversations.index(conversation)
+                    select_conversations[idx]['boxes_seq'] = seq_list_selected
+
+
+        item['target']['boxes'] = selected_boxes
+        item['target']['masks'] = selected_masks 
+        item['conversations'] = select_conversations
+
+        return remove_idx
+    
     def caption(self,ret,captions,template_name=None,random_select=False,length=None):
         
         conversations = []
@@ -175,7 +301,7 @@ class GranDDataset(MInstrDataset):
                 seq_name = 'boxes_seq'
                 place_holder = BOXES_PLACEHOLDER
             elif template_name == 'SEG':
-                boxes_or_masks.append(decode(object['segmentation']))
+                boxes_or_masks.append(object['segmentation'])
                 type = 'masks'
                 task = {'task_name':'segmentation','element':['phrase'],'use_unit':True}
                 unit = ['mask']
@@ -505,10 +631,12 @@ class GranDDataset(MInstrDataset):
 
         return ret
     
-    def mix(self,ret,objects,floating_objects,captions,random_select=False,length=None):
+    def mix(self,ret,objects,floating_objects,captions,ratio,random_select=False,length=None):
         '''mix all tasks'''
         if self.use_floating_objects:
             objects = objects + floating_objects
+
+        objects = sort_objects(objects)
         
         # define box and mask basic variables
         det_dict = {
@@ -545,11 +673,17 @@ class GranDDataset(MInstrDataset):
 
         cls_names = []
         box_mask_seq = []
- 
+        id_map = {}
+
         for i,object in enumerate(objects):
-            
-            det_dict['bboxes'].append(object['bbox'])
-            seg_dict['masks'].append(decode(object['segmentation']))
+            box = resize_box(object['bbox'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+            mask = resize_mask(object['segmentation'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+            det_dict['bboxes'].append(box)
+            seg_dict['masks'].append(mask)
+
+            id_map[f"id_{object['id']}"] = i
 
             cls_name = ', '.join(object['labels'])
             cls_name = cls_name.replace('_',' ')
@@ -602,7 +736,10 @@ class GranDDataset(MInstrDataset):
                 # generate detection & segmentation captions
                 det_dict['box_caption'] = det_dict['box_caption'] + PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder'] + ', '
                 seg_dict['mask_caption'] = seg_dict['mask_caption'] + PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + seg_dict['place_holder'] + ', '
-        
+
+        ret['image']['width'] = int(ret['image']['width']*ratio)
+        ret['image']['height'] = int(ret['image']['height']*ratio)
+
         cap_conversations = []
         for j,caption in enumerate(captions):
 
@@ -621,9 +758,19 @@ class GranDDataset(MInstrDataset):
                 question_cap_seg = self.dense_question(question_cap_seg)
                 cation_cap = self.dense_question(question_cap)
 
+            all_indices = []
+            place_holders_det = ''
+            place_holders_seg = ''
             for detail in caption['details']:
                 phrase = detail['phrase']
+                token_positive = detail['tokens_positive']
+                if token_positive is None:
+                    continue
                 if 'ids' in detail.keys():
+                    reform_ids = []
+                    for id in detail['ids']:
+                        reform_ids.append(id_map[f"id_{id}"])
+                    detail['ids'] = reform_ids
                     rec_seq = detail['ids']
                     reg_seq = detail['ids']
                     # generate rec detection & segmentation answers
@@ -634,6 +781,7 @@ class GranDDataset(MInstrDataset):
                     conversation_gpt_rec_seg = {'from': 'gpt', 'value': value_rec_seg, 
                                                 seg_dict['seq_name']: [rec_seq]}
                 else:
+                    detail['id'] = id_map[f"id_{detail['id']}"]
                     rec_seq = [detail['id']]
                     reg_seq = detail['id']
                     # generate rec detection & segmentation answers
@@ -689,11 +837,24 @@ class GranDDataset(MInstrDataset):
                 else:
                     place_holders_det = det_dict['place_holder']
                     place_holders_seg = seg_dict['place_holder']
-                    seq_cap_det_seg.append([reg_seq])
+                    reg_seq = [reg_seq]
+                    seq_cap_det_seg.append(reg_seq)
 
-                caption_expr_det = caption_expr_det.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_det)  
-                caption_expr_seg = caption_expr_seg.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_seg)
                 
+                
+                # TODO： 这里需要改
+                # caption_expr_det = caption_expr_det.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_det)  
+                # caption_expr_seg = caption_expr_seg.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_seg)
+                # caption_expr_det = caption_expr_det.replace("<phrase>",PHRASE_ST_PLACEHOLDER_STAGE2)
+                # caption_expr_det = caption_expr_det.replace("</phrase>",PHRASE_ED_PLACEHOLDER_STAGE2)
+                # caption_expr_seg = caption_expr_seg.replace("<phrase>",PHRASE_ST_PLACEHOLDER_STAGE2)
+                # caption_expr_seg = caption_expr_seg.replace("</phrase>",PHRASE_ED_PLACEHOLDER_STAGE2)
+
+                all_indices.append((token_positive[0],"start",-1))
+                all_indices.append((token_positive[1],"end",reg_seq))
+
+            caption_expr_det = insert_phrases(caption_expr_det,all_indices,place_holders_det)
+            caption_expr_seg = insert_phrases(caption_expr_seg,all_indices,place_holders_seg)
 
             det_dict['conversations']['cap_det_conversations'].append([{'from': 'human','value': question_cap_det},
                                                                        {'from': 'gpt', 'value': caption_expr_det,det_dict['seq_name']: seq_cap_det_seg}])
@@ -770,13 +931,20 @@ class GranDDataset(MInstrDataset):
         all_conversations = self.concat_conversations(all_conversations,concat_all=True)
 
         ret['target'] = {det_dict['type']:det_dict['bboxes'],seg_dict['type']:seg_dict['masks']}
-        ret['conversations'] = [{'from':'system','value':all_system_values}]
-        ret['conversations'] += all_conversations
+        ret['conversations'] = all_conversations
+        remove_idx = self.select_target(ret)
+        for idx in sorted(remove_idx,reverse=True):
+            assert idx % 2 == 0
+            idx = idx // 2
+            del all_system_values[idx]
+
+        ret['conversations'].insert(0,{'from':'system','value':all_system_values})
+        
 
         return ret
     
 
-    def make_conversations(self,ret,annotations):
+    def make_conversations(self,ret,annotations,ratio):
         objects = annotations['objects']
         floating_objects = annotations['floating_objects']
         short_captions = annotations['short_captions']
@@ -843,13 +1011,16 @@ class GranDDataset(MInstrDataset):
             return ret  
         
         elif self.version == 'mix':
-            ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length)
+            ret = self.mix(ret,objects,floating_objects,captions,random_select=False,length=self.length,ratio=ratio)
             return ret
         
     def __len__(self):
         return len(self.text_path_file)
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         text_file = self.text_path_file[index]
         annotations_json = self.get_file_data(os.path.join(self.text_path,text_file))
         img_path = text_file[:-5] + '.jpg'
@@ -860,9 +1031,10 @@ class GranDDataset(MInstrDataset):
             shape = annotations['floating_objects'][0]['segmentation']['size']
         image_path_abs = os.path.join(self.image_folder,img_path)
         ret = {}
-        ret['image'] = {'path': image_path_abs,'width':shape[0],'height':shape[1]}
+        ratio = 0.3
+        ret['image'] = {'path': image_path_abs,'width':int(shape[1]),'height':int(shape[0])}
 
-        ret = self.make_conversations(ret,annotations)
+        ret = self.make_conversations(ret,annotations,ratio=ratio)
         ret['map_placeholders'] = self.map_placeholders
 
         return ret

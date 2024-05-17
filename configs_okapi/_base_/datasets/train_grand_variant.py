@@ -157,6 +157,6 @@ train_grand_variant = dict(
                       (IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
                       (IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,MASKS_PLACEHOLDER),
                       (IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,)],
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline',
     )
 )

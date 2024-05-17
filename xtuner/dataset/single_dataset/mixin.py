@@ -132,6 +132,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         else:
             if os.path.isfile(text_path):   # judge whether the input path is a jsonfile or a directory.
                 self.text_data = self.get_file_data(text_path)
+            else:
+                self.text_data = None
             if image_info_folder is not None:
                 self.image_data_info = self.get_file_data(image_info_folder)
                 if isinstance(self.image_data_info, list):
@@ -143,9 +145,9 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                     self.image_data_info = rearrange
          
     def load_offline_text_data(self, offline_processed_text_folder):
+        
         offline_dataset_args = dict(
             type = 'OfflineDataset',
-            format = 'json',
             folder = offline_processed_text_folder
         )
         return DATASETS.build(offline_dataset_args)

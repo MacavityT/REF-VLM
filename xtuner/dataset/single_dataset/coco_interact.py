@@ -89,6 +89,46 @@ class COCOInteract(MInstrDataset):
         conversations = conversations[:rand_num]
         return conversations
     
+    def select_target(self,item,version):
+
+        if version == 'd':
+            target = item['target']
+            boxes = target['boxes']
+            masks = target['masks']
+            conversations = item['conversations']
+
+            selected_masks = []
+            selected_boxs = []
+            for i, conversation in enumerate(conversations):
+                if i % 2 == 0:
+                    seq = conversation['masks_seq'][0][0]
+                    selected_masks.append(masks[seq])
+                    assert 'masks_seq' in item['conversations'][i].keys()
+                    item['conversations'][i]['masks_seq'] = [[len(selected_masks)-1]]
+                else:
+                    seq = conversation['boxes_seq'][0][0]
+                    selected_boxs.append(boxes[seq])
+                    assert 'boxes_seq' in item['conversations'][i].keys()
+                    item['conversations'][i]['boxes_seq'] = [[len(selected_boxs)-1]]
+
+            item['target']['boxes'] = selected_boxs
+            item['target']['masks'] = selected_masks 
+        
+        elif version == 's':
+            target = item['target']
+            masks = target['masks']
+            conversations = item['conversations']
+            selected_masks = []
+
+            for i, conversation in enumerate(conversations):
+                seq = conversation['masks_seq'][0][0]
+                selected_masks.append(masks[seq])
+                assert 'masks_seq' in item['conversations'][i].keys()
+                item['conversations'][i]['masks_seq'] = [[len(selected_masks)-1]]
+
+            item['target']['masks'] = selected_masks
+
+    
     def concat_conversations(self,conversations,concat_all=False):
 
         all_conversations = []
@@ -109,6 +149,9 @@ class COCOInteract(MInstrDataset):
     
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         item = self.text_data[index]
         img_path = item['image']
         image_path_abs = os.path.join(self.image_folder,img_path)
@@ -123,6 +166,7 @@ class COCOInteract(MInstrDataset):
         gt_boxes = []
         all_conversations = []
         all_system_values = []
+        selected_mask = []
         for i,annotation in enumerate(annotations): 
             mask = self.annToMask(annotation['segmentation'], height, width)
 
@@ -145,7 +189,7 @@ class COCOInteract(MInstrDataset):
                 answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
                 single_conversation = [
                     {'from':'human','value':question,'masks_seq':[[5*i+1+random_num]]},
-                    {'from':'gpt','value':answer,'masks_seq':[[i]]}
+                    {'from':'gpt','value':answer,'masks_seq':[[5*i]]}
                 ]
                 all_conversations.append(single_conversation)
                 all_system_values.append([{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
@@ -153,9 +197,11 @@ class COCOInteract(MInstrDataset):
             elif self.version == 'd':
                 gt_boxes.append(annotation['bbox'])
                 random_num = random.randint(1,len(interact_list)-1)
+                selected_mask.append(interact_list[random_num])
+                masks_seq = [[len(selected_mask)-1]]
                 answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')
                 single_conversation = [
-                    {'from':'human','value':question,'masks_seq':[[5*i+1+random_num]]},
+                    {'from':'human','value':question,'masks_seq':masks_seq},
                     {'from':'gpt','value':answer,'boxes_seq':[[i]]}
                 ]
                 all_conversations.append(single_conversation)
@@ -168,7 +214,6 @@ class COCOInteract(MInstrDataset):
                                                                   system_value=all_system_values)
         all_system_values = self.concat_conversations(all_system_values)
         all_conversations = self.concat_conversations(all_conversations,concat_all=True)
-        all_conversations.insert(0,[{'from':'system','value':all_system_values}]) 
         
 
         if self.version == 's':
@@ -183,5 +228,10 @@ class COCOInteract(MInstrDataset):
                 'target':{'masks':gt_masks,'boxes':gt_boxes},
                 'conversations': all_conversations
             }
+        
+        self.select_target(ret,self.version)
         ret['map_placeholders'] = self.map_placeholders
+
+        ret['conversations'].insert(0,{'from':'system','value':all_system_values}) 
         return ret
+    
