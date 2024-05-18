@@ -14,7 +14,8 @@ train_interact_variant = dict(
         map_placeholders=dict(
             input=["<region>"],
             output=["<masks>"],
-        ),       
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/mask_offline'     
     ),
     interact_box=dict(
         **interact_train_common_cfg, 
@@ -24,6 +25,7 @@ train_interact_variant = dict(
         map_placeholders=dict(
             input=["<region>"],
             output=["<boxes>"],
-        ),       
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/box_offline'           
     )
 )

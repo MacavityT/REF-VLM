@@ -3,20 +3,32 @@ import os
 import json
 import jsonlines
 import numpy as np
-
+import pickle
 from mmengine import print_log
 from torch.utils.data import Dataset
 from xtuner.registry import DATASETS
 
 @DATASETS.register_module()
 class OfflineDataset(Dataset):
-    def  __init__(self, folder, format):
+    def  __init__(self, folder):
         super().__init__()
         assert folder is not None
-        assert format in ['json', 'jsonl', 'npy']
         self.folder = folder
-        self.format = format
-        self.data = os.listdir(folder)
+        if os.path.isdir(self.folder):
+            self.data = os.listdir(folder)
+            self.format = self.data[0].split(".")[-1]
+        else:
+            self.format = self.folder.split(".")[-1]
+            if self.format == 'json':
+                self.data = self.read_json(self.folder)
+            elif self.format == 'jsonl':
+                self.data = self.read_jsonl(self.folder)
+            elif self.format == 'npy':
+                self.data = self.read_npy(self.folder)
+            elif self.format == 'pkl':
+                self.data = self.read_pkl(self.folder)
+
+        assert self.format in ['json', 'jsonl', 'npy','pkl']
 
     def __len__(self):
         return len(self.data)
@@ -34,13 +46,24 @@ class OfflineDataset(Dataset):
     def read_npy(self, npy_path):
         pass
 
+    def read_pkl(self, pkl_path):
+        with open(pkl_path,"rb") as f:
+            datas = pickle.load(f)
+            f.close()
+        return datas
+
     def __getitem__(self, index):
-        path_abs = os.path.join(self.folder, self.data[index])
-        if self.format == 'json':
-            item = self.read_json(path_abs)
-        elif self.format == 'jsonl':
-            item = self.read_jsonl(path_abs)
-        elif self.format == 'npy':
-            item = self.read_npy(path_abs)
+        if os.path.isdir(self.folder):
+            path_abs = os.path.join(self.folder, self.data[index])
+            if self.format == 'json':
+                item = self.read_json(path_abs)
+            elif self.format == 'jsonl':
+                item = self.read_jsonl(path_abs)
+            elif self.format == 'npy':
+                item = self.read_npy(path_abs)
+            elif self.format == 'pkl':
+                item = self.read_pkl(path_abs)
+        else:
+            item = self.data[index]    
         
         return item

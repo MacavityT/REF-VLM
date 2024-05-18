@@ -144,6 +144,6 @@ train_grand_variant = dict(
                       ('<image>','<expr>'),('<image>','<expr>'),
                       ('<image>','<objs>'),('<image>',"<masks>"),
                       ('<image>',),('<image>',)],
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline',
     )
 )
