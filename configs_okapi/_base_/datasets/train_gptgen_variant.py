@@ -1,5 +1,3 @@
-from xtuner.utils.constants import BOXES_PLACEHOLDER
-
 gptgen_train_common_cfg = dict(
     type='GPT4Gen',
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_BoxCoT_train.jsonl',
@@ -14,7 +12,7 @@ train_gptgen_variant = dict(
         **gptgen_train_common_cfg, 
         version='a', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qa',
@@ -23,7 +21,7 @@ train_gptgen_variant = dict(
         **gptgen_train_common_cfg, 
         version='c', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),
         template_name=r"VQA_CoT",
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qc',
@@ -32,8 +30,8 @@ train_gptgen_variant = dict(
         **gptgen_train_common_cfg, 
         version='bc', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qbc',
@@ -44,8 +42,8 @@ train_gptgen_variant = dict(
         text_path='/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_RD_BoxCoT_train_modified.jsonl',
         offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_rd_qbc',
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         stage=2,
         version='bc',

@@ -1,16 +1,3 @@
-from xtuner.utils.constants import (
-    IMAGE_PLACEHOLDER,
-    BOXES_PLACEHOLDER,
-    MASKS_PLACEHOLDER,
-    OBJS_PLACEHOLDER,
-    PHRASE_ST_PLACEHOLDER_STAGE2,
-    PHRASE_ED_PLACEHOLDER_STAGE2,
-    EXPR_PLACEHOLDER,
-    CLASS_PLACEHOLDER
-)
-
-
-
 grand_train_common_cfg = dict(
     type='GranDDataset',
     text_path=r'/data/Aaronzhu/GranD/GranD/Jsons',
@@ -27,7 +14,7 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"image_cap",
         map_placeholders=None,
-        placeholders=(IMAGE_PLACEHOLDER,),
+        placeholders=('<image>',),
         offline_processed_text_folder='',
     ),
     grand_d=dict(
@@ -36,9 +23,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"DET",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ),         
-        placeholders=(IMAGE_PLACEHOLDER,),
+        placeholders=('<image>',),
         offline_processed_text_folder='',
     ),
     grand_s=dict(
@@ -47,9 +34,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"SEG",
         map_placeholders=dict(
-            output=[MASKS_PLACEHOLDER],
+            output=["<masks>"],
         ), 
-        placeholders=(IMAGE_PLACEHOLDER,),
+        placeholders=('<image>',),
         offline_processed_text_folder='',
     ),
     grand_cond_d=dict(
@@ -58,9 +45,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"Cond_DET",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ),     
-        placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
+        placeholders=('<image>','<cls>'),
         offline_processed_text_folder='',        
     ),
     grand_cond_s=dict(
@@ -69,9 +56,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"Cond_SEG",
         map_placeholders=dict(
-            output=[MASKS_PLACEHOLDER],
+            output=["<masks>"],
         ), 
-        placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
+        placeholders=('<image>','<cls>'),
         offline_processed_text_folder='',        
     ),
     grand_r_det=dict(
@@ -80,9 +67,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"REC",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ),     
-        placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
+        placeholders=('<image>','<expr>'),
         offline_processed_text_folder='',
     ),
     grand_r_seg=dict(
@@ -91,9 +78,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"RES",
         map_placeholders=dict(
-            output=[MASKS_PLACEHOLDER],
+            output=["<masks>"],
         ), 
-        placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
+        placeholders=('<image>','<expr>'),
         offline_processed_text_folder='',
     ),
     grand_re_det=dict(
@@ -102,9 +89,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"REG",
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),     
-        placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
+        placeholders=('<image>','<objs>'),
         offline_processed_text_folder='',
     ),
     grand_re_seg=dict(
@@ -113,9 +100,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"REG_SEG",
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         ), 
-        placeholders=(IMAGE_PLACEHOLDER,MASKS_PLACEHOLDER),
+        placeholders=('<image>',"<masks>"),
         offline_processed_text_folder='',
     ),
 
@@ -125,9 +112,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"flickr30k",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ),     
-        placeholders=(IMAGE_PLACEHOLDER,),
+        placeholders=('<image>',),
         offline_processed_text_folder='',
     ),
     grand_c_s=dict(
@@ -136,9 +123,9 @@ train_grand_variant = dict(
         use_floating_objects=True,
         template_name=r"flickr30k_SEG",
         map_placeholders=dict(
-            output=[MASKS_PLACEHOLDER],
+            output=["<masks>"],
         ),     
-        placeholders=(IMAGE_PLACEHOLDER,),
+        placeholders=('<image>',),
         offline_processed_text_folder='',
     ),
     grand_mix = dict(
@@ -148,15 +135,15 @@ train_grand_variant = dict(
         max_conv_length=2,
         template_name=["image_cap","DET","SEG","Cond_DET","Cond_SEG","REC","RES","REG","REG_SEG","flickr30k","flickr30k_SEG"],
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER,MASKS_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER,MASKS_PLACEHOLDER],
+            input=["<boxes>","<masks>"],
+            output=["<boxes>","<masks>"],
         ),             
-        placeholders=[(IMAGE_PLACEHOLDER,),
-                      (IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),
-                      (IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
-                      (IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
-                      (IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,MASKS_PLACEHOLDER),
-                      (IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,)],
+        placeholders=[('<image>',),
+                      ('<image>',),('<image>',),
+                      ('<image>','<cls>'),('<image>','<cls>'),
+                      ('<image>','<expr>'),('<image>','<expr>'),
+                      ('<image>','<objs>'),('<image>',"<masks>"),
+                      ('<image>',),('<image>',)],
         offline_processed_text_folder='',
     )
 )

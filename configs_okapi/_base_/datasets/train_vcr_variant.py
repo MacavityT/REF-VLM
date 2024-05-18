@@ -1,5 +1,3 @@
-from xtuner.utils.constants import BOXES_PLACEHOLDER
-
 vcr_train_common_cfg = dict(
     type='VCRDataset',
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_train.jsonl',
@@ -13,8 +11,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='q-a', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a',
@@ -23,8 +21,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='q-ra', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_ra'
@@ -33,7 +31,7 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qc-a', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a'
@@ -42,8 +40,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qc-ra', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_ra'
@@ -52,8 +50,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qc-rac', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_rac'
@@ -62,8 +60,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qa-r', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qa_r'
@@ -72,8 +70,8 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='q-a-q-r', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a_q_r'
@@ -82,7 +80,7 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qac-r', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qac_r'
@@ -91,7 +89,7 @@ train_vcr_variant = dict(
         **vcr_train_common_cfg, 
         version='qc-a-qc-r', 
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ),
         template_name=r"VQA",
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a_qc_r'

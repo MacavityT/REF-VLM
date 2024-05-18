@@ -14,33 +14,7 @@ from xtuner.utils.constants import (
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN
     )
-from xtuner.dataset.utils import norm_box_xyxy, norm_point_xyxy, de_norm_box_xyxy
-from xtuner.utils import IGNORE_INDEX
 from .okapi_map_fn import map_obj
-
-# ret = {
-#     'image': image,
-#     'target': {'boxes': item['boxes']},  # 'seg' /
-#     'map_placeholders': dict(
-#            input=[BOXES_PLACEHOLDER],
-#            output=[BOXES_PLACEHOLDER],
-#         )
-#     'conversations': [
-#         {
-#             'from': 'system',
-#             'value':[{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
-#         },
-#         {
-#             'from': 'human',
-#             'value': question,
-#         },
-#         {
-#             'from': 'gpt',
-#             'value': caption,
-#             'boxes_seq': item['boxes_seq'],
-#         }
-#     ]
-# }
 
 SEQ_MAP = {
     BOXES_PLACEHOLDER: 'boxes_seq',
@@ -82,7 +56,10 @@ def map_obj(target_value: List[List[float]], target_seq: List[List[int]]) -> Lis
         for targets in target_seq:
             targets_ret = []
             for tgt_idx in targets:
-                targets_ret.append(np.array(target_value[tgt_idx]))
+                if target_value[tgt_idx]:
+                    targets_ret.append(np.array(target_value[tgt_idx]))
+                else:
+                    targets_ret.append(None)
             ret.append(targets_ret)
         return ret
     except:

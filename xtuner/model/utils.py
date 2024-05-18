@@ -135,7 +135,8 @@ def prepare_inputs_labels_for_multimodal(
         labels: Optional[torch.LongTensor] = None,
         pixel_values: Optional[torch.FloatTensor] = None,
         vpt_count: Optional[List[int]] = None,
-        vpt_feats: Optional[List[List[torch.FloatTensor]]] = None):
+        vpt_feats: Optional[List[List[torch.FloatTensor]]] = None,
+        **kwargs):
     if pixel_values is None:
         return {
             'input_ids': input_ids,

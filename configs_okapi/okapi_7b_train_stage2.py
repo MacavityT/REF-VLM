@@ -21,28 +21,30 @@ with read_base():
 
 
 # Data configs
-max_length = 10000  # use cutoff lens instead
-batch_size = 32  # per_device
-dataloader_num_workers = 20
+max_length = 512  # use cutoff lens instead
+batch_size = 8  # per_device
+dataloader_num_workers = 5
 vrt_length = 64
 ref_length = 1
-dataset_map_fn = partial(okapi_map_fn_stage2, vrt_len=vrt_length, ref_len=ref_length)
 prompt_template = PROMPT_TEMPLATE.okapi
 
-okapi_dataset = dict(
+train_dataset = dict(
     type=OkapiDataset,
     pretokenize=False,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=dataset_map_fn,
+    dataset_map_fn=dict(
+        function=okapi_map_fn_stage2,
+        args = dict(
+            vrt_len=vrt_length, 
+            ref_len=ref_length
+        )
+    ),
     template_map_fn=dict(
         type=okapi_template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
-
-
-train_dataset = dict(type=ConcatDataset, datasets=[okapi_dataset])
 
 train_dataloader = dict(
     batch_size=batch_size,
@@ -51,35 +53,39 @@ train_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=okapi_collate_fn))
 
-okapi_dataset_val = dict(
-    type=OkapiDataset,
-    dataset=val_dataset_args,
-    image_processor=clip_patch14_336['image_processor'],
-    tokenizer=tokenizer,
-    dataset_map_fn=dataset_map_fn,
-    template_map_fn=dict(
-        type=okapi_template_map_fn_factory, template=prompt_template),
-    max_length=max_length,
-    pad_image_to_square=True)
+# val_dataset = dict(
+#     type=OkapiDataset,
+#     pretokenize=False,
+#     dataset=val_dataset_args,
+#     image_processor=clip_patch14_336['image_processor'],
+#     tokenizer=tokenizer,
+#     dataset_map_fn=dataset_map_fn,
+#     template_map_fn=dict(
+#         type=okapi_template_map_fn_factory, template=prompt_template),
+#     max_length=max_length,
+#     pad_image_to_square=True)
 
-val_dataloader = dict(
-    batch_size=1,
-    num_workers=dataloader_num_workers,
-    dataset=okapi_dataset_val,
-    sampler=dict(type=DefaultSampler, shuffle=False),
-    collate_fn=dict(type=okapi_collate_fn))
+# val_dataloader = dict(
+#     batch_size=1,
+#     num_workers=dataloader_num_workers,
+#     dataset=val_dataset,
+#     sampler=dict(type=DefaultSampler, shuffle=False),
+#     collate_fn=dict(type=okapi_collate_fn))
 
 
-val_evaluator = dict(
-    type=ImgCapComputeMetrics, tokenizer=tokenizer, prefix='caption')
+# val_evaluator = dict(
+#     type=ImgCapComputeMetrics, tokenizer=tokenizer, prefix='caption')
 
 # val_evaluator = dict(
 #     type=VQAComputeMetrics, tokenizer=tokenizer, prefix='vqa')
 
+val_cfg = None
+
 # config models
+pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/0510_1_20_gc_rvg/iter_3558.pth'
 model = dict(
     type=OkapiModel,
-    pretrained_pth='',
+    pretrained_pth=pretrained_pth,
     freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
@@ -90,25 +96,7 @@ model = dict(
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'])
 
-
-
-# Evaluate the generation performance during the training
-evaluation_freq = 500
-SYSTEM = ''
-evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
-evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
-
-
 # Log the dialogue periodically during the training process, optional
 custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer),
-    dict(
-        type=EvaluateChatHook,
-        tokenizer=vicuna_7b_path_tokenizer,
-        image_processor=clip_patch14_336['image_processor'],
-        every_n_iters=evaluation_freq,
-        evaluation_inputs=evaluation_inputs,
-        evaluation_images=evaluation_images,
-        system=SYSTEM,
-        prompt_template=prompt_template)
+    dict(type=DatasetInfoHook, tokenizer=tokenizer)
 ]

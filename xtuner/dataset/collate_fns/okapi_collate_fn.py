@@ -20,25 +20,31 @@ def okapi_collate_fn(instances: Sequence[Dict],
     else:
         data_dict = collate_results['data']
     
-    visual_prompts = []
-    ori_width_list = []
-    ori_height_list = []
-    for example in instances:
-        if example.get('visual_prompts'):
-            assert example.get('pixel_values') is not None, \
-                'visual prompts set, but no image input.'
-            
-            # List[List[Tensor]]
-            visual_prompts.append(example['visual_prompts'])
-        else:
-            visual_prompts.append(None)
+    has_vpt = any(inst.get('visual_prompts') is not None for inst in instances)
+    has_decode_label = any(inst.get('decode_labels') is not None for inst in instances)
 
-        ori_width_list.append(example['ori_width'])
-        ori_height_list.append(example['ori_height'])
+    if has_vpt:
+        visual_prompts = []
+        for example in instances:
+            if example.get('visual_prompts', None):
+                visual_prompts.append(example['visual_prompts'])
+            else:
+                visual_prompts.append(None)
+        data_dict['visual_prompts']  = visual_prompts
 
-    data_dict['visual_prompts']  = visual_prompts
-    data_dict['ori_width'] = ori_width_list
-    data_dict['ori_height'] = ori_height_list
+    if has_decode_label:
+        decode_labels = []
+        for example in instances:
+            if example.get('decode_labels', None):
+                decode_labels.append(example['decode_labels'])
+            else:
+                decode_labels.append(None)
+        data_dict['decode_labels'] = decode_labels
+
+    ori_height = [example['ori_height'] for example in instances]
+    ori_width = [example['ori_width'] for example in instances]
+    data_dict['ori_height'] = ori_height
+    data_dict['ori_width'] = ori_width
 
     if return_hf_format:
         return data_dict

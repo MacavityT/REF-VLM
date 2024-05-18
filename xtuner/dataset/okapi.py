@@ -91,6 +91,13 @@ class OkapiDataset(Dataset):
                     raise TypeError('dataset_map_fn must be a function or a '
                                     "registered function's string in MAP_FUNC, "
                                     f"but got a string of '{dataset_map_fn}'")
+            elif isinstance(dataset_map_fn, dict) or \
+                isinstance(dataset_map_fn, Config) or \
+                isinstance(dataset_map_fn, ConfigDict):
+                self.dataset_map_fn = partial(
+                    dataset_map_fn['function'], 
+                    **dataset_map_fn['args']
+                )
 
             if isinstance(template_map_fn, dict) or \
                 isinstance(template_map_fn, Config) or \

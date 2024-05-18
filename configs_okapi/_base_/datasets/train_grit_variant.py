@@ -1,6 +1,5 @@
 from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
-    BOXES_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
     OBJS_PLACEHOLDER,
@@ -33,7 +32,7 @@ train_grit_variant = dict(
         version='d', 
         template_name=r"DET",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
@@ -43,7 +42,7 @@ train_grit_variant = dict(
         version='cond_d', 
         template_name=r"Cond_DET",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
         offline_processed_text_folder='',        
@@ -53,7 +52,7 @@ train_grit_variant = dict(
         version='r', 
         template_name=r"REC",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
         offline_processed_text_folder='',
@@ -63,7 +62,7 @@ train_grit_variant = dict(
         version='g', 
         template_name=r"REG",
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
         offline_processed_text_folder='',
@@ -73,7 +72,7 @@ train_grit_variant = dict(
         version='c_d', 
         template_name=r"flickr30k",
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,),
         offline_processed_text_folder='',
@@ -84,8 +83,8 @@ train_grit_variant = dict(
         max_conv_length=2,
         template_name=["image_cap","DET","Cond_DET","REC","REG","flickr30k"],
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),         
         placeholders=[(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,),(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),(IMAGE_PLACEHOLDER,)],
         offline_processed_text_folder='',
@@ -97,8 +96,8 @@ train_grit_variant = dict(
         stage=2,
         version='combine_off',
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
-            output=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
+            output=["<boxes>"],
         ),         
         offline_processed_text_folder='',
     ),

@@ -1,5 +1,4 @@
 from mmengine.config import read_base
-from xtuner.utils.constants import BOXES_PLACEHOLDER
 
 with read_base():
     from .train_gqa_variant import train_gqa_variant
@@ -25,7 +24,7 @@ train_all_dataset = dict(
         offline_processed_image_folder = '',
         template_name=r'flickr30k',
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         )
     ),
     rec=dict(
@@ -37,7 +36,7 @@ train_all_dataset = dict(
         offline_processed_image_folder = '',
         template_name=r'REC',
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         )
     ),
     recvg=dict(
@@ -49,7 +48,7 @@ train_all_dataset = dict(
         offline_processed_image_folder = '',
         template_name=r'REC',
         map_placeholders=dict(
-            output=[BOXES_PLACEHOLDER],
+            output=["<boxes>"],
         )
     ),
     reg=dict(
@@ -61,7 +60,7 @@ train_all_dataset = dict(
         offline_processed_image_folder = '',
         template_name=r'REG',
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         )
     ),
     gc=dict(
@@ -73,7 +72,7 @@ train_all_dataset = dict(
         offline_processed_image_folder = '',
         template_name=r'GC',
         map_placeholders=dict(
-            input=[BOXES_PLACEHOLDER],
+            input=["<boxes>"],
         )
     ),
     caption=dict(

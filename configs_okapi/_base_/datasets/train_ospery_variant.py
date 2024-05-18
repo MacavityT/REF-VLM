@@ -1,5 +1,3 @@
-from xtuner.utils.constants import MASKS_PLACEHOLDER
-
 train_osprey_variant = dict(
     ospery_partlevel=dict(
         type='OspreyPartLevel', #2017
@@ -7,7 +5,7 @@ train_osprey_variant = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2017_train_shape.jsonl',
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         )
     ),
     ospery_shortform=dict(
@@ -16,7 +14,7 @@ train_osprey_variant = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2017_train_shape.jsonl',
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         )
     ),
     ospery_lvis=dict(
@@ -25,7 +23,7 @@ train_osprey_variant = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2017_train_shape.jsonl',
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         )
     ),
     ospery_conversations=dict(
@@ -34,7 +32,7 @@ train_osprey_variant = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         )
     ),
     ospery_detailed=dict(
@@ -43,7 +41,7 @@ train_osprey_variant = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
         map_placeholders=dict(
-            input=[MASKS_PLACEHOLDER],
+            input=["<masks>"],
         )
     )
 )
