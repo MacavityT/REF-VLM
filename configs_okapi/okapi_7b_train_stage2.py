@@ -21,7 +21,8 @@ with read_base():
 
 
 # Data configs
-max_length = 512  # use cutoff lens instead
+max_length = int(4096 - (336 / 14)**2)  # use cutoff lens instead
+cutoff_len = 4096
 batch_size = 8  # per_device
 dataloader_num_workers = 5
 vrt_length = 64
@@ -89,7 +90,7 @@ model = dict(
     freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
-    cutoff_len=4096,
+    cutoff_len=cutoff_len,
     llm=dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=vicuna_7b_path,

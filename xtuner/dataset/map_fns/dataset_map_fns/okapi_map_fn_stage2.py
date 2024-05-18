@@ -56,7 +56,7 @@ def map_obj(target_value: List[List[float]], target_seq: List[List[int]]) -> Lis
         for targets in target_seq:
             targets_ret = []
             for tgt_idx in targets:
-                if target_value[tgt_idx]:
+                if target_value[tgt_idx] is not None:
                     targets_ret.append(np.array(target_value[tgt_idx]))
                 else:
                     targets_ret.append(None)
