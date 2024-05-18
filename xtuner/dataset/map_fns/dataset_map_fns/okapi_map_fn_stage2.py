@@ -90,6 +90,9 @@ def get_placeholders_order(string, placeholders):
     return ordered_placeholders
 
 def target_map_fn(example):
+    if 'target' not in example.keys():
+        return {}
+    
     target = example['target']
     messages = example['conversations']
     map_placeholders = example.get('map_placeholders', None)
@@ -228,7 +231,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                                 VISUAL_REFERENCE_TOKEN * ref_len + f"[{tgt_idx}]"
                             if tgt_idx == 0: unit = '(' + unit
                             if tgt_idx == len(tgts) - 1: unit = unit + ')'
-                            if tgt_idx != 0 and tgt_idx != len(tgts) - 1: unit = ' ' + unit
+                            if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
                             units.append(unit)
                     output = map_units(output, units, placeholder)
 

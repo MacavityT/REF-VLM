@@ -96,8 +96,3 @@ model = dict(
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'])
-
-# Log the dialogue periodically during the training process, optional
-custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer)
-]
