@@ -22,61 +22,76 @@ grit = dict(
 )
 
 
-dataset_args = [
-    # # subsets
-    # gc,
-    # # grit,
+dataset_s1 = [
 
-    # # general datasets
-    # train_all_dataset['flickr'],
-    # train_all_dataset['rec'],
-    # train_all_dataset['reg'],
-    # train_all_dataset['caption'],
-    # # train_all_dataset['instruct'],
+    # subsets
+    gc,
 
-    # # vqa v2
-    # train_all_dataset['vqav2_train'],
-    # train_all_dataset['vqae_train'],
-    # train_all_dataset['vqax_train'],
+    # general datasets
+    train_all_dataset['flickr'],
+    train_all_dataset['rec'],
+    train_all_dataset['reg'],
+    train_all_dataset['caption'],
+    
 
-    # # vcr
-    # train_all_dataset['vcr_q_ra'],
-    # train_all_dataset['vcr_qc_rac'],
-    # train_all_dataset['vcr_qac_r'],
+    # vqa v2
+    train_all_dataset['vqav2_train'],
+    train_all_dataset['vqae_train'],
+    train_all_dataset['vqax_train'],
 
-    # # point qa
-    # train_all_dataset['point_local_b'],
-    # train_all_dataset['point_local_p'],
-    # train_all_dataset['point_twice_oq_bp'],
-    # train_all_dataset['point_twice_sq_bp'],
-    # train_all_dataset['point_twice_gq_bp'],
-    # train_all_dataset['point_v7w_p'],
-    # train_all_dataset['point_v7w_b'],
+    # vcr
+    train_all_dataset['vcr_q_ra'],
+    train_all_dataset['vcr_qc_rac'],
+    train_all_dataset['vcr_qac_r'],
+
+    # point qa
+    train_all_dataset['point_local_b'],
+    train_all_dataset['point_local_p'],
+    train_all_dataset['point_twice_oq_bp'],
+    train_all_dataset['point_twice_sq_bp'],
+    train_all_dataset['point_twice_gq_bp'],
+    train_all_dataset['point_v7w_p'],
+    train_all_dataset['point_v7w_b'],
+]
+
+for dataset in dataset_s1:
+    if dataset['type'] == 'SubSet':
+        dataset['cfg'].setdefault('enfoce_online',True)
+    else:
+        dataset['enforce_online'] = True
+
+
+dataset_s2 = [
+    # subset
+    grit,
+
+    # instruct
+    train_all_dataset['instruct'],
 
     # # gpt gen
-    # train_all_dataset['gpt4gen_qbc'],
-    # train_all_dataset['gpt4gen_rd_qbc'],
+    train_all_dataset['gpt4gen_qbc'],
+    train_all_dataset['gpt4gen_rd_qbc'],
 
     # # ospery
-    # train_all_dataset['ospery_partlevel'],
-    # train_all_dataset['ospery_shortform'],
-    # train_all_dataset['ospery_lvis'],
-    # train_all_dataset['ospery_conversations'],
-    # train_all_dataset['ospery_detailed'],
+    train_all_dataset['ospery_partlevel'],
+    train_all_dataset['ospery_shortform'],
+    train_all_dataset['ospery_lvis'],
+    train_all_dataset['ospery_conversations'],
+    train_all_dataset['ospery_detailed'],
 
     # interact
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
 
     # # grand
-    # train_all_dataset['grand_mix'],
+    train_all_dataset['grand_mix'],
 ]
 
+
+dataset_args = dataset_s2 + dataset_s1
 
 for dataset in dataset_args:
     if dataset['type'] == 'SubSet':
         dataset['cfg'].setdefault('stage',2)
-        dataset['cfg']['offline_processed_text_folder'] = ''
     else:
-        dataset['offline_processed_text_folder'] = ''
         dataset['stage'] = 2
