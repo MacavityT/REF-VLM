@@ -99,10 +99,12 @@ class OkapiModel(BaseModel):
             vis_feats_len = (image_size // patch_size) ** 2
             num_patches = 9
             vpt_encoder_config = VPTEncoderConfig(
+                strategy='embedding',
                 vis_feats_len=vis_feats_len,
                 mask_patch_len=vis_feats_len // num_patches,
                 visual_hidden_size=self.visual_encoder.config.hidden_size,
-                strategy='embedding'
+                llm_hidden_size=self.llm.config.hidden_size,
+                depth=projector_depth
             )
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
@@ -198,6 +200,7 @@ class OkapiModel(BaseModel):
     def activation_checkpointing_disable(self):
         self.llm.gradient_checkpointing_disable()
         self.visual_encoder.gradient_checkpointing_disable()
+        self.vpt_encoder.gradient_checkpointing_enable()
         self.projector.gradient_checkpointing_disable()
 
     def init_weights(self):
@@ -228,6 +231,10 @@ class OkapiModel(BaseModel):
         to_return.update(
             {k: v
              for k, v in state_dict.items() if 'projector.' in k})
+        # Step 4. VPT Encoder
+        to_return.update(
+            {k: v
+             for k, v in state_dict.items() if 'vpt_encoder.' in k})
         return to_return
 
     @staticmethod
@@ -309,9 +316,7 @@ class OkapiModel(BaseModel):
                     regions = data['visual_prompts'], 
                     return_dict = True
                 )
-                vpt_feats = self.projector(visual_prompts['vpt_feats'])
-                data['vpt_feats'] = vpt_feats
-                data['vpt_count'] = visual_prompts['vpt_count']
+                data.update(visual_prompts)
 
             pixel_values = self.projector(selected_feats)
             data['pixel_values'] = pixel_values

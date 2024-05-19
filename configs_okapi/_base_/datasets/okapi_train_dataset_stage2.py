@@ -68,11 +68,11 @@ dataset_s2 = [
     # instruct
     train_all_dataset['instruct'],
 
-    # # gpt gen
+    # gpt gen
     train_all_dataset['gpt4gen_qbc'],
     train_all_dataset['gpt4gen_rd_qbc'],
 
-    # # ospery
+    # ospery
     train_all_dataset['ospery_partlevel'],
     train_all_dataset['ospery_shortform'],
     train_all_dataset['ospery_lvis'],
@@ -83,7 +83,7 @@ dataset_s2 = [
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
 
-    # # grand
+    # grand
     train_all_dataset['grand_mix'],
 ]
 
