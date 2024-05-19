@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import PreTrainedModel
@@ -43,7 +44,7 @@ class VPTEncoderModel(PreTrainedModel):
         if isinstance(module, VPTEncoderModel):
             module.gradient_checkpointing = value
 
-    def pad_regions(self, regions, dtype):
+    def pad_regions(self, regions, dtype, device):
         region_count = []
         max_h, max_w = 0, 0
         for regions_in_batch in regions:
@@ -53,7 +54,6 @@ class VPTEncoderModel(PreTrainedModel):
             assert isinstance(regions_in_batch, list)
             region_count.append(len(regions_in_batch))
             for region in regions_in_batch:
-                assert isinstance(region, torch.Tensor)
                 h, w = region.shape
                 if h > max_h: max_h = h
                 if w > max_w: max_w = w
@@ -65,8 +65,14 @@ class VPTEncoderModel(PreTrainedModel):
             if num == 0: continue
             regions_in_batch = regions[batch_idx]
             for region_index, region in enumerate(regions_in_batch):
-                tensor_regions[batch_idx, region_index, ...] = region.to(dtype)
-            
+                if isinstance(region, np.ndarray):
+                    region = torch.from_numpy(region).to(dtype)
+                elif isinstance(region, torch.Tensor):
+                    region = region.to(dtype)
+                else:
+                    raise ValueError("VPT region type error!")
+                tensor_regions[batch_idx, region_index, ...] = region
+        tensor_regions = tensor_regions.to(device)
         return tensor_regions, region_count
 
 
@@ -75,8 +81,8 @@ class VPTEncoderModel(PreTrainedModel):
         if not x.shape[-2:] == mask.shape[-2:]:
             # reshape mask to x
             mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
-        mask = (mask > 0).to(mask.dtype)
-        denorm = mask_patches.sum(dim=(-1, -2), keepdim=True) + 1e-8
+        mask = (mask > 0).to(mask.dtype).to(mask.device)
+        denorm = mask.sum(dim=(-1, -2), keepdim=True) + 1e-8
         normed_mask = mask / denorm
 
         b, c, h ,w = x.shape
@@ -121,10 +127,10 @@ class VPTEncoderModel(PreTrainedModel):
         assert x.size(0) == len(regions)
 
         # pad regions list to tensor
-        regions, vpt_count = self.pad_regions(regions, x.dtype) # b, q, h, w
+        regions, vpt_count = self.pad_regions(regions, x.dtype, x.device) # b, q, h, w
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
         vpt_feats = self.mask_patch_feats(x, regions)  # b, q, n, c
-        vpt_feats = x + self.position_embedding(self.position_ids)
+        vpt_feats = vpt_feats + self.position_embedding(self.position_ids)
 
         if return_dict:
             result = dict(

@@ -324,7 +324,7 @@ class OkapiModel(BaseModel):
                 data['position_ids'] = None
             
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
-            if self.cutoff_len:
+            if self.cutoff_len is not None:
                 if data['inputs_embeds'].shape[1] > self.cutoff_len:
                     data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
                     data['labels'] = data['labels'][:, :self.cutoff_len]

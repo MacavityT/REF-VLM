@@ -324,8 +324,8 @@ class OkapiDataset(Dataset):
         # load image
         image = imfrombytes(image, flag='color', channel_order='rgb') # array
         image = Image.fromarray(image) # PIL.Image
-        ori_height = image.size[0]
-        ori_width = image.size[1]
+        ori_width = image.size[0]
+        ori_height = image.size[1]
         # expand2square
         if self.pad_image_to_square:
             image = expand2square(
@@ -338,8 +338,8 @@ class OkapiDataset(Dataset):
         
         return dict(
             pixel_values = image,
-            ori_height = ori_height,
-            ori_width = ori_width
+            ori_width = ori_width,
+            ori_height = ori_height
         )
     
     def visual_prompts_process(self, visual_prompts, ori_width, ori_height):
@@ -351,9 +351,17 @@ class OkapiDataset(Dataset):
                     box = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
                     mask = bbox2mask(box, width=ori_height, height=ori_height)
                 elif vpt['type'] == 'point':
-                    assert all(vpt[2:4] < 0)
+                    assert vpt['value'].size == 4 or vpt['value'].size == 2
+                    if vpt['value'].size == 4:
+                        assert all(vpt[2:4] < 0)
+                    elif vpt['value'].size == 2:
+                        new_vpt = np.ones(4) * IGNORE_INDEX
+                        new_vpt[:2] = vpt['value']
+                        vpt['value'] = new_vpt
+                    else:
+                        raise ValueError("Points target value error!")
                     point = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
-                    mask = point2mask(point, width=ori_height, height=ori_height)
+                    mask = point2mask(point, radius=10, width=ori_height, height=ori_height)
                 elif vpt['type'] == 'mask':
                     # scribble or mask
                     mask = vpt['value']
@@ -370,8 +378,8 @@ class OkapiDataset(Dataset):
             image_path = image_info['path']
             image_meta = self.image_process(image_path)
             data_dict['pixel_values'] = image_meta['pixel_values']
-            data_dict['ori_height'] = image_meta['ori_height']
             data_dict['ori_width'] = image_meta['ori_width']
+            data_dict['ori_height'] = image_meta['ori_height']
             
             # if image_path.split('.')[-1] == '.npy':
             #     data_dict['tensor_image'] = True

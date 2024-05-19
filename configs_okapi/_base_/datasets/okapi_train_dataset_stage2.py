@@ -24,38 +24,38 @@ grit = dict(
 
 dataset_args = [
     # # subsets
-    gc,
-    # grit,
+    # gc,
+    # # grit,
 
-    # general datasets
-    train_all_dataset['flickr'],
-    train_all_dataset['rec'],
-    train_all_dataset['reg'],
-    train_all_dataset['caption'],
-    train_all_dataset['instruct'],
+    # # general datasets
+    # train_all_dataset['flickr'],
+    # train_all_dataset['rec'],
+    # train_all_dataset['reg'],
+    # train_all_dataset['caption'],
+    # # train_all_dataset['instruct'],
 
-    # vqa v2
-    train_all_dataset['vqav2_train'],
-    train_all_dataset['vqae_train'],
-    train_all_dataset['vqax_train'],
+    # # vqa v2
+    # train_all_dataset['vqav2_train'],
+    # train_all_dataset['vqae_train'],
+    # train_all_dataset['vqax_train'],
 
-    # vcr
-    train_all_dataset['vcr_q_ra'],
-    train_all_dataset['vcr_qc_rac'],
-    train_all_dataset['vcr_qac_r'],
+    # # vcr
+    # train_all_dataset['vcr_q_ra'],
+    # train_all_dataset['vcr_qc_rac'],
+    # train_all_dataset['vcr_qac_r'],
 
-    # point qa
-    train_all_dataset['point_local_b'],
-    train_all_dataset['point_local_p'],
-    train_all_dataset['point_twice_oq_bp'],
-    train_all_dataset['point_twice_sq_bp'],
-    train_all_dataset['point_twice_gq_bp'],
-    train_all_dataset['point_v7w_p'],
-    train_all_dataset['point_v7w_b'],
+    # # point qa
+    # train_all_dataset['point_local_b'],
+    # train_all_dataset['point_local_p'],
+    # train_all_dataset['point_twice_oq_bp'],
+    # train_all_dataset['point_twice_sq_bp'],
+    # train_all_dataset['point_twice_gq_bp'],
+    # train_all_dataset['point_v7w_p'],
+    # train_all_dataset['point_v7w_b'],
 
-    # gpt gen
-    train_all_dataset['gpt4gen_qbc'],
-    train_all_dataset['gpt4gen_rd_qbc'],
+    # # gpt gen
+    # train_all_dataset['gpt4gen_qbc'],
+    # train_all_dataset['gpt4gen_rd_qbc'],
 
     # # ospery
     # train_all_dataset['ospery_partlevel'],

@@ -245,7 +245,7 @@ class V7W_POINT(MInstrDataset):
             system = {
                         'from':'system',
                         'value': value,
-                    },  
+                    }
             ret['conversations'].insert(0, system)
             ret['map_placeholders'] = self.map_placeholders
         return ret

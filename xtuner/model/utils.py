@@ -148,9 +148,9 @@ def prepare_inputs_labels_for_multimodal(
         }
     
     assert not (vpt_count is None) ^ (vpt_feats is None)
-    if vpt_feats:
+    if vpt_feats is not None:
         assert vpt_feats.size(0) == len(input_ids)
-        assert vpt_feats(0) == len(vpt_count)
+        assert vpt_feats.size(0) == len(vpt_count)
 
     _labels = labels
     _position_ids = position_ids
@@ -164,6 +164,12 @@ def prepare_inputs_labels_for_multimodal(
             0, input_ids.shape[1], dtype=torch.long, device=input_ids.device)
     if labels is None:
         labels = torch.full_like(input_ids, IGNORE_INDEX)
+
+
+    # for idx, ids in enumerate(input_ids):
+    #     vpt_count[idx]
+    #     num_vpt = (ids == VISUAL_PROMPT_INDEX).sum()
+    #     print(f'before attention mask log info: vpt_count: {vpt_count[idx]}, placeholder num: {num_vpt}')
 
     # remove the padding using attention_mask -- TODO: double check
     input_ids = [
@@ -181,13 +187,14 @@ def prepare_inputs_labels_for_multimodal(
     for batch_idx, cur_input_ids in enumerate(input_ids):
         num_vpt = (cur_input_ids == VISUAL_PROMPT_INDEX).sum()
         cur_vpt_feats = None
-        if vpt_feats:
-            assert vpt_count[batch_idx] == num_vpt, 'vpt count not equal to placeholder num'
+        if vpt_feats is not None:
+            assert vpt_count[batch_idx] == num_vpt, \
+                f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
             cur_vpt_feats = vpt_feats[batch_idx] # [q, n, c]
 
         num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
         if num_images == 0:
-            if vpt_count: assert vpt_count[batch_idx] == 0
+            if vpt_count is not None: assert vpt_count[batch_idx] == 0
             cur_pixel_values = pixel_values[cur_image_idx]
             cur_inputs_embeds_1 = llm.get_input_embeddings()(cur_input_ids)
             cur_inputs_embeds = torch.cat(
