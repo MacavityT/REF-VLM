@@ -18,6 +18,7 @@ class QuestionTemplateMixin:
     def __init__(
             self,
             *args,
+            offline_processed_text_folder=None,
             template_name=None,
             template_file=None,
             max_dynamic_size=None,
@@ -29,43 +30,45 @@ class QuestionTemplateMixin:
         self.template_name = template_name
         self.max_dynamic_size = max_dynamic_size
         self.template_placeholders = placeholders
+        self.offline_processed_text_folder = offline_processed_text_folder
 
-        # assert template_name or template_file, ("assign neither template_name nor template_file")
-        if template_name is None and template_file is None:
-            print_log("Warning: No template, please check whether the dataset has valid questions!")
+        if self.offline_processed_text_folder is not None and os.path.exists(self.offline_processed_text_folder):
+            # assert template_name or template_file, ("assign neither template_name nor template_file")
+            if template_name is None and template_file is None:
+                print_log("Warning: No template, please check whether the dataset has valid questions!")
 
-        if template_name is not None and template_file is not None:
-            raise ValueError(f"assign both template_name and template_file:\nstring:{template_name}\nfile:{template_file}")
-        
-        # Aaron: add template_name / template_file could be inputted as List format
-        if template_name is not None:
-            if isinstance(template_name,List):
-                self.templates = {}
-                for i,template_name_single in enumerate(template_name):
-                    self.template_file = dataset_template_path[template_name_single]
-                    self.templates[template_name_single] = json.load(open(self.template_file, 'r', encoding='utf8'))
+            if template_name is not None and template_file is not None:
+                raise ValueError(f"assign both template_name and template_file:\nstring:{template_name}\nfile:{template_file}")
+            
+            # Aaron: add template_name / template_file could be inputted as List format
+            if template_name is not None:
+                if isinstance(template_name,List):
+                    self.templates = {}
+                    for i,template_name_single in enumerate(template_name):
+                        self.template_file = dataset_template_path[template_name_single]
+                        self.templates[template_name_single] = json.load(open(self.template_file, 'r', encoding='utf8'))
+                        if self.max_dynamic_size is not None:
+                            self.templates[template_name_single] = self.templates[template_name_single][: self.max_dynamic_size]
+
+                        # sanity check
+                        assert self.template_placeholders is not None
+                        # because template name is list, placeholders should be list as well
+                        # [(Placeholder1, Placeholder2), (Placeholder3, Placeholder4)]
+                        assert isinstance(self.template_placeholders,List)  
+                        for template in self.templates[template_name_single]:
+                            for placeholder in self.template_placeholders[i]:
+                                assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
+                else:
+                    self.template_file = dataset_template_path[template_name]
+                    self.templates = json.load(open(self.template_file, 'r', encoding='utf8'))
                     if self.max_dynamic_size is not None:
-                        self.templates[template_name_single] = self.templates[template_name_single][: self.max_dynamic_size]
+                        self.templates = self.templates[: self.max_dynamic_size]
 
                     # sanity check
                     assert self.template_placeholders is not None
-                    # because template name is list, placeholders should be list as well
-                    # [(Placeholder1, Placeholder2), (Placeholder3, Placeholder4)]
-                    assert isinstance(self.template_placeholders,List)  
-                    for template in self.templates[template_name_single]:
-                        for placeholder in self.template_placeholders[i]:
+                    for template in self.templates:
+                        for placeholder in self.template_placeholders:
                             assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
-            else:
-                self.template_file = dataset_template_path[template_name]
-                self.templates = json.load(open(self.template_file, 'r', encoding='utf8'))
-                if self.max_dynamic_size is not None:
-                    self.templates = self.templates[: self.max_dynamic_size]
-
-                # sanity check
-                assert self.template_placeholders is not None
-                for template in self.templates:
-                    for placeholder in self.template_placeholders:
-                        assert str(template).count(placeholder) == 1, f"template: {template}\nplaceholder:{placeholder}"
 
     def get_template(self):
         import random
@@ -83,7 +86,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 image_folder=None,
                 image_info_folder=None, 
                 stage=1,
-                offline_processed_text_folder=None,
                 offline_processed_image_folder=None,
                 map_placeholders=None,
                 enforce_online=False, 
@@ -97,7 +99,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.stage = stage
         self.rng = np.random.default_rng(seed)
         self.enforce_online = enforce_online
-        self.offline_processed_text_folder = offline_processed_text_folder
         self.offline_processed_image_folder = offline_processed_image_folder
 
         assert offline_processed_image_folder or image_folder
@@ -110,14 +111,14 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 logger='current',
                 level=logging.WARNING)
 
-        assert offline_processed_text_folder or text_path
-        if offline_processed_text_folder and os.path.exists(offline_processed_text_folder) \
+        assert self.offline_processed_text_folder or text_path
+        if self.offline_processed_text_folder and os.path.exists(self.offline_processed_text_folder) \
             and text_path and (not enforce_online):
             print_log(
                 'Both `offline_processed_text_folder` and '
                 '`data_path` are set, and we load dataset from'
                 '`offline_processed_text_folder` '
-                f'({offline_processed_text_folder})',
+                f'({self.offline_processed_text_folder})',
                 logger='current',
                 level=logging.WARNING)
 
@@ -126,9 +127,9 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             self.image_data = self.load_offline_image_data(offline_processed_image_folder)
 
         self.image_data_info = None
-        if (offline_processed_text_folder is not None) and \
-            os.path.exists(offline_processed_text_folder) and (not enforce_online):
-            self.text_data = self.load_offline_text_data(offline_processed_text_folder)
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder) and (not enforce_online):
+            self.text_data = self.load_offline_text_data(self.offline_processed_text_folder)
         else:
             if os.path.isfile(text_path):   # judge whether the input path is a jsonfile or a directory.
                 self.text_data = self.get_file_data(text_path)

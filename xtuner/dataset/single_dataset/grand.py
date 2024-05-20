@@ -175,29 +175,32 @@ class GranDDataset(MInstrDataset):
         boxes = target['boxes']
         masks = target['masks']
         conversations = item['conversations']
-        select_conversations = conversations.copy()
+        select_conversations = []
 
         selected_masks = []
         selected_boxes = []
         remove_idx = []
+        human_flag = False
+        new_conversation = None
         for i, conversation in enumerate(conversations):
             if i % 2 == 0:
                 assert conversation['from'] == 'human'
                 # {'from': 'human', 'value': xxx}
+                human_flag = True
+                new_conversation = {'from':'human','value':conversation['value']}
                 if 'masks_seq' in conversation.keys():
                     seq_list = conversation['masks_seq']
                     assert len(seq_list[0]) == 1
                     seq = seq_list[0][0]
                     mask = masks[seq]
                     if mask is None:
-                        gpt_answer = conversations[i+1]
-                        select_conversations.remove(conversation)
-                        select_conversations.remove(gpt_answer)
                         remove_idx.append(i)
+                        human_flag = False
+                        continue
                     else:
                         selected_masks.append(mask)
-                        idx = select_conversations.index(conversation)
-                        select_conversations[idx]['masks_seq'] = [[len(selected_masks)-1]]
+                        new_masks_seq = [[len(selected_masks)-1]]
+                        new_conversation['masks_seq'] = new_masks_seq
                 
                 elif 'boxes_seq' in conversation.keys():
                     seq_list = conversation['boxes_seq']
@@ -205,10 +208,15 @@ class GranDDataset(MInstrDataset):
                     seq = seq_list[0][0]
                     box = boxes[seq]
                     selected_boxes.append(box)
-                    idx = select_conversations.index(conversation)
-                    select_conversations[idx]['boxes_seq'] = [[len(selected_boxes)-1]]
+                    new_boxes_seq = [[len(selected_boxes)-1]]
+                    new_conversation['boxes_seq'] = new_boxes_seq
+
+                assert new_conversation is not None
+                select_conversations.append(new_conversation)
+                
             else:
                 assert conversation['from'] == 'gpt'
+                new_conversation = {'from':'gpt','value':conversation['value']}
                 # {'from': 'gpt', 'value': xxx}
                 if 'masks_seq' in conversation.keys():
                     seq_list = conversation['masks_seq']
@@ -222,8 +230,7 @@ class GranDDataset(MInstrDataset):
                             seqs_selected.append(selected_seq)
                         seq_list_selected.append(seqs_selected)
                     
-                    idx = select_conversations.index(conversation)
-                    select_conversations[idx]['masks_seq'] = seq_list_selected
+                    new_conversation['masks_seq'] = seq_list_selected
 
                 elif 'boxes_seq' in conversation.keys():
                     seq_list = conversation['boxes_seq']
@@ -237,9 +244,12 @@ class GranDDataset(MInstrDataset):
                             seqs_selected.append(selected_seq)
                         seq_list_selected.append(seqs_selected)
                     
-                    idx = select_conversations.index(conversation)
-                    select_conversations[idx]['boxes_seq'] = seq_list_selected
-
+                    new_conversation['boxes_seq'] = seq_list_selected
+                if human_flag:
+                    assert new_conversation is not None
+                    select_conversations.append(new_conversation)
+                else:
+                    continue
 
         item['target']['boxes'] = selected_boxes
         item['target']['masks'] = selected_masks 
@@ -885,23 +895,6 @@ class GranDDataset(MInstrDataset):
             seg_dict['conversations']['cap_seg_conversations'] = self.random_select(seg_dict['conversations']['cap_seg_conversations'],length=length)
             cap_conversations = self.random_select(cap_conversations)
         
-        # generate system values
-        system_value_det = {key:None for key in list(det_dict['conversations'].keys())}
-        system_value_seg = {key:None for key in list(seg_dict['conversations'].keys())}
-        system_value_det['conversations_det'] = [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]
-        system_value_det['ground_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['ground_conversations']))]
-        system_value_det['rec_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['rec_conversations']))]
-        system_value_det['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations']))]
-        system_value_det['cap_det_conversations'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['cap_det_conversations']))]
-
-        system_value_seg['conversations_seg'] = [{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]
-        system_value_seg['ground_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['ground_conversations']))]
-        system_value_seg['rec_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['rec_conversations']))]
-        system_value_seg['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations']))]
-        system_value_seg['cap_seg_conversations'] = [{'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['cap_seg_conversations']))]
-
-        system_value_cap = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(cap_conversations))]
-
         det_dict['conversations']['ground_conversations'] = self.concat_conversations(det_dict['conversations']['ground_conversations'])
         seg_dict['conversations']['ground_conversations'] = self.concat_conversations(seg_dict['conversations']['ground_conversations'])
         det_dict['conversations']['rec_conversations'] = self.concat_conversations(det_dict['conversations']['rec_conversations'])
@@ -912,6 +905,23 @@ class GranDDataset(MInstrDataset):
         seg_dict['conversations']['cap_seg_conversations'] = self.concat_conversations(seg_dict['conversations']['cap_seg_conversations'])
         cap_conversations = self.concat_conversations(cap_conversations)
 
+        # generate system values
+        system_value_det = {key:None for key in list(det_dict['conversations'].keys())}
+        system_value_seg = {key:None for key in list(seg_dict['conversations'].keys())}
+        system_value_det['conversations_det'] = [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]
+        system_value_det['ground_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['ground_conversations'])//2)]
+        system_value_det['rec_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['rec_conversations'])//2)]
+        system_value_det['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations'])//2)]
+        system_value_det['cap_det_conversations'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['cap_det_conversations'])//2)]
+
+        system_value_seg['conversations_seg'] = [{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]
+        system_value_seg['ground_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['ground_conversations'])//2)]
+        system_value_seg['rec_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['rec_conversations'])//2)]
+        system_value_seg['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations'])//2)]
+        system_value_seg['cap_seg_conversations'] = [{'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['cap_seg_conversations'])//2)]
+
+        system_value_cap = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(cap_conversations)//2)]
+
 
         # concat all conversations
         all_conversations = []
@@ -919,16 +929,26 @@ class GranDDataset(MInstrDataset):
         for conversation_name in det_dict['conversations'].keys():
             all_conversations.append(det_dict['conversations'][conversation_name])
             all_system_values.append(system_value_det[conversation_name])
+
+            assert len(det_dict['conversations'][conversation_name]) // 2 == len(system_value_det[conversation_name])
+            
         for conversation_name in seg_dict['conversations'].keys():
             all_conversations.append(seg_dict['conversations'][conversation_name])
             all_system_values.append(system_value_seg[conversation_name])
+
+            assert len(seg_dict['conversations'][conversation_name]) // 2 == len(system_value_seg[conversation_name])
+            
         all_conversations.append(cap_conversations)
         all_system_values.append(system_value_cap)
+
+       
 
         if random_select:
             all_conversations,all_system_values = self.random_select(all_conversations,system_value=all_system_values)
         all_system_values = self.concat_conversations(all_system_values)
         all_conversations = self.concat_conversations(all_conversations,concat_all=True)
+
+        assert len(all_conversations) // 2 == len(all_system_values)
 
         ret['target'] = {det_dict['type']:det_dict['bboxes'],seg_dict['type']:seg_dict['masks']}
         ret['conversations'] = all_conversations
@@ -1011,7 +1031,7 @@ class GranDDataset(MInstrDataset):
             return ret  
         
         elif self.version == 'mix':
-            ret = self.mix(ret,objects,floating_objects,captions,random_select=False,length=self.length,ratio=ratio)
+            ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length,ratio=ratio)
             return ret
         
     def __len__(self):

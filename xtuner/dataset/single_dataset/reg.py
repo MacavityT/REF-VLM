@@ -12,8 +12,8 @@ from .mixin import MInstrDataset
 @DATASETS.register_module()
 class REGDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, placeholders=(IMAGE_PLACEHOLDER, OBJS_PLACEHOLDER), **kwargs)
-        self.map_placeholders = {'input':[BOXES_PLACEHOLDER]}
+        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, OBJS_PLACEHOLDER))
+        
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)

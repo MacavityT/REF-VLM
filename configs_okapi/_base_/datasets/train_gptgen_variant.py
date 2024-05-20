@@ -47,5 +47,6 @@ train_gptgen_variant = dict(
         ),
         stage=2,
         version='bc',
-        template_name=r"VQA_BCoT"),
+        template_name=r"VQA_BCoT",
+    ),
 )
