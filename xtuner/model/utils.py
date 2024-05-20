@@ -165,12 +165,6 @@ def prepare_inputs_labels_for_multimodal(
     if labels is None:
         labels = torch.full_like(input_ids, IGNORE_INDEX)
 
-
-    # for idx, ids in enumerate(input_ids):
-    #     vpt_count[idx]
-    #     num_vpt = (ids == VISUAL_PROMPT_INDEX).sum()
-    #     print(f'before attention mask log info: vpt_count: {vpt_count[idx]}, placeholder num: {num_vpt}')
-
     # remove the padding using attention_mask -- TODO: double check
     input_ids = [
         cur_input_ids[cur_attention_mask]
