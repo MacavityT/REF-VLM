@@ -284,7 +284,7 @@ class GRITDataset(MInstrDataset):
 
         if random_select:
             conversations = self.random_select(conversations,length)
-        ret['values'] = [{'task':{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}} for _ in range(len(conversations))]
+        ret['values'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
 
@@ -347,6 +347,8 @@ class GRITDataset(MInstrDataset):
 
         return ret
 
+    def __len__(self):
+        return len(self.text_path_file)
     
     def __getitem__(self, index):
         text_file = self.text_path_file[index]
