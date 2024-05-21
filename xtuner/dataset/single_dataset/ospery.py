@@ -178,6 +178,9 @@ class ConversationDataset(MInstrDataset):
         return data_infos
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         data_info = self.data_infos[index]
         img_path = data_info['img_path']
         height = data_info['height']
@@ -193,7 +196,7 @@ class ConversationDataset(MInstrDataset):
         
         # image = self.read_process_image(img_path)
         image = self.get_image(img_path)
-        assert len(qas) % 2 == 0, "invalid quesion & answer pairs!"
+        assert len(qas) % 2 == 0, f"invalid quesion & answer pairs!, relevant image path:{img_path},index:{index},qas{qas}"
         system = {
             'from': 'system',
             'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(qas)//2)]
@@ -207,7 +210,23 @@ class ConversationDataset(MInstrDataset):
         ret['map_placeholders'] = self.map_placeholders
 
         return ret
-    
+
+'''
+{'from': 'human', 'value': '<image>\nThis shows the comprehensive layout of the photograph.\nThere are 1 part region in the picture: region1<masks>. Can you describe the dining table in region1 and its position within the restaurant?', 'masks_seq': [[0]]}, 
+{'from': 'gpt', 'value': "The dining table in region1 is a big brown table made of dark brown wood. It dominates the scene and is a central element of the restaurant's design. The table is long and provides ample seating capacity for multiple guests. 
+                         It is positioned in the restaurant, occupying a prominent space within the room."}, 
+{'from': 'human', 'value': 'How are the wooden chairs arranged around the dining table in region1?'}, 
+{'from': 'gpt', 'value': 'The wooden chairs in region1 are arranged in various positions around the dining table. They have rattan rounded back designs with blue accents, adding a stylish touch to the overall aesthetic of the restaurant. 
+                         The chairs are strategically placed to provide comfortable seating for the guests dining at the table.'}, 
+{'from': 'human', 'value': 'What is the centerpiece on the dining table in region1?'}, 
+{'from': 'gpt', 'value': 'The dining table in region1 has a flower arrangement in a vase located in the middle. This serves as an elegant centerpiece, adding a touch of beauty and freshness to the dining experience. 
+                         The flower arrangement contributes to the overall ambiance of the restaurant and creates a visually pleasing focal point on the table.'}, 
+{'from': 'human', 'value': 'Can you see any other objects of interest on or near the dining table in region1?'}, 
+{'from': 'gpt', 'value': "Yes, there are a couple of books situated on one end of the long dining table in region1. These books might contain menu offerings or provide information related to the restaurant's theme. 
+                          They add an additional element of interest and engagement for the guests dining at the table, allowing them to explore and learn more about the restaurant during their visit."}
+'''
+
+
 @DATASETS.register_module()
 class OspreyPartLevel(ConversationDataset):
     def __init__(self, *args, **kwargs):

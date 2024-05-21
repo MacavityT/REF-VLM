@@ -99,6 +99,6 @@ train_grit_variant = dict(
             input=["<boxes>"],
             output=["<boxes>"],
         ),         
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline',
     ),
 )

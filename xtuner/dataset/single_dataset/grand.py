@@ -850,16 +850,6 @@ class GranDDataset(MInstrDataset):
                     reg_seq = [reg_seq]
                     seq_cap_det_seg.append(reg_seq)
 
-                
-                
-                # TODO： 这里需要改
-                # caption_expr_det = caption_expr_det.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_det)  
-                # caption_expr_seg = caption_expr_seg.lower().replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders_seg)
-                # caption_expr_det = caption_expr_det.replace("<phrase>",PHRASE_ST_PLACEHOLDER_STAGE2)
-                # caption_expr_det = caption_expr_det.replace("</phrase>",PHRASE_ED_PLACEHOLDER_STAGE2)
-                # caption_expr_seg = caption_expr_seg.replace("<phrase>",PHRASE_ST_PLACEHOLDER_STAGE2)
-                # caption_expr_seg = caption_expr_seg.replace("</phrase>",PHRASE_ED_PLACEHOLDER_STAGE2)
-
                 all_indices.append((token_positive[0],"start",-1))
                 all_indices.append((token_positive[1],"end",reg_seq))
 
@@ -963,6 +953,70 @@ class GranDDataset(MInstrDataset):
 
         return ret
     
+    def mix_new(self,ret,objects,floating_objects,captions,ratio,random_select=False,length=None):
+        if self.use_floating_objects:
+            objects = objects + floating_objects
+        objects = sort_objects(objects)
+        all_tasks = list(self.templates.keys())
+        if random_select:
+            all_tasks = self.random_select(all_tasks,length)
+        
+        system_values = []
+        selected_objects = []
+        boxes = []
+        masks = []
+        cls_names = []
+        box_mask_seq = []
+        query_map = {}
+        conversation_dict = {}  # cond detection
+
+        for task in all_tasks:
+            conversation_dict[task] = {}
+            if task == 'DET':
+                caption = ''
+                question = self.get_template_from_dict(task)
+                values = {'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}
+                for i,item in enumerate(objects):
+                    box = resize_box(object['bbox'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+                    boxes.append(box)
+
+                    cls_name = ', '.join(object['labels'])
+                    cls_name = cls_name.replace('_',' ')
+
+                    if cls_name in cls_names:
+                        previous_seq = cls_names.index(cls_name)
+                        box_mask_seq[previous_seq].append(i)
+                        caption = caption.replace(f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}",
+                                                  f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}")
+                    else:
+                        cls_names.append(cls_name)
+                        caption = caption + PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + \
+                                        PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER + ', '
+                        box_mask_seq.append([i])
+
+                    query_map[item['id']] = {'box_seq':[i],'mask_seq':None,'cls_name':cls_name}
+                    
+                answer =  {'from': 'gpt','value': caption, 'boxes_seq': box_mask_seq}
+
+                conversation_dict[task]['values'] = values
+                conversation_dict[task]['conversations'] = [question,answer]
+            
+            elif task == 'SEG':
+                question = self.get_template_from_dict(task)
+                values = {'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}
+                if len(query_map.keys()) != len(objects):
+                    for i,item in enumerate(objects):
+                        id = item['id']
+                        if id in query_map.keys():
+                            if query_map[id]['mask_seq'] is not None:
+                                mask_seq = query_map[id]['mask_seq']
+                                cls_name = query_map[id]['cls_name']
+
+            # add values
+            system_values.append(values)
+        
+
 
     def make_conversations(self,ret,annotations,ratio):
         objects = annotations['objects']

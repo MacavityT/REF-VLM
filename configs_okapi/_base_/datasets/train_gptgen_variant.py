@@ -15,7 +15,7 @@ train_gptgen_variant = dict(
             input=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qa',
+        offline_processed_text_folder = '',
     ),
     gpt4gen_qc=dict(
         **gptgen_train_common_cfg, 
@@ -24,7 +24,7 @@ train_gptgen_variant = dict(
             input=["<boxes>"],
         ),
         template_name=r"VQA_CoT",
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qc',
+        offline_processed_text_folder = '',
     ),
     gpt4gen_qbc=dict(
         **gptgen_train_common_cfg, 
@@ -34,13 +34,13 @@ train_gptgen_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_qbc',
+        offline_processed_text_folder = '',
     ),
     gpt4gen_rd_qbc=dict(
         type=gptgen_train_common_cfg['type'],
         image_folder=gptgen_train_common_cfg['image_folder'],
         text_path='/data/Aaronzhu/DatasetStage1/Shikra/GPT4GEN_RD_BoxCoT_train_modified.jsonl',
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/gpt4gen_rd_qbc',
+        offline_processed_text_folder = '',
         map_placeholders=dict(
             input=["<boxes>"],
             output=["<boxes>"],

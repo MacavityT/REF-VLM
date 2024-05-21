@@ -19,6 +19,7 @@ class QuestionTemplateMixin:
             self,
             *args,
             offline_processed_text_folder=None,
+            enforce_online=False, 
             template_name=None,
             template_file=None,
             max_dynamic_size=None,
@@ -31,8 +32,11 @@ class QuestionTemplateMixin:
         self.max_dynamic_size = max_dynamic_size
         self.template_placeholders = placeholders
         self.offline_processed_text_folder = offline_processed_text_folder
+        self.enforce_online = enforce_online
 
-        if self.offline_processed_text_folder is not None and os.path.exists(self.offline_processed_text_folder):
+        if (self.offline_processed_text_folder is None) or \
+            (not os.path.exists(self.offline_processed_text_folder)) \
+                or (self.enforce_online):
             # assert template_name or template_file, ("assign neither template_name nor template_file")
             if template_name is None and template_file is None:
                 print_log("Warning: No template, please check whether the dataset has valid questions!")
@@ -88,7 +92,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
                 stage=1,
                 offline_processed_image_folder=None,
                 map_placeholders=None,
-                enforce_online=False, 
                 seed=None,
                 **kwargs):
         super().__init__(**kwargs)
@@ -98,7 +101,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         self.map_placeholders = map_placeholders
         self.stage = stage
         self.rng = np.random.default_rng(seed)
-        self.enforce_online = enforce_online
         self.offline_processed_image_folder = offline_processed_image_folder
 
         assert offline_processed_image_folder or image_folder
@@ -113,7 +115,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
         assert self.offline_processed_text_folder or text_path
         if self.offline_processed_text_folder and os.path.exists(self.offline_processed_text_folder) \
-            and text_path and (not enforce_online):
+            and text_path and (not self.enforce_online):
             print_log(
                 'Both `offline_processed_text_folder` and '
                 '`data_path` are set, and we load dataset from'
@@ -128,7 +130,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
 
         self.image_data_info = None
         if (self.offline_processed_text_folder is not None) and \
-            os.path.exists(self.offline_processed_text_folder) and (not enforce_online):
+            os.path.exists(self.offline_processed_text_folder) and (not self.enforce_online):
             self.text_data = self.load_offline_text_data(self.offline_processed_text_folder)
         else:
             if os.path.isfile(text_path):   # judge whether the input path is a jsonfile or a directory.
