@@ -65,8 +65,8 @@ dataset_s2 = [
     # subset
     # grit,
 
-    # instruct
-    train_all_dataset['instruct'],
+    # # instruct
+    # train_all_dataset['instruct'],
 
     # # gpt gen
     # train_all_dataset['gpt4gen_qbc'],

@@ -316,7 +316,21 @@ class OkapiModel(BaseModel):
                     regions = data['visual_prompts'], 
                     return_dict = True
                 )
-                data.update(visual_prompts)
+            else:
+                # fake regions for contain compute graph
+                bs = selected_feats.shape[0]
+                w = h = int(math.sqrt(selected_feats.shape[1]))
+                fake_region = np.zeros((h, w))
+                regions = [None] * bs
+                regions[0] = [fake_region]
+                vpt_count = [0] * bs
+                visual_prompts = self.vpt_encoder(
+                    selected_feats,
+                    regions = regions, 
+                    return_dict = True
+                )
+                visual_prompts['vpt_count'] = vpt_count
+            data.update(visual_prompts)
 
             pixel_values = self.projector(selected_feats)
             data['pixel_values'] = pixel_values
