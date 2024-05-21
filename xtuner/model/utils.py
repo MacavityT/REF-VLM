@@ -193,6 +193,8 @@ def prepare_inputs_labels_for_multimodal(
             cur_inputs_embeds_1 = llm.get_input_embeddings()(cur_input_ids)
             cur_inputs_embeds = torch.cat(
                 [cur_inputs_embeds_1, cur_pixel_values[0:0]], dim=0)
+            cur_inputs_embeds = torch.cat(
+                [cur_inputs_embeds, cur_vpt_feats[0][0:0]], dim=0)
             new_inputs_embeds.append(cur_inputs_embeds)
             new_labels.append(labels[batch_idx])
             cur_image_idx += 1
@@ -246,6 +248,9 @@ def prepare_inputs_labels_for_multimodal(
                             IGNORE_INDEX,
                             device=cur_labels.device,
                             dtype=cur_labels.dtype))
+
+        if all(vpt_count) == 0:
+            cur_new_inputs_embeds.append(cur_vpt_feats[0][0:0])
 
         cur_new_inputs_embeds = torch.cat(cur_new_inputs_embeds)
         cur_new_labels = torch.cat(cur_new_labels)
