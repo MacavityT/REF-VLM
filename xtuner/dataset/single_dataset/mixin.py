@@ -240,7 +240,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         endregion'''
         if isinstance(self.text_data, OfflineDataset):
             item = self.text_data[index]
-            item['map_placeholders'] = self.map_placeholders
+            if 'map_plcaeholders' not in item.keys():
+                item['map_placeholders'] = self.map_placeholders
         else:
             item = None
         return item

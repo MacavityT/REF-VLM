@@ -322,6 +322,7 @@ class OkapiDataset(Dataset):
 
     def image_process(self, image):
         # load image
+        image_path = image
         image = imfrombytes(image, flag='color', channel_order='rgb') # array
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
@@ -332,9 +333,12 @@ class OkapiDataset(Dataset):
                 image,
                 tuple(int(x * 255) for x in self.image_processor.image_mean)
             )
-            
+        if ori_width == 1 and ori_height == 1:
+            print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
+            image = image.resize((336,336))
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
+
         
         return dict(
             pixel_values = image,

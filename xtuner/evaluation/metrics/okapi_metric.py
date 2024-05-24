@@ -25,10 +25,11 @@ class BaseComputeMetrics(BaseMetric):
     Base multimodal compute metrics
     """
 
-    def __init__(self, tokenizer,preprocessor=None, *args, **kwargs):
+    def __init__(self, tokenizer,stage=1,preprocessor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = BUILDER.build(tokenizer)
         self.preprocessor = preprocessor
+        self.stage = stage
 
     def post_process_generate_ids(self, ids: torch.Tensor):
         ids = copy.deepcopy(ids)  # do not modify origin preds and targets

@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from pycocotools.mask import decode
 from .mixin import MInstrDataset
 from ..utils import de_norm_box_xyxy
-
+import re
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
@@ -34,6 +34,21 @@ def flatten(element,all_concat=False):
         else:
             raise "Multi-conversations must be Lists !"
     return list_output
+
+
+def insert_phrases(input_str, indices, place_holder):
+    # (0,"start",-1),(0,"end",[box_seq])
+    phrase_map = {
+        "start":PHRASE_ST_PLACEHOLDER_STAGE2,
+        "end":PHRASE_ED_PLACEHOLDER_STAGE2,
+    }
+    for index, phrase, seq in sorted(indices, reverse=True):
+        if phrase == 'end':
+            output = phrase_map[phrase] + place_holder * len(seq)
+        else:
+            output = phrase_map[phrase]
+        input_str = input_str[:index] + output + input_str[index:]
+    return input_str
 
 @DATASETS.register_module()
 class GRITDataset(MInstrDataset):
@@ -76,7 +91,19 @@ class GRITDataset(MInstrDataset):
         conversations = conversations[:rand_num]
         return conversations
     
-    
+    def check_conversations(self,conversations,placeholders=[BOXES_PLACEHOLDER]):
+        SEQ_MAP = {
+            BOXES_PLACEHOLDER: 'boxes_seq',
+        }
+        for conversation in conversations:
+            for placeholder in placeholders:
+                if SEQ_MAP[placeholder] in conversation.keys():
+                    pattern = re.compile(placeholder)
+                    all_find = pattern.findall(conversation['value'])
+                    all_seq = flatten(conversation[SEQ_MAP[placeholder]])
+                    assert len(all_find) == len(all_seq),\
+                            f"placeholder {placeholder} not match. sentence: {conversation['value']}. num targets:{len(all_seq)}"
+                    
     def get_caption(self,ret,caption):
         try:
             question = self.get_template()
@@ -207,14 +234,12 @@ class GRITDataset(MInstrDataset):
                 previous_seq = expr_names.index(expr_name)
                 conversations[previous_seq][1]['value'] += BOXES_PLACEHOLDER  # add one <boxes> in the conversation
 
-
             else:
                 try:
                     question = self.get_template()
                 except:
                     question = self.get_template_from_dict('REC')
                 question = question.replace(EXPR_PLACEHOLDER,expr_name)
-                box_seq = [i]
                 conversation_human = {'from': 'human','value': question}
                 value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
                 conversation_gpt = {'from': 'gpt', 'value': value}
@@ -301,6 +326,7 @@ class GRITDataset(MInstrDataset):
         cls_names = []
         box_seq = []
         orig_caption = caption
+        cls_seq_map = {}
         for i,noun_chunk in enumerate(noun_chunks):
             cls_name = orig_caption[int(noun_chunk[0]):int(noun_chunk[1])]
             box = noun_chunk[2:-1]
@@ -309,13 +335,21 @@ class GRITDataset(MInstrDataset):
             if cls_name in cls_names:  # some class may have two or more boxes
                 previous_seq = cls_names.index(cls_name)
                 box_seq[previous_seq].append(i)
+                cls_seq_map[cls_name]['seq'] = box_seq[previous_seq]
             else:
-                caption = caption.replace(cls_name,PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER)
                 seq = [i]
                 box_seq.append(seq)
                 cls_names.append(cls_name)
+                cls_seq_map[cls_name] = {'token_positive':[int(noun_chunk[0]),int(noun_chunk[1])],'seq':seq}
         
+        all_indices = []
+        for cls_name in cls_seq_map.keys():
+            item = cls_seq_map[cls_name]
+            all_indices.append((item['token_positive'][0],"start",-1))
+            all_indices.append((item['token_positive'][1],"end",item['seq']))
         
+        caption = insert_phrases(caption,all_indices,BOXES_PLACEHOLDER)
+
         ret['values'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
         ret['conversations'] = [
                 {
@@ -355,8 +389,8 @@ class GRITDataset(MInstrDataset):
         annotations = self.get_file_data(os.path.join(self.text_path,text_file))
         img_path = annotations['key'] + '.jpg'
         image_path_abs = os.path.join(self.image_folder,img_path)
-        noun_chunks = annotations['noun_chunks']
-        ref_exps = annotations['ref_exps']
+        noun_chunks = sorted(annotations['noun_chunks'])
+        ref_exps = sorted(annotations['ref_exps'])
         caption = annotations['caption']
 
         ret = {}
@@ -569,6 +603,7 @@ class GRITDataset(MInstrDataset):
                 all_conversations.append(conversations)
                 all_system_values.append(ret_for_single_task['values'])
 
+            # self.check_conversations(flatten(all_conversations))
             all_conversations,all_system_values = self.random_select(all_conversations,system_value=all_system_values)
             
             ret['conversations'] = [{'from':'system','value':flatten(all_system_values)}]

@@ -7,51 +7,99 @@ with read_base():
 
 gc = dict(
     type='SubSet',
-    portion=1/15,
+    portion=1/30,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['gc'],
 )
 
-grit = dict(
+caption = dict(
     type='SubSet',
     portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['caption'],
+)
+
+
+reg = dict(
+    type='SubSet',
+    portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['reg'],
+)
+
+vqav2 = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['vqav2_train'],
+)
+
+vcr_qc_rac = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['vcr_qc_rac'],
+)
+
+vcr_qac_r = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['vcr_qac_r'],
+)
+
+grit = dict(
+    type='SubSet',
+    portion=1/15,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grit_combine_offline'],
 )
 
+grand = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_mix'],
+)
+
+
+
+# train_all_dataset['vcr_q_ra'],
 
 dataset_s1 = [
 
     # subsets
-    # gc,
+    gc,
+    reg,
+    caption,
+    vqav2,
+    vcr_qc_rac,
+    vcr_qac_r,
 
-    # # general datasets
-    # train_all_dataset['flickr'],
-    # train_all_dataset['rec'],
-    # train_all_dataset['reg'],
-    # train_all_dataset['caption'],
+    # general datasets
+    train_all_dataset['flickr'],
+    train_all_dataset['rec'],
     
+    # vqa v2
+    train_all_dataset['vqae_train'],
+    train_all_dataset['vqax_train'],
 
-    # # vqa v2
-    # train_all_dataset['vqav2_train'],
-    # train_all_dataset['vqae_train'],
-    # train_all_dataset['vqax_train'],
-
-    # # vcr
-    # train_all_dataset['vcr_q_ra'],
-    # train_all_dataset['vcr_qc_rac'],
-    # train_all_dataset['vcr_qac_r'],
-
-    # # point qa
-    # train_all_dataset['point_local_b'],
-    # train_all_dataset['point_local_p'],
-    # train_all_dataset['point_twice_oq_bp'],
-    # train_all_dataset['point_twice_sq_bp'],
-    # train_all_dataset['point_twice_gq_bp'],
-    # train_all_dataset['point_v7w_p'],
-    # train_all_dataset['point_v7w_b'],
+    # point qa
+    train_all_dataset['point_local_b'],
+    train_all_dataset['point_local_p'],
+    train_all_dataset['point_twice_oq_bp'],
+    train_all_dataset['point_twice_sq_bp'],
+    train_all_dataset['point_twice_gq_bp'],
+    train_all_dataset['point_v7w_p'],
+    train_all_dataset['point_v7w_b'],
 ]
 
 for dataset in dataset_s1:
@@ -63,28 +111,27 @@ for dataset in dataset_s1:
 
 dataset_s2 = [
     # subset
-    # grit,
+    grit,
+    grand,
 
     # # instruct
-    # train_all_dataset['instruct'],
+    train_all_dataset['instruct'],
 
-    # # gpt gen
-    # train_all_dataset['gpt4gen_qbc'],
-    # train_all_dataset['gpt4gen_rd_qbc'],
+    # gpt gen
+    train_all_dataset['gpt4gen_qbc'],
+    train_all_dataset['gpt4gen_rd_qbc'],
 
-    # # ospery
-    # train_all_dataset['ospery_partlevel'],
-    # train_all_dataset['ospery_shortform'],
-    # train_all_dataset['ospery_lvis'],
-    # train_all_dataset['ospery_conversations'],
-    # train_all_dataset['ospery_detailed'],
+    # ospery
+    train_all_dataset['ospery_partlevel'],
+    train_all_dataset['ospery_shortform'],
+    train_all_dataset['ospery_lvis'],
+    train_all_dataset['ospery_conversations'],
+    train_all_dataset['ospery_detailed'],
 
-    # # # interact
-    # train_all_dataset['interact_mask'],
-    # train_all_dataset['interact_box'],
+    # # interact
+    train_all_dataset['interact_mask'],
+    train_all_dataset['interact_box'],
 
-    # grand
-    # train_all_dataset['grand_mix'],
 ]
 
 

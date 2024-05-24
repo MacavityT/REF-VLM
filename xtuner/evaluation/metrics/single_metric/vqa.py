@@ -9,6 +9,7 @@ from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
+from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from ..okapi_metric import BaseComputeMetrics
 
 
@@ -41,7 +42,9 @@ class VQAComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-
+            if self.stage == 2:
+                decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
+                target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
             self.results.append((decode_pred, target))
     
     def compute_metrics(self, results: list) -> dict:

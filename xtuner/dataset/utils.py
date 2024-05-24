@@ -346,6 +346,8 @@ def _box_xyxy_expand2square(box, w, h):
     return box
 
 def mask_transform(mask, image_processor):
+    if mask is None:
+        return None
     result = np.expand_dims(mask, axis=2)
     result = np.repeat(result, 3, axis=2)
     result = image_processor.preprocess(
@@ -356,6 +358,8 @@ def mask_transform(mask, image_processor):
     return result
 
 def _mask_expand2square(mask):
+    if mask is None:
+        return None
     height, width = mask.shape
     if width == height:
         result = mask

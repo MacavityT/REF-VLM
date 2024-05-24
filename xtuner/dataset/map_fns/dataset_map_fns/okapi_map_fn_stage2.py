@@ -234,6 +234,13 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                             if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
                             units.append(unit)
                     output = map_units(output, units, placeholder)
+            # for map placeholder is None
+            else:
+                if not vrt_exist:
+                    cot = f"{BOT_TOKEN}Unit decode (False). VRT prepared (False). Generate VRT (False).{EOT_TOKEN}"
+                else:
+                    cot = f"{BOT_TOKEN}Unit decode (False). VRT prepared (True). Generate VRT (False).{EOT_TOKEN}"
+                output = cot + output
 
             conversation.append({'input': input, 'output': output})
             input = ''

@@ -123,6 +123,12 @@ def main():
         model.projector.save_pretrained(
             projector_path, max_shard_size=args.max_shard_size)
         
+    if hasattr(model, 'vpt_encoder'):
+        vpt_encoder_path = osp.join(args.save_dir, 'vpt_encoder')
+        print(f'Saving vpt_encoder to {vpt_encoder_path}')
+        model.vpt_encoder.save_pretrained(
+            vpt_encoder_path, max_shard_size=args.max_shard_size)
+        
     #taiyan TODO: 完成decoder保存流程
     # if hasattr(model, 'decoder'):
     #     decoder_path = osp.join(args.save_dir, 'decoder')

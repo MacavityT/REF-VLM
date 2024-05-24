@@ -100,6 +100,7 @@ train_all_dataset = dict(
         type='InstructMixDataset',
         text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter_d.json',
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
+        offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
     ),
 
     **train_gqa_variant,

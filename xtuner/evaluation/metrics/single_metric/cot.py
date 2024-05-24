@@ -13,11 +13,11 @@ from ..okapi_metric import BaseComputeMetrics
 
 
 @METRICS.register_module()
-class ImgCapComputeMetrics(BaseComputeMetrics):
+class COTComputeMetrics(BaseComputeMetrics):
 
     """
-    Tasks: Image caption, Region caption
-    Metrics: CIDEr, Meteor, BLEU4, SPICE
+    Tasks: COT tests: <Task>Unit decode (False). VRT prepared (False). Generate VRT (False).</Task>
+    Metrics: 
     """
 
     def __init__(self, *args, **kwargs):
@@ -43,44 +43,39 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
             if self.stage == 2:
-                decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
-                target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
+                decode_pred = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", decode_pred).group(1)
+                target = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", target).group(1)
             self.results.append((decode_pred, target))
-
 
     def compute_metrics(self, results: list) -> dict:
 
         preds = []
         targets = []
-        for i, (pred, target) in enumerate(results):
+        for i,(pred, target) in enumerate(results):
             pred = self.extract_ans(pred)
+            target = self.extract_ans(target)
             preds.append(pred)
             targets.append(target)
 
-        preds = {i: [{"caption": x}] for i, x in enumerate(preds)}
-        targets = {i: [{"caption": x}] for i, x in enumerate(targets)}
-
-
-        tokenizer = PTBTokenizer()
-        targets  = tokenizer.tokenize(targets)
-        preds = tokenizer.tokenize(preds)
-        cider_score, meteor_score, bleu_score = Cider(), Meteor(), Bleu(4)
-        cider_rst, _ = cider_score.compute_score(targets, preds)
-        meteor_rst, _ = meteor_score.compute_score(targets, preds)
-        blue_rst, _ = bleu_score.compute_score(targets,preds)
-        # spice_rst, _ = spice_score.compute_score(targets,preds)
+        acc = self.accuracy(preds,targets)
 
         metrics = {
-            "CIDEr": cider_rst*100,
-            "Meteor": meteor_rst,
-            "BLEU4": blue_rst,
-            # "SPICE": spice_rst
+            'accuracy': acc,
         }
-
-        # self._print_results(metrics)
 
         return metrics
     
+
+    def accuracy(self,preds,targets):
+        true = 0
+        for pred, target in zip(preds,targets):   
+            if pred == target:
+                true += 1
+
+        acc = float(true) / float(len(preds))
+        return acc
+
+
     def extract_ans(self, string: str):
         """
         extract prediction strings from model output

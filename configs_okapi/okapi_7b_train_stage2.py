@@ -21,7 +21,7 @@ with read_base():
 
 
 # Data configs
-max_length = 10000  # use cutoff lens instead
+max_length = 4096 - 576  # use cutoff lens instead
 cutoff_len = 4096
 batch_size = 16  # per_device
 dataloader_num_workers = 20
@@ -84,10 +84,11 @@ val_cfg = None
 
 # config models
 pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/0510_1_20_gc_rvg/iter_3558.pth'
+
 model = dict(
     type=OkapiModel,
     pretrained_pth=pretrained_pth,
-    freeze_llm=True,
+    freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,

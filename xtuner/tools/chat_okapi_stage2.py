@@ -4,8 +4,10 @@ import os
 import os.path as osp
 import re
 import sys
+import math
 import time
 import torch
+import numpy as np
 from huggingface_hub import snapshot_download
 from peft import PeftModel
 from transformers import (AutoModel, AutoModelForCausalLM, AutoTokenizer,
@@ -18,25 +20,25 @@ from xtuner.dataset.utils import expand2square, load_image
 from xtuner.model.utils import prepare_inputs_labels_for_multimodal
 from xtuner.tools.utils import get_stop_criteria
 from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
-                          PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
+                          PROMPT_TEMPLATE)
 from xtuner.registry import BUILDER
 from xtuner.model.utils import guess_load_checkpoint
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
+import debugpy
+debugpy.connect(('127.0.0.1', 5577))
 
 TORCH_DTYPE_MAP = dict(
     fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')
 
-SYS_TEMPLATE_MAP = dict(
-    vqa='Task Command:\n- task name: vqa\n- answer element: sentence\n- unit: None',
-    detection='Task Command:\n- task name: detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
-    segmentation='Task Command:\n- task name: segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
-    grounding_detection='Task Command:\n- task name: grounding_detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
-    grounding_segmentation='Task Command:\n- task name: grounding_segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
-    gcg_detection='Task Command:\n- task name: gcg_detection\n- answer element: phrase, sentence, unit\n- unit: <Unit>box</Unit>\n',
-    gcg_segmentation='Task Command:\n- task name: gcg_segmentation\n- answer element: phrase, sentence, unit\n- unit: <Unit>mask</Unit>\n',
-)
+SYS_TEMPLATE_OKAPI = [
+    'Task Command:\n- task name: vqa\n- answer element: sentence\n- unit: None',
+    'Task Command:\n- task name: detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
+    'Task Command:\n- task name: segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
+    'Task Command:\n- task name: grounding_detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
+    'Task Command:\n- task name: grounding_segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
+    'Task Command:\n- task name: gcg_detection\n- answer element: phrase, sentence, unit\n- unit: <Unit>box</Unit>\n',
+    'Task Command:\n- task name: gcg_segmentation\n- answer element: phrase, sentence, unit\n- unit: <Unit>mask</Unit>\n',
+]
 
 
 def remove_prefix(state_dict, prefix):
@@ -59,7 +61,8 @@ def parse_args():
         '--adapter', default=None, help='adapter name or path')
     parser.add_argument(
         '--okapi', default=None, help='okapi name or path')
-    parser.add_argument('--config', default=None,help='config file name or path.')
+    parser.add_argument(
+        '--config', default=None,help='config file name or path.')
     parser.add_argument(
         '--llm', default=None, help='llm path')
     parser.add_argument(
@@ -83,16 +86,8 @@ def parse_args():
     parser.add_argument(
         '--prompt-template',
         choices=PROMPT_TEMPLATE.keys(),
-        default='vicuna',
+        default='okapi',
         help='Specify a prompt template')
-    system_group = parser.add_mutually_exclusive_group()
-    system_group.add_argument(
-        '--system', default=None, help='Specify the system text')
-    system_group.add_argument(
-        '--system-template',
-        choices=SYSTEM_TEMPLATE.keys(),
-        default=None,
-        help='Specify a system template')
     parser.add_argument(
         '--bits',
         type=int,
@@ -191,6 +186,27 @@ def get_image_input():
             print('Invalid characters detected. Please enter again.')
     return result
 
+def get_system_input():
+    """Helper function for getting input from users."""
+    sentinel = ''  # ends when this string is seen
+    result = None
+    valid_list = [1,2,3,4,5,6,7]
+    while result is None:
+        print(('\n Please input numbers: [1] vqa [2] detection [3] segmentation [4] grounding detection [5] grounding segmentation [6] gcg detection [7] gcg segmentation >>> '),
+              end='')
+        try:
+            result = '\n'.join(iter(input, sentinel))
+        except UnicodeDecodeError:
+            print('Invalid characters detected. Please enter again.')
+
+        if result.isdigit():
+            if int(result) not in valid_list:
+                result = None
+        else:
+            result = None
+
+    return int(result)
+
 def process_image(args,image_path,image_processor,visual_encoder,projector):
     """Load image from image path and send it to the visual encoder and projector."""
     if image_path == '':
@@ -202,10 +218,33 @@ def process_image(args,image_path,image_processor,visual_encoder,projector):
         image, return_tensors='pt')['pixel_values'][0]
     image = image.cuda().unsqueeze(0).to(visual_encoder.dtype)
     visual_outputs = visual_encoder(image, output_hidden_states=True)
-    pixel_values = projector(
-        visual_outputs.hidden_states[args.visual_select_layer][:, 1:])
-    return pixel_values
+    selected_feats = visual_outputs.hidden_states[args.visual_select_layer][:, 1:]
+    pixel_values = projector(selected_feats)
+    return pixel_values, selected_feats
 
+def process_vpt(selected_feats,vpt_encoder,visual_prompts=None):
+    if visual_prompts is not None:
+        visual_prompts = vpt_encoder(
+                    selected_feats,
+                    regions = visual_prompts, 
+                    return_dict = True
+                )
+    else:
+        # fake regions for contain compute graph
+        bs = selected_feats.shape[0]
+        w = h = int(math.sqrt(selected_feats.shape[1]))
+        fake_region = np.zeros((h, w))
+        regions = [None] * bs
+        regions[0] = [fake_region]
+        vpt_count = [0] * bs
+        visual_prompts = vpt_encoder(
+            selected_feats,
+            regions = regions, 
+            return_dict = True,
+        )
+        visual_prompts['vpt_count'] = vpt_count
+
+    return visual_prompts
 
 def main():
     args = parse_args()
@@ -287,27 +326,7 @@ def main():
                 exit(0)
             response = chatbot.chat(text)
             print(response.response)
-    else:
-        if args.with_plugins is None:
-            inner_thoughts_open = False
-            calculate_open = False
-            solve_open = False
-            search_open = False
-        else:
-            assert args.prompt_template == args.system_template == 'moss_sft'
-            from plugins import plugins_api
-            inner_thoughts_open = True
-            calculate_open = 'calculate' in args.with_plugins
-            solve_open = 'solve' in args.with_plugins
-            search_open = 'search' in args.with_plugins
-            # pre-import for api and model preparation
-            if calculate_open:
-                from plugins import calculate  # noqa: F401
-            if solve_open:
-                from plugins import solve  # noqa: F401
-            if search_open:
-                from plugins import search  # noqa: F401
-        
+    else:        
         # load model
         if args.config is not None:
             model_name = cfg.model.type if isinstance(cfg.model.type,
@@ -410,7 +429,8 @@ def main():
                         trust_remote_code=True)
                     print(f'Load vpt encoder from {args.vpt_encoder_path}')
 
-
+        vpt_encoder.cuda()
+        vpt_encoder.eval()
         projector.cuda()
         projector.eval()
         visual_encoder.cuda()
@@ -447,10 +467,11 @@ def main():
         inputs = ''
         pixel_values = None
         while True:
+            system_id = get_system_input()
             if n_turn == 0 :
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 
@@ -460,9 +481,10 @@ def main():
                 n_turn = 0
                 inputs = ''
                 pixel_values = None
+                system_text = get_system_input()
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -470,7 +492,7 @@ def main():
                 print('Log: Please input a new image path!')
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -478,43 +500,28 @@ def main():
                 print('Log: Exit!')
                 exit(0)
 
+            system_task_text = SYS_TEMPLATE_OKAPI[system_id-1]
             if pixel_values is not None and n_turn == 0:
                 text = DEFAULT_IMAGE_TOKEN + '\n' + text
 
             if args.prompt_template:
                 prompt_text = ''
                 template = PROMPT_TEMPLATE[args.prompt_template]
-                if 'SYSTEM' in template and n_turn == 0:
-                    system_text = None
-                    if args.system_template is not None:
-                        system_text = SYSTEM_TEMPLATE[
-                            args.system_template].format(
-                                round=n_turn + 1, bot_name=args.bot_name)
-                    elif args.system is not None:
-                        system_text = args.system
+                system_text = None
+                if 'SYSTEM' in template:
+                    if n_turn == 0:
+                        system_text = template['SYSTEM_PREFIX'] + template['SYSTEM'].format(system=system_task_text,
+                                                                                            round=n_turn + 1,
+                                                                                            bot_name=args.bot_name)
+                    else:
+                        system_text = template['SYSTEM'].format(system=system_task_text,
+                                                                round=n_turn + 1,
+                                                                bot_name=args.bot_name)
                     if system_text is not None:
-                        prompt_text += template['SYSTEM'].format(
-                            system=system_text,
-                            round=n_turn + 1,
-                            bot_name=args.bot_name)
+                        prompt_text += system_text
                 prompt_text += template['INSTRUCTION'].format(
                     input=text, round=n_turn + 1, bot_name=args.bot_name)
-                if args.prompt_template == args.system_template == 'moss_sft':
-                    if not inner_thoughts_open:
-                        prompt_text.replace('- Inner thoughts: enabled.',
-                                            '- Inner thoughts: disabled.')
-                    if not calculate_open:
-                        prompt_text.replace(('- Calculator: enabled. API: '
-                                             'Calculate(expression)'),
-                                            '- Calculator: disabled.')
-                    if not solve_open:
-                        prompt_text.replace(
-                            '- Equation solver: enabled. API: Solve(equation)',
-                            '- Equation solver: disabled.')
-                    if not search_open:
-                        prompt_text.replace(
-                            '- Web search: enabled. API: Search(query)',
-                            '- Web search: disabled.')
+                
             else:
                 prompt_text = text
             inputs += prompt_text
@@ -525,60 +532,22 @@ def main():
                     ids = tokenizer.encode(
                         inputs, return_tensors='pt', add_special_tokens=False)
 
-                if args.with_plugins is not None:
-                    generate_output = llm.generate(
-                        inputs=ids.cuda(),
-                        generation_config=gen_config,
-                        streamer=streamer,
-                        stopping_criteria=stop_criteria).cpu()
-                    generate_output_text = tokenizer.decode(
+                time1 = time.time()
+                generate_output = llm.generate(
+                    inputs=ids.cuda(),
+                    generation_config=gen_config,
+                    streamer=streamer,
+                    stopping_criteria=stop_criteria)
+                time2 = time.time()
+                if streamer is None:
+                    output_text = tokenizer.decode(
                         generate_output[0][len(ids[0]):])
-                    if streamer is None:
-                        end = '' if generate_output_text[-1] == '\n' else '\n'
-                        print(generate_output_text, end=end)
-                    pattern = r'<\|Commands\|>:(.*?)<eoc>'
-                    command_text = ', '.join(
-                        re.findall(pattern, generate_output_text))
-                    extent_text = plugins_api(
-                        command_text,
-                        calculate_open=calculate_open,
-                        solve_open=solve_open,
-                        search_open=search_open)
-                    end = '' if extent_text[-1] == '\n' else '\n'
-                    print(extent_text, end=end)
-                    extent_text_ids = tokenizer.encode(
-                        extent_text,
-                        return_tensors='pt',
-                        add_special_tokens=False)
-                    new_ids = torch.cat((generate_output, extent_text_ids),
-                                        dim=1)
-                    
-                    generate_output = llm.generate(
-                        inputs=new_ids.cuda(),
-                        generation_config=gen_config,
-                        streamer=streamer,
-                        stopping_criteria=stop_criteria)
-                    if streamer is None:
-                        output_text = tokenizer.decode(
-                            generate_output[0][len(new_ids[0]):])
-                        end = '' if output_text[-1] == '\n' else '\n'
-                        print(output_text, end=end)
-                else:
-                    time1 = time.time()
-                    generate_output = llm.generate(
-                        inputs=ids.cuda(),
-                        generation_config=gen_config,
-                        streamer=streamer,
-                        stopping_criteria=stop_criteria)
-                    time2 = time.time()
-                    if streamer is None:
-                        output_text = tokenizer.decode(
-                            generate_output[0][len(ids[0]):])
-                        end = '' if output_text[-1] == '\n' else '\n'
-                        print(output_text, end=end)
-                        print(f"total inference time:{time2-time1}")
-                        print(f"token length = {len(generate_output[0][len(ids[0]):])}")
+                    end = '' if output_text[-1] == '\n' else '\n'
+                    print(output_text, end=end)
+                    print(f"total inference time:{time2-time1}")
+                    print(f"token length = {len(generate_output[0][len(ids[0]):])}")
                 inputs += tokenizer.decode(generate_output[0])
+
             else:
                 chunk_encode = []
                 for idx, chunk in enumerate(inputs.split(DEFAULT_IMAGE_TOKEN)):
@@ -595,8 +564,9 @@ def main():
                     if idx != len(chunk_encode) - 1:
                         ids.append(IMAGE_TOKEN_INDEX)
                 ids = torch.tensor(ids).cuda().unsqueeze(0)
+                visual_prompts = process_vpt(selected_feats,vpt_encoder)
                 mm_inputs = prepare_inputs_labels_for_multimodal(
-                    llm=llm, input_ids=ids, pixel_values=pixel_values)
+                    llm=llm, input_ids=ids, pixel_values=pixel_values,**visual_prompts)
 
                 generate_output = llm.generate(
                     **mm_inputs,
@@ -609,6 +579,7 @@ def main():
                     end = '' if output_text[-1] == '\n' else '\n'
                     print(output_text, end=end)
                 inputs += tokenizer.decode(generate_output[0])
+
             n_turn += 1
             inputs += sep
             if len(inputs) >= args.max_new_tokens:
