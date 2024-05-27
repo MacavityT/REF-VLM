@@ -8,7 +8,7 @@ from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
+from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN,VISUAL_REPRESENTATION_TOKEN
 from ..okapi_metric import BaseComputeMetrics
 
 
@@ -20,9 +20,10 @@ class COTComputeMetrics(BaseComputeMetrics):
     Metrics: 
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, type, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        self.type = type
+        assert self.type in ['cot','vrt'], "evaluation type for COTComputeMetrics should be in cot or vrt"
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -42,9 +43,12 @@ class COTComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-            if self.stage == 2:
+            if self.type == 'cot':
                 decode_pred = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", decode_pred).group(1)
                 target = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", target).group(1)
+            elif self.type == 'vrt':
+                decode_pred = decode_pred.count(VISUAL_REPRESENTATION_TOKEN)
+                target = target.count(VISUAL_REPRESENTATION_TOKEN)
             self.results.append((decode_pred, target))
 
     def compute_metrics(self, results: list) -> dict:
@@ -52,8 +56,6 @@ class COTComputeMetrics(BaseComputeMetrics):
         preds = []
         targets = []
         for i,(pred, target) in enumerate(results):
-            pred = self.extract_ans(pred)
-            target = self.extract_ans(target)
             preds.append(pred)
             targets.append(target)
 
@@ -75,20 +77,3 @@ class COTComputeMetrics(BaseComputeMetrics):
         acc = float(true) / float(len(preds))
         return acc
 
-
-    def extract_ans(self, string: str):
-        """
-        extract prediction strings from model output
-        Args:
-            string (str): USER: <image>\nPlease describe this picture ASSISTANT: augment reality in opencv.</s>
-
-        Return:
-            string (str): e.g. aument reality in opencv 
-        """
-        try:
-            string = string.split("ASSISTANT: ")[-1].lower().split("</s>")[0]
-            return string
-        except Exception as e:
-            print_log(f"Warning: extract_ans for {string} but get exception: {e}")
-            return None
-        

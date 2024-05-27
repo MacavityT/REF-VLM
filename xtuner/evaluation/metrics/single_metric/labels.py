@@ -9,7 +9,7 @@ from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN,VISUAL_REFERENCE_TOKEN
+from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN,VISUAL_REFERENCE_TOKEN,PHRASE_ED_PLACEHOLDER_STAGE2
 from ..okapi_metric import BaseComputeMetrics
 
 
@@ -62,15 +62,16 @@ class LabelsComputeMetrics(BaseComputeMetrics):
 
             # retrieve phrase and units
             # TODO: 要保证</Phrase>和后面的()之间没有任何空格
+            decode_pred = decode_pred.replace(f"{PHRASE_ED_PLACEHOLDER_STAGE2} ",PHRASE_ED_PLACEHOLDER_STAGE2)
             phrase_content_pred = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", decode_pred)
             phrase_content_target = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", target)
 
             if self.type == 'phrase':
                 decode_pred = [item[0].strip(" ") for item in phrase_content_pred]
-                decode_target = [item[0].strip(" ") for item in phrase_content_target]
+                target = [item[0].strip(" ") for item in phrase_content_target]
             elif self.type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
                 decode_pred = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_pred]
-                decode_target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
+                target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
 
             self.results.append((decode_pred, target))
 
@@ -99,7 +100,7 @@ class LabelsComputeMetrics(BaseComputeMetrics):
         precision = []
         recall = []
         for pred, target in zip(preds,targets):
-            
+
             common_elements = set(pred).intersection(set(target))
             union_set = set(pred).union(set(target))
             acc = float(len(common_elements)) / float(len(union_set))
