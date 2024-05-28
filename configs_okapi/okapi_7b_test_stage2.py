@@ -20,7 +20,8 @@ with read_base():
 
 # Data
 prompt_template = PROMPT_TEMPLATE.okapi
-max_length = int(4096 - (336 / 14)**2)
+max_length = 10000  # use cutoff lens instead
+cutoff_len = 4096
 dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
@@ -70,5 +71,5 @@ test_dataloader = dict(
 #     type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, prefix='caption')
 
 test_evaluator = dict(
-    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, prefix='cot')
+    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, type='cot', prefix='cot')
 

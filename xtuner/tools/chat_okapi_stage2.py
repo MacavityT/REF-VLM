@@ -24,8 +24,8 @@ from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
 from xtuner.registry import BUILDER
 from xtuner.model.utils import guess_load_checkpoint
 
-import debugpy
-debugpy.connect(('127.0.0.1', 5577))
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
 
 TORCH_DTYPE_MAP = dict(
     fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')

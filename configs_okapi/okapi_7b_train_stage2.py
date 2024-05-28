@@ -21,7 +21,7 @@ with read_base():
 
 
 # Data configs
-max_length = 4096 - 576  # use cutoff lens instead
+max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096
 batch_size = 14  # per_device
 dataloader_num_workers = 20

@@ -5,7 +5,7 @@ from xtuner.engine.runner import TrainLoop
 accumulative_counts = 1
 
 max_epochs = 1
-lr = 1e-3
+lr = 2e-5
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip

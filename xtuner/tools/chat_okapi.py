@@ -4,7 +4,9 @@ import os
 import os.path as osp
 import re
 import sys
+import math
 import time
+import numpy as np
 import torch
 from huggingface_hub import snapshot_download
 from peft import PeftModel
@@ -64,8 +66,6 @@ def parse_args():
         '--llm', default=None, help='llm path')
     parser.add_argument(
         '--visual-encoder', default=None, help='visual encoder name or path')
-    parser.add_argument(
-        '--vpt-encoder', default=None, help='vpt encoder name or path')
     parser.add_argument(
         '--projector', default=None, help='projector name or path')
     parser.add_argument(
@@ -202,9 +202,33 @@ def process_image(args,image_path,image_processor,visual_encoder,projector):
         image, return_tensors='pt')['pixel_values'][0]
     image = image.cuda().unsqueeze(0).to(visual_encoder.dtype)
     visual_outputs = visual_encoder(image, output_hidden_states=True)
-    pixel_values = projector(
-        visual_outputs.hidden_states[args.visual_select_layer][:, 1:])
-    return pixel_values
+    selected_feats = visual_outputs.hidden_states[args.visual_select_layer][:, 1:]
+    pixel_values = projector(selected_feats)
+    return pixel_values, selected_feats
+
+def process_vpt(selected_feats,vpt_encoder,visual_prompts=None):
+    if visual_prompts is not None:
+        visual_prompts = vpt_encoder(
+                    selected_feats,
+                    regions = visual_prompts, 
+                    return_dict = True
+                )
+    else:
+        # fake regions for contain compute graph
+        bs = selected_feats.shape[0]
+        w = h = int(math.sqrt(selected_feats.shape[1]))
+        fake_region = np.zeros((h, w))
+        regions = [None] * bs
+        regions[0] = [fake_region]
+        vpt_count = [0] * bs
+        visual_prompts = vpt_encoder(
+            selected_feats,
+            regions = regions, 
+            return_dict = True,
+        )
+        visual_prompts['vpt_count'] = vpt_count
+
+    return visual_prompts
 
 
 def main():
@@ -309,11 +333,12 @@ def main():
                 from plugins import search  # noqa: F401
         
         # load model
+        vpt_encoder = None
         if args.config is not None:
             model_name = cfg.model.type if isinstance(cfg.model.type,
                                               str) else cfg.model.type.__name__
             model = BUILDER.build(cfg.model)
-
+            vpt_encoder = model.vpt_encoder
             if cfg.model.get('llm') and cfg.model.get('freeze_llm', True):
                 llm = model.llm
                 tokenizer = model.tokenizer
@@ -321,7 +346,7 @@ def main():
 
             if cfg.model.get('visual_encoder') and cfg.model.get('freeze_visual_encoder', True):
                 visual_encoder = model.visual_encoder
-                image_processor = BUILDER.build(cfg.train_dataset['image_processor'])
+                image_processor = BUILDER.build(cfg.okapi_dataset['image_processor'])
                 print(f'Load visual encoder directly from {model_name}')
 
         if args.load_model_from_pth:
@@ -331,9 +356,9 @@ def main():
             llm = model.llm
             tokenizer = model.tokenizer
             projector = model.projector
-            visual_encoder = model.visual_encoder
             vpt_encoder = model.vpt_encoder
-            image_processor = BUILDER.build(cfg.train_dataset['image_processor'])
+            visual_encoder = model.visual_encoder
+            image_processor = BUILDER.build(cfg.okapi_dataset['image_processor'])
             print("Load pretrained checkpoint pth success.")
 
         else:
@@ -367,13 +392,6 @@ def main():
                         trust_remote_code=True)
                     print(f'Load projector from {projector_path}')
 
-                if 'vpt_encoder' in os.listdir(okapi_path):
-                    vpt_encoder_path = osp.join(okapi_path, 'vpt_encoder')
-                    vpt_encoder = AutoModel.from_pretrained(
-                        vpt_encoder_path,
-                        torch_dtype=TORCH_DTYPE_MAP[args.torch_dtype],
-                        trust_remote_code=True)
-                    print(f'Load vpt encoder from {vpt_encoder_path}')
             else:
                 # build model from seperate path
                 if args.llm is not None:
@@ -403,14 +421,11 @@ def main():
                         torch_dtype=TORCH_DTYPE_MAP[args.torch_dtype],
                         trust_remote_code=True)
                     print(f'Load projector from {args.projector}')
-                if args.vpt_encoder is not None:
-                    vpt_encoder = AutoModel.from_pretrained(
-                        args.vpt_encoder_path,
-                        torch_dtype=TORCH_DTYPE_MAP[args.torch_dtype],
-                        trust_remote_code=True)
-                    print(f'Load vpt encoder from {args.vpt_encoder_path}')
 
-
+        assert vpt_encoder is not None
+        vpt_encoder = vpt_encoder.float()
+        vpt_encoder.cuda()
+        vpt_encoder.eval()
         projector.cuda()
         projector.eval()
         visual_encoder.cuda()
@@ -450,7 +465,7 @@ def main():
             if n_turn == 0 :
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 
@@ -462,7 +477,7 @@ def main():
                 pixel_values = None
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -470,7 +485,7 @@ def main():
                 print('Log: Please input a new image path!')
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
-                    pixel_values = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -595,8 +610,9 @@ def main():
                     if idx != len(chunk_encode) - 1:
                         ids.append(IMAGE_TOKEN_INDEX)
                 ids = torch.tensor(ids).cuda().unsqueeze(0)
+                visual_prompts = process_vpt(selected_feats,vpt_encoder)
                 mm_inputs = prepare_inputs_labels_for_multimodal(
-                    llm=llm, input_ids=ids, pixel_values=pixel_values)
+                    llm=llm, input_ids=ids, pixel_values=pixel_values,**visual_prompts)
 
                 generate_output = llm.generate(
                     **mm_inputs,
