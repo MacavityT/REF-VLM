@@ -23,7 +23,13 @@ from .utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
                     make_inputs_require_grad, traverse_dict,
                     prepare_inputs_labels_for_multimodal)
-from xtuner.utils.constants import SPECIAL_TOKENS
+from xtuner.utils.constants import (
+    BOT_TOKEN, EOT_TOKEN,
+    BOU_TOKEN, EOU_TOKEN,
+    BOV_TOKEN, EOV_TOKEN,
+    SPECIAL_TOKENS
+)
+from torch.nn import CrossEntropyLoss
 
 class OkapiModel(BaseModel):
 
@@ -57,6 +63,15 @@ class OkapiModel(BaseModel):
             self.llm = self._build_from_cfg_or_module(llm)
             self.tokenizer = self._prepare_tokenizer(tokenizer)
             self.llm.resize_token_embeddings(len(self.tokenizer))
+            # token labels
+            tokens_in_labels = [
+                BOT_TOKEN, EOT_TOKEN, 
+                BOU_TOKEN, EOU_TOKEN, 
+                BOV_TOKEN, EOV_TOKEN
+            ]
+            self.token_ids = {}
+            for token in tokens_in_labels:
+                self.token_ids[token] = self.tokenizer.convert_tokens_to_ids(token)
             # generate config
             default_generation_kwargs = dict(
                 max_new_tokens=512,
@@ -384,13 +399,86 @@ class OkapiModel(BaseModel):
     #     logits_dict = [{'logits': logits} for logits in outputs.logits]
     #     return logits_dict
 
+    def compute_loss_llm(self, logits, labels):
+        # Shift so that tokens < n predict n
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+
+        weight = torch.ones_like(shift_labels)
+        bs = shift_labels.shape[0]
+        cot_weight = 0.1
+        vrt_weight = 0.1
+        for batch_idx in range(bs):
+            # CoT chunks
+            bot_id = self.token_ids[BOT_TOKEN]
+            eot_id = self.token_ids[EOT_TOKEN]
+            cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
+            cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
+            if len(cot_start) == len(cot_end):
+                for st, ed in zip(cot_start, cot_end):
+                    weight[batch_idx, st:ed+1] = cot_weight
+            elif len(cot_start) == len(cot_end) + 1:
+                last_st = cot_start[-1]
+                for st, ed in zip(cot_start, cot_end):
+                    weight[batch_idx, st:ed+1] = cot_weight
+                weight[batch_idx, last_st:] = cot_weight
+            else:
+                raise ValueError
+            
+            # VRT chunks
+            bov_id = self.token_ids[BOV_TOKEN]
+            eov_id = self.token_ids[EOV_TOKEN]
+            vrt_start = torch.where(shift_labels[batch_idx] == bov_id)[0].tolist()
+            vrt_end = torch.where(shift_labels[batch_idx] == eov_id)[0].tolist()
+            if len(vrt_start) == len(vrt_end):
+                for st, ed in zip(vrt_start, vrt_end):
+                    weight[batch_idx, st:ed+1] = vrt_weight
+            elif len(vrt_start) == len(vrt_end) + 1:
+                last_st = vrt_start[-1]
+                for st, ed in zip(vrt_start, vrt_end):
+                    weight[batch_idx, st:ed+1] = vrt_weight
+                weight[batch_idx, last_st:] = vrt_weight
+            else:
+                raise ValueError
+
+            # Phrase and Unit Chunks
+        
+        # Flatten the tokens
+        loss_fct = CrossEntropyLoss(reduction='none')
+        shift_logits = shift_logits.view(-1, self.llm.config.vocab_size)
+        shift_labels = shift_labels.view(-1)
+        weight = weight.view(-1)
+        # Enable model parallelism
+        shift_labels = shift_labels.to(shift_logits.device)
+        weight = weight.to(shift_logits.dtype).to(shift_logits.device)
+        loss = loss_fct(shift_logits, shift_labels)
+        weighted_loss = weight * loss
+
+        return weighted_loss.mean()
+
+    def compute_loss_decoder(self, hidden_states, targets):
+        if targets is None:
+            return 0
+        return 0
+
     def compute_loss(self, data, data_samples=None):
+        labels = data.pop("labels")
+        decode_labels = data.get('decode_labels', None)
+        if 'output_hidden_states' not in data.keys():
+            data['output_hidden_states'] = True
+
         outputs = self.llm(**data)
+        logits = outputs.logits
+        selected_hidden_states = outputs.hidden_states[-1]
 
-        #taiyan TODO: add decoder loss 部分
-        hidden_states = outputs.hidden_states
+        loss_llm = self.compute_loss_llm(logits, labels)
+        loss_decoder = self.compute_loss_decoder(
+            selected_hidden_states,
+            decode_labels
+        )
 
-        loss_dict = {'loss': outputs.loss}
+        loss = loss_llm + loss_decoder
+        loss_dict = {'loss': loss}
         return loss_dict
 
     def __getattr__(self, name: str):

@@ -180,21 +180,13 @@ def prepare_inputs_labels_for_multimodal(
     cur_image_idx = 0
     for batch_idx, cur_input_ids in enumerate(input_ids):
         num_vpt = (cur_input_ids == VISUAL_PROMPT_INDEX).sum()
+        
         cur_vpt_feats = None
         if vpt_feats is not None:
-            try:
-                assert vpt_count[batch_idx] == num_vpt, \
-                    f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
-            except:
-                print(f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}')
-                import pickle
-                import os
-                dir_length = len(os.listdir("/code/okapi-mllm/Aaronzhu/wrong_data/"))
-                with open(f"/code/okapi-mllm/Aaronzhu/wrong_data/wrong_{dir_length}.pkl","wb") as f:
-                    pickle.dump(cur_input_ids.detach().cpu().numpy(),f)
-                    f.close()
+            assert vpt_count[batch_idx] == num_vpt, \
+                f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
             cur_vpt_feats = vpt_feats[batch_idx]
-
+        
         num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
         if num_images == 0:
             if vpt_count is not None: assert vpt_count[batch_idx] == 0

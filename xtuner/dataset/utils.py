@@ -52,10 +52,8 @@ def encode_fn(example,
               tokenizer,
               max_length,
               input_ids_with_output=True,
-              with_image_token=False):
-    def get_vpt_slices():
-        pass
-
+              with_image_token=False,
+              visual_prompts=None):
     """We only support the following three scenarios:
 
     1. Incremental pretraining dataset.
@@ -93,7 +91,7 @@ def encode_fn(example,
 
     input_ids, labels = [], []
     next_needs_bos_token = True
-    for single_turn_conversation in example['conversation']:
+    for idx_trun, single_turn_conversation in enumerate(example['conversation']):
         input = single_turn_conversation['input']
         if DEFAULT_IMAGE_TOKEN in input and with_image_token:
             chunk_encode = []
@@ -135,7 +133,12 @@ def encode_fn(example,
                         input_encode.append(VISUAL_PROMPT_INDEX)
             else:
                 input_encode = tokenizer.encode(input, add_special_tokens=False)
-        
+
+        # vpt check
+        if VISUAL_PROMPT_INDEX in input_encode:
+            vpt_num = input_encode.count(VISUAL_PROMPT_INDEX)
+            assert vpt_num == len(visual_prompts[idx_trun])
+
         if next_needs_bos_token:
             input_ids += bos_token_id
             labels += [IGNORE_INDEX] * len(bos_token_id)
