@@ -20,10 +20,10 @@ class COTComputeMetrics(BaseComputeMetrics):
     Metrics: 
     """
 
-    def __init__(self, type, *args, **kwargs):
+    def __init__(self, eval_type, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = type
-        assert self.type in ['cot','vrt'], "evaluation type for COTComputeMetrics should be in cot or vrt"
+        self.eval_type = type
+        assert self.eval_type in ['cot','vrt'], "evaluation type for COTComputeMetrics should be in cot or vrt"
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -43,10 +43,10 @@ class COTComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-            if self.type == 'cot':
+            if self.eval_type == 'cot':
                 decode_pred = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", decode_pred).group(1)
                 target = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", target).group(1)
-            elif self.type == 'vrt':
+            elif self.eval_type == 'vrt':
                 decode_pred = decode_pred.count(VISUAL_REPRESENTATION_TOKEN)
                 target = target.count(VISUAL_REPRESENTATION_TOKEN)
             self.results.append((decode_pred, target))

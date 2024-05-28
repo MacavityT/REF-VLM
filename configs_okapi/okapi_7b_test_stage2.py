@@ -71,5 +71,5 @@ test_dataloader = dict(
 #     type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, prefix='caption')
 
 test_evaluator = dict(
-    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, type='cot', prefix='cot')
+    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type='cot', prefix='cot')
 
