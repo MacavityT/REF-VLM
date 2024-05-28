@@ -17,7 +17,7 @@ from mmengine.utils.misc import get_object_from_string
 
 from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
-from xtuner.utils import IGNORE_INDEX
+from xtuner.utils import IGNORE_INDEX, VISUAL_PROMPT_INDEX
 from xtuner.registry import BUILDER, DATASETS, MAP_FUNC
 from xtuner.dataset.single_dataset import OfflineDataset
 from .huggingface import process_hf_dataset, encode_fn
@@ -346,7 +346,7 @@ class OkapiDataset(Dataset):
             ori_height = ori_height
         )
     
-    def visual_prompts_process(self, visual_prompts, ori_width, ori_height):
+    def visual_prompts_process(self, visual_prompts, ori_width, ori_height, max_num):
         converted_vpt = []
         for vpt_one_turn in visual_prompts:
             if vpt_one_turn is None: continue
@@ -371,6 +371,9 @@ class OkapiDataset(Dataset):
                     mask = vpt['value']
                 transformed_mask = mask_transform(mask, self.image_processor)
                 converted_vpt.append(transformed_mask)
+
+                if (len(converted_vpt)) == max_num: 
+                    return converted_vpt
         return converted_vpt
 
     def __getitem__(self, index):
@@ -414,17 +417,20 @@ class OkapiDataset(Dataset):
                     tokenizer=self.tokenizer,
                     max_length=self.max_length,
                     input_ids_with_output=True,
-                    with_image_token=True
+                    with_image_token=True,
+                    visual_prompts=data_dict['visual_prompts']
                 )
             )
 
         if data_dict.get('visual_prompts', None) is not None:
             assert data_dict.get('image', None) is not None, \
                 'visual prompts set, but no image input.'
+            max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
             visual_prompts = self.visual_prompts_process(
                 data_dict['visual_prompts'],
                 ori_width=data_dict['ori_width'],
-                ori_height=data_dict['ori_height']
+                ori_height=data_dict['ori_height'],
+                max_num = max_num
             )
             data_dict['visual_prompts'] = visual_prompts
         return data_dict
