@@ -9,6 +9,7 @@ from xtuner.dataset.map_fns import (
     okapi_template_map_fn_factory
 )
 from xtuner.dataset.collate_fns import okapi_collate_fn
+from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
@@ -26,14 +27,17 @@ dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
 
+eval_type = 'all'
+prefix = 'cot_vrt'
+
 test_dataset_args = [
     dict(
         type='SubSet',
         portion=1/20,
-        do_shuffle=True,
+        do_shuffle=False,
         seed=43,
         enforce_online=True,
-        cfg=test_all_dataset['caption'],
+        cfg=test_all_dataset['rec_refcocog_umd_test'],
         )
 ]
 
@@ -60,7 +64,7 @@ test_dataloader = dict(
     batch_size=1,
     num_workers=dataloader_num_workers,
     dataset=test_dataset,
-    sampler=dict(type=DefaultSampler, shuffle=True),
+    sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=okapi_collate_fn))
 
 
@@ -71,5 +75,17 @@ test_dataloader = dict(
 #     type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, prefix='caption')
 
 test_evaluator = dict(
-    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type='cot', prefix='cot')
+    type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, prefix=prefix)
 
+
+model = dict(
+    type=OkapiModel,
+    freeze_llm=True,
+    tokenizer=tokenizer,
+    freeze_visual_encoder=True,
+    cutoff_len=cutoff_len,
+    llm=dict(
+        type=AutoModelForCausalLM.from_pretrained,
+        pretrained_model_name_or_path=vicuna_7b_path,
+        trust_remote_code=True),
+    visual_encoder=clip_patch14_336['visual_encoder'])

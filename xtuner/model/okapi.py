@@ -50,7 +50,9 @@ class OkapiModel(BaseModel):
                  visual_encoder_lora=None,
                  use_activation_checkpointing=True,
                  cutoff_len=None,
-                 max_position_embeddings=None):
+                 max_position_embeddings=None,
+                 cot_weight=None,
+                 vrt_weight=None):
         super().__init__()
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
@@ -167,6 +169,21 @@ class OkapiModel(BaseModel):
         self.visual_select_layer = visual_select_layer
 
         self._is_init = True
+
+        if cot_weight is None and vrt_weight is None:
+            self.cot_weight = 1
+            self.vrt_weight = 1
+        else:
+            if cot_weight is None:
+                self.cot_weight = 1 - vrt_weight
+                self.vrt_weight = vrt_weight
+            elif vrt_weight is None:
+                self.vrt_weight = 1 - cot_weight
+                self.cot_weight = cot_weight
+            else:
+                self.vrt_weight = vrt_weight
+                self.cot_weight = cot_weight
+
 
     @staticmethod
     def _prepare_tokenizer(tokenizer_cfg):
@@ -382,7 +399,9 @@ class OkapiModel(BaseModel):
     
     # TODO： Aaron add
     def predict(self, data, data_samples=None):
-
+        for key in data.keys():
+            if data[key] is not None:
+                data[key] = data[key].to(self.llm.dtype)
         generate_ids = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
@@ -399,15 +418,15 @@ class OkapiModel(BaseModel):
     #     logits_dict = [{'logits': logits} for logits in outputs.logits]
     #     return logits_dict
 
-    def compute_loss_llm(self, logits, labels):
+    def compute_loss_llm(self, logits, labels, cot_weight, vrt_weight):
+        
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
 
         weight = torch.ones_like(shift_labels)
+        idx = torch.zeros_like(shift_labels)
         bs = shift_labels.shape[0]
-        cot_weight = 0.1
-        vrt_weight = 0.1
         for batch_idx in range(bs):
             # CoT chunks
             bot_id = self.token_ids[BOT_TOKEN]
@@ -417,11 +436,14 @@ class OkapiModel(BaseModel):
             if len(cot_start) == len(cot_end):
                 for st, ed in zip(cot_start, cot_end):
                     weight[batch_idx, st:ed+1] = cot_weight
+                    idx[batch_idx, st:ed+1] = 1
             elif len(cot_start) == len(cot_end) + 1:
                 last_st = cot_start[-1]
                 for st, ed in zip(cot_start, cot_end):
                     weight[batch_idx, st:ed+1] = cot_weight
+                    idx[batch_idx, st:ed+1] = 1
                 weight[batch_idx, last_st:] = cot_weight
+                idx[batch_idx, last_st:] = 1
             else:
                 raise ValueError
             
@@ -433,11 +455,14 @@ class OkapiModel(BaseModel):
             if len(vrt_start) == len(vrt_end):
                 for st, ed in zip(vrt_start, vrt_end):
                     weight[batch_idx, st:ed+1] = vrt_weight
+                    idx[batch_idx, st:ed+1] = 2
             elif len(vrt_start) == len(vrt_end) + 1:
                 last_st = vrt_start[-1]
                 for st, ed in zip(vrt_start, vrt_end):
                     weight[batch_idx, st:ed+1] = vrt_weight
+                    idx[batch_idx, st:ed+1] = 2
                 weight[batch_idx, last_st:] = vrt_weight
+                idx[batch_idx, last_st:] = 2
             else:
                 raise ValueError
 
@@ -448,13 +473,19 @@ class OkapiModel(BaseModel):
         shift_logits = shift_logits.view(-1, self.llm.config.vocab_size)
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
+        idx = idx.view(-1)
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
         weight = weight.to(shift_logits.dtype).to(shift_logits.device)
         loss = loss_fct(shift_logits, shift_labels)
-        weighted_loss = weight * loss
 
-        return weighted_loss.mean()
+        weighted_loss = weight * loss
+        cot_loss = weight[idx==1] * loss[idx==1]
+        vrt_loss = weight[idx==2] * loss[idx==2]
+        answer_loss = weight[idx==0] * loss[idx==0]
+
+
+        return weighted_loss.mean(), cot_loss.mean(), vrt_loss.mean(), answer_loss.mean()
 
     def compute_loss_decoder(self, hidden_states, targets):
         if targets is None:
@@ -471,14 +502,14 @@ class OkapiModel(BaseModel):
         logits = outputs.logits
         selected_hidden_states = outputs.hidden_states[-1]
 
-        loss_llm = self.compute_loss_llm(logits, labels)
+        loss_llm, loss_cot, loss_vrt, loss_answer = self.compute_loss_llm(logits, labels, self.cot_weight, self.vrt_weight)
         loss_decoder = self.compute_loss_decoder(
             selected_hidden_states,
             decode_labels
         )
 
         loss = loss_llm + loss_decoder
-        loss_dict = {'loss': loss}
+        loss_dict = {'loss': loss, 'cot_cost': loss_cot, 'vrt_cost': loss_vrt, 'answer_cost':loss_answer}
         return loss_dict
 
     def __getattr__(self, name: str):

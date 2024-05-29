@@ -21,9 +21,9 @@ with read_base():
 
 
 # Data configs
-max_length = 10000  # use cutoff lens instead
+max_length = 4096 - 576 # use cutoff lens instead
 cutoff_len = 4096
-batch_size = 14  # per_device
+batch_size = 15  # per_device
 dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
@@ -54,36 +54,10 @@ train_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=okapi_collate_fn))
 
-# val_dataset = dict(
-#     type=OkapiDataset,
-#     pretokenize=False,
-#     dataset=val_dataset_args,
-#     image_processor=clip_patch14_336['image_processor'],
-#     tokenizer=tokenizer,
-#     dataset_map_fn=dataset_map_fn,
-#     template_map_fn=dict(
-#         type=okapi_template_map_fn_factory, template=prompt_template),
-#     max_length=max_length,
-#     pad_image_to_square=True)
-
-# val_dataloader = dict(
-#     batch_size=1,
-#     num_workers=dataloader_num_workers,
-#     dataset=val_dataset,
-#     sampler=dict(type=DefaultSampler, shuffle=False),
-#     collate_fn=dict(type=okapi_collate_fn))
-
-
-# val_evaluator = dict(
-#     type=ImgCapComputeMetrics, tokenizer=tokenizer, prefix='caption')
-
-# val_evaluator = dict(
-#     type=VQAComputeMetrics, tokenizer=tokenizer, prefix='vqa')
-
 val_cfg = None
 
 # config models
-pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/0510_1_20_gc_rvg/iter_3558.pth'
+pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/iter_3558.pth'
 
 model = dict(
     type=OkapiModel,

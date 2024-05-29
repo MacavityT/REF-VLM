@@ -24,11 +24,11 @@ class LabelsComputeMetrics(BaseComputeMetrics):
              <Phrase>the John Hancock Tower</Phrase>(<Unit>box</Unit><REF>[0])
     """
 
-    def __init__(self, type, *args, **kwargs):
+    def __init__(self, eval_type, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = type
+        self.eval_type = eval_type
 
-        assert self.type in ['phrase','count'], "evaluation type for PhraseComputeMetrics should be in phrase or count"
+        assert self.eval_type in ['phrase','count'], "evaluation type for PhraseComputeMetrics should be in phrase or count"
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -66,10 +66,10 @@ class LabelsComputeMetrics(BaseComputeMetrics):
             phrase_content_pred = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", decode_pred)
             phrase_content_target = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", target)
 
-            if self.type == 'phrase':
+            if self.eval_type == 'phrase':
                 decode_pred = [item[0].strip(" ") for item in phrase_content_pred]
                 target = [item[0].strip(" ") for item in phrase_content_target]
-            elif self.type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
+            elif self.eval_type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
                 decode_pred = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_pred]
                 target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
 

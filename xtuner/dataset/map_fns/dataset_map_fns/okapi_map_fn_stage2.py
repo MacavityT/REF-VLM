@@ -236,10 +236,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                     output = map_units(output, units, placeholder)
             # for map placeholder is None
             else:
-                if not vrt_exist:
-                    cot = f"{BOT_TOKEN}Unit decode (False). VRT prepared (False). Generate VRT (False).{EOT_TOKEN}"
-                else:
-                    cot = f"{BOT_TOKEN}Unit decode (False). VRT prepared (True). Generate VRT (False).{EOT_TOKEN}"
+                cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
                 output = cot + output
 
             conversation.append({'input': input, 'output': output})

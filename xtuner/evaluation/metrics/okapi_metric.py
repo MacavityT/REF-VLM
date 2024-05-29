@@ -10,7 +10,12 @@ from mmengine.logging import print_log
 from xtuner.registry import BUILDER
 from rich.console import Console
 from rich.table import Table
-
+from xtuner.utils.constants import (
+    BOT_TOKEN, EOT_TOKEN,
+    BOU_TOKEN, EOU_TOKEN,
+    BOV_TOKEN, EOV_TOKEN,
+    SPECIAL_TOKENS
+)
 
 
 """
@@ -28,6 +33,7 @@ class BaseComputeMetrics(BaseMetric):
     def __init__(self, tokenizer,stage=1,preprocessor=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = BUILDER.build(tokenizer)
+        self.tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
         self.preprocessor = preprocessor
         self.stage = stage
 
@@ -37,13 +43,13 @@ class BaseComputeMetrics(BaseMetric):
             ids[ids < 0] = self.tokenizer.pad_token_id
         return ids
     
-    def decode_generate_ids(self, ids: torch.Tensor) -> Union[List[str], str]:
+    def decode_generate_ids(self, ids: torch.Tensor,skip_special_tokens=True) -> Union[List[str], str]:
         assert ids.ndim in [1, 2]
         only_one_sentence = ids.ndim == 1
         if only_one_sentence:
             ids = ids.unsqueeze(0)
         ids = self.post_process_generate_ids(ids)
-        res = self.tokenizer.batch_decode(ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        res = self.tokenizer.batch_decode(ids, skip_special_tokens=skip_special_tokens, clean_up_tokenization_spaces=True)
         if only_one_sentence:
             return res[0]
         return res

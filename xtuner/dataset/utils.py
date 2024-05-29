@@ -137,7 +137,14 @@ def encode_fn(example,
         # vpt check
         if VISUAL_PROMPT_INDEX in input_encode:
             vpt_num = input_encode.count(VISUAL_PROMPT_INDEX)
-            assert vpt_num == len(visual_prompts[idx_trun])
+            if visual_prompts is None:
+                vpt_length = 0
+            else:
+                if visual_prompts[idx_trun] is None:
+                    vpt_length = 0
+                else:
+                    vpt_length = len(visual_prompts[idx_trun])
+            assert vpt_num == vpt_length, f"vpt_num:{vpt_num} must equal to vpt_length:{vpt_length}"
 
         if next_needs_bos_token:
             input_ids += bos_token_id

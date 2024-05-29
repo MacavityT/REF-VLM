@@ -30,29 +30,6 @@ reg = dict(
     cfg=train_all_dataset['reg'],
 )
 
-vqav2 = dict(
-    type='SubSet',
-    portion=1/2,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['vqav2_train'],
-)
-
-vcr_qc_rac = dict(
-    type='SubSet',
-    portion=1/2,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['vcr_qc_rac'],
-)
-
-vcr_qac_r = dict(
-    type='SubSet',
-    portion=1/2,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['vcr_qac_r'],
-)
 
 grit = dict(
     type='SubSet',
@@ -64,7 +41,7 @@ grit = dict(
 
 grand = dict(
     type='SubSet',
-    portion=1/2,
+    portion=2/3,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_mix'],
@@ -80,15 +57,18 @@ dataset_s1 = [
     gc,
     reg,
     caption,
-    vqav2,
-    vcr_qc_rac,
-    vcr_qac_r,
+
 
     # general datasets
     train_all_dataset['flickr'],
     train_all_dataset['rec'],
     
+    # vcr
+    train_all_dataset['vcr_qc_rac'],
+    train_all_dataset['vcr_qac_r'],
+
     # vqa v2
+    train_all_dataset['vqav2_train'],
     train_all_dataset['vqae_train'],
     train_all_dataset['vqax_train'],
 

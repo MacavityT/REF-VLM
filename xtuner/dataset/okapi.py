@@ -418,7 +418,7 @@ class OkapiDataset(Dataset):
                     max_length=self.max_length,
                     input_ids_with_output=True,
                     with_image_token=True,
-                    visual_prompts=data_dict['visual_prompts']
+                    visual_prompts=data_dict.get('visual_prompts', None)
                 )
             )
 
