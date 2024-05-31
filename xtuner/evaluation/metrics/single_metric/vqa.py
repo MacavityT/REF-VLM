@@ -39,12 +39,16 @@ class VQAComputeMetrics(BaseComputeMetrics):
         for sample, gt in zip(
             data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
-            decode_pred = self.decode_generate_ids(ids=generate_ids)
+            decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
-            target = self.decode_generate_ids(ids=gt)
+            target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
             if self.stage == 2:
                 decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
                 target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
+
+            if self.save_dir is not None:
+                self.save_outputs(decode_pred,target,"vqa")
+                
             self.results.append((decode_pred, target))
     
     def compute_metrics(self, results: list) -> dict:

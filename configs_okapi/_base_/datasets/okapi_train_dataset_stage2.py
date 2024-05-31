@@ -39,14 +39,21 @@ grit = dict(
     cfg=train_all_dataset['grit_combine_offline'],
 )
 
-grand = dict(
+grand_mix = dict(
     type='SubSet',
-    portion=2/3,
+    portion=4/5,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_mix'],
 )
 
+grand_seg_det = dict(
+    type='SubSet',
+    portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_d_s'],
+)
 
 
 # train_all_dataset['vcr_q_ra'],
@@ -92,7 +99,8 @@ for dataset in dataset_s1:
 dataset_s2 = [
     # subset
     grit,
-    grand,
+    grand_mix,
+    grand_seg_det,
 
     # # instruct
     train_all_dataset['instruct'],

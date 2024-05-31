@@ -1,7 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import os
 import os.path as osp
 from typing import List, Optional
-
+import pickle
 import torch
 from mmengine import print_log
 from mmengine.utils.misc import get_object_from_string
@@ -47,6 +48,12 @@ def find_all_linear_names(model):
     if 'output_layer' in lora_module_names:  # needed for 16-bit
         lora_module_names.remove('output_layer')
     return list(lora_module_names)
+
+def save_wrong_data(file_prefix,data,save_path="/code/okapi-mllm/Aaronzhu/wrong"):
+    data_file = f"{file_prefix}_{os.listdir(save_path)}"
+    with open(os.path.join(save_path,data_file),"wb") as f:
+        pickle.dump(data,f)
+        f.close()
 
 
 class LoadWoInit:
@@ -188,12 +195,8 @@ def prepare_inputs_labels_for_multimodal(
                     f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
             except:
                 print(f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}')
-                import os
-                import pickle
-                length = len(os.listdir("/code/okapi-mllm/Aaronzhu/wrong_data_new"))
-                with open(f"/code/okapi-mllm/Aaronzhu/wrong_data_new/wrong_{length}.pkl","wb") as f:
-                    pickle.dump(cur_input_ids.clone().detach().cpu().numpy(),f)
-                    f.close()
+                file_prefix = f"wrong_vpt"
+                save_wrong_data(file_prefix,cur_input_ids.clone().detach().cpu().numpy())
             cur_vpt_feats = vpt_feats[batch_idx]
         
         num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()

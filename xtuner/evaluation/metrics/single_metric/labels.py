@@ -61,7 +61,6 @@ class LabelsComputeMetrics(BaseComputeMetrics):
             target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
 
             # retrieve phrase and units
-            # TODO: 要保证</Phrase>和后面的()之间没有任何空格
             decode_pred = decode_pred.replace(f"{PHRASE_ED_PLACEHOLDER_STAGE2} ",PHRASE_ED_PLACEHOLDER_STAGE2)
             phrase_content_pred = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", decode_pred)
             phrase_content_target = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", target)
@@ -72,6 +71,9 @@ class LabelsComputeMetrics(BaseComputeMetrics):
             elif self.eval_type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
                 decode_pred = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_pred]
                 target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
+
+            if self.save_dir is not None:
+                self.save_outputs(decode_pred,target,f"labels_{self.eval_type}")
 
             self.results.append((decode_pred, target))
 

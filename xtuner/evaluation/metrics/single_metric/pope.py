@@ -31,6 +31,9 @@ class PopeComputeMetrics(BaseComputeMetrics):
             gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
 
+            if self.save_dir is not None:
+                self.save_outputs(decode_pred,target,"pope")
+
             self.results.append(( decode_pred, target))
 
 

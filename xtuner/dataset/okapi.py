@@ -347,6 +347,7 @@ class OkapiDataset(Dataset):
         )
     
     def visual_prompts_process(self, visual_prompts, ori_width, ori_height, max_num):
+
         converted_vpt = []
         for vpt_one_turn in visual_prompts:
             if vpt_one_turn is None: continue
@@ -426,12 +427,17 @@ class OkapiDataset(Dataset):
             assert data_dict.get('image', None) is not None, \
                 'visual prompts set, but no image input.'
             max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
-            visual_prompts = self.visual_prompts_process(
-                data_dict['visual_prompts'],
-                ori_width=data_dict['ori_width'],
-                ori_height=data_dict['ori_height'],
-                max_num = max_num
-            )
-            data_dict['visual_prompts'] = visual_prompts
+            if max_num > 0:
+                visual_prompts = self.visual_prompts_process(
+                    data_dict['visual_prompts'],
+                    ori_width=data_dict['ori_width'],
+                    ori_height=data_dict['ori_height'],
+                    max_num = max_num
+                )
+                data_dict['visual_prompts'] = visual_prompts
+            elif max_num == 0:
+                data_dict.pop('visual_prompts',None)
+            else:
+                raise f"max num:{max_num} is lower than 0"
         return data_dict
 

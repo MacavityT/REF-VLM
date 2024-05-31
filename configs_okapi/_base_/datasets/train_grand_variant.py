@@ -137,7 +137,7 @@ train_grand_variant = dict(
             output=["<boxes>","<masks>"],
         ),     
         placeholders=[('<image>',),('<image>',)],
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/det_seg_offline',
     ),
     grand_mix = dict(
         **grand_train_common_cfg, 
@@ -155,6 +155,6 @@ train_grand_variant = dict(
                       ('<image>','<expr>'),('<image>','<expr>'),
                       ('<image>','<objs>'),('<image>',"<masks>"),
                       ('<image>',),('<image>',)],
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_filter50',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_mix',
     )
 )

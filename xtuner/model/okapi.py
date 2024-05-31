@@ -2,6 +2,7 @@
 import math
 from collections import OrderedDict
 import json
+import jsonlines
 import numpy as np
 import torch
 import torch.nn as nn
@@ -22,7 +23,8 @@ from .modules.dispatch import SUPPORT_FLASH1, SUPPORT_FLASH2
 from .utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
                     make_inputs_require_grad, traverse_dict,
-                    prepare_inputs_labels_for_multimodal)
+                    prepare_inputs_labels_for_multimodal,
+                    save_wrong_data)
 from xtuner.utils.constants import (
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
@@ -426,6 +428,7 @@ class OkapiModel(BaseModel):
 
         weight = torch.ones_like(shift_labels)
         idx = torch.zeros_like(shift_labels)
+        idx[shift_labels!=-100] = 3
         bs = shift_labels.shape[0]
         for batch_idx in range(bs):
             # CoT chunks
@@ -445,7 +448,9 @@ class OkapiModel(BaseModel):
                 weight[batch_idx, last_st:] = cot_weight
                 idx[batch_idx, last_st:] = 1
             else:
-                raise ValueError
+                print("<Task> and </Task> not match!")
+                file_prefix = f"wrong_cot"
+                save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
             
             # VRT chunks
             bov_id = self.token_ids[BOV_TOKEN]
@@ -464,7 +469,9 @@ class OkapiModel(BaseModel):
                 weight[batch_idx, last_st:] = vrt_weight
                 idx[batch_idx, last_st:] = 2
             else:
-                raise ValueError
+                print("<v> and </v> not match!")
+                file_prefix = f"wrong_vrt"
+                save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
 
             # Phrase and Unit Chunks
         
@@ -478,11 +485,12 @@ class OkapiModel(BaseModel):
         shift_labels = shift_labels.to(shift_logits.device)
         weight = weight.to(shift_logits.dtype).to(shift_logits.device)
         loss = loss_fct(shift_logits, shift_labels)
+        
+        weighted_loss = weight[shift_labels!=IGNORE_INDEX] * loss[shift_labels!=IGNORE_INDEX]
 
-        weighted_loss = weight * loss
         cot_loss = weight[idx==1] * loss[idx==1]
         vrt_loss = weight[idx==2] * loss[idx==2]
-        answer_loss = weight[idx==0] * loss[idx==0]
+        answer_loss = weight[idx==3] * loss[idx==3]
 
 
         return weighted_loss.mean(), cot_loss.mean(), vrt_loss.mean(), answer_loss.mean()
@@ -493,16 +501,16 @@ class OkapiModel(BaseModel):
         return 0
 
     def compute_loss(self, data, data_samples=None):
+        
         labels = data.pop("labels")
         decode_labels = data.get('decode_labels', None)
         if 'output_hidden_states' not in data.keys():
             data['output_hidden_states'] = True
-
         outputs = self.llm(**data)
         logits = outputs.logits
         selected_hidden_states = outputs.hidden_states[-1]
 
-        loss_llm, loss_cot, loss_vrt, loss_answer = self.compute_loss_llm(logits, labels, self.cot_weight, self.vrt_weight)
+        loss_llm, loss_cot, loss_vrt, loss_answer, loss_orig = self.compute_loss_llm(logits, labels, self.cot_weight, self.vrt_weight)
         loss_decoder = self.compute_loss_decoder(
             selected_hidden_states,
             decode_labels
@@ -510,6 +518,7 @@ class OkapiModel(BaseModel):
 
         loss = loss_llm + loss_decoder
         loss_dict = {'loss': loss, 'cot_cost': loss_cot, 'vrt_cost': loss_vrt, 'answer_cost':loss_answer}
+
         return loss_dict
 
     def __getattr__(self, name: str):

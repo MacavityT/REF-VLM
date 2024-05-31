@@ -43,8 +43,7 @@ class COTComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
-            # print(f"prediction:{decode_pred}")
-            # print(f"target:{target}")
+            
             if self.eval_type == 'cot':
                 decode_pred = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", decode_pred).group(1)
                 target = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", target).group(1)
@@ -60,6 +59,10 @@ class COTComputeMetrics(BaseComputeMetrics):
                 target = [cot_target,vrt_target]
             else:
                 raise NotImplementedError
+            
+            if self.save_dir is not None:
+                self.save_outputs(decode_pred,target,f"cot_{self.eval_type}")
+
             self.results.append((decode_pred, target))
 
     def compute_metrics(self, results: list) -> dict:

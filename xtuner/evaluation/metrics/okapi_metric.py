@@ -1,8 +1,10 @@
 import sys
+import os
 import copy
 import logging
 from typing import Dict, Any, Union, Sequence,List
 import torch
+import jsonlines
 from transformers import EvalPrediction
 from transformers import PreTrainedTokenizer
 from mmengine.evaluator import BaseMetric
@@ -30,12 +32,22 @@ class BaseComputeMetrics(BaseMetric):
     Base multimodal compute metrics
     """
 
-    def __init__(self, tokenizer,stage=1,preprocessor=None, *args, **kwargs):
+    def __init__(self, tokenizer,stage=1,preprocessor=None, save_dir=None,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = BUILDER.build(tokenizer)
         self.tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
         self.preprocessor = preprocessor
         self.stage = stage
+        self.save_dir = save_dir
+
+    def save_outputs(self,pred,target,task_name):
+        output_dict = {
+            'pred': pred,
+            'target': target,
+        }
+        with jsonlines.open(os.path.join(self.save_dir,f"output_{task_name}.jsonl"),"a") as f:
+            f.write(output_dict)
+            f.close()
 
     def post_process_generate_ids(self, ids: torch.Tensor):
         ids = copy.deepcopy(ids)  # do not modify origin preds and targets
