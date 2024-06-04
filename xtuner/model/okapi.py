@@ -187,6 +187,7 @@ class OkapiModel(BaseModel):
                 self.cot_weight = cot_weight
 
 
+
     @staticmethod
     def _prepare_tokenizer(tokenizer_cfg):
         tokenizer = BUILDER.build(tokenizer_cfg)
@@ -421,12 +422,12 @@ class OkapiModel(BaseModel):
     #     return logits_dict
 
     def compute_loss_llm(self, logits, labels, cot_weight, vrt_weight):
-        
+
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
 
-        weight = torch.ones_like(shift_labels)
+        weight = torch.ones_like(shift_labels).to(shift_logits.dtype)
         idx = torch.zeros_like(shift_labels)
         idx[shift_labels!=-100] = 3
         bs = shift_labels.shape[0]
@@ -480,6 +481,11 @@ class OkapiModel(BaseModel):
         shift_logits = shift_logits.view(-1, self.llm.config.vocab_size)
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
+
+        with jsonlines.open("/code/okapi-mllm/Aaronzhu/weight_previous.jsonl","a") as f:
+            f.write(weight.clone().cpu().detach().numpy().tolist())
+            f.close()
+
         idx = idx.view(-1)
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
@@ -510,7 +516,7 @@ class OkapiModel(BaseModel):
         logits = outputs.logits
         selected_hidden_states = outputs.hidden_states[-1]
 
-        loss_llm, loss_cot, loss_vrt, loss_answer, loss_orig = self.compute_loss_llm(logits, labels, self.cot_weight, self.vrt_weight)
+        loss_llm, loss_cot, loss_vrt, loss_answer = self.compute_loss_llm(logits, labels, self.cot_weight, self.vrt_weight)
         loss_decoder = self.compute_loss_decoder(
             selected_hidden_states,
             decode_labels

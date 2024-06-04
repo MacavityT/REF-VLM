@@ -8,6 +8,7 @@ import math
 import time
 import torch
 import numpy as np
+from PIL import Image
 from huggingface_hub import snapshot_download
 from peft import PeftModel
 from transformers import (AutoModel, AutoModelForCausalLM, AutoTokenizer,
@@ -16,10 +17,10 @@ from transformers import (AutoModel, AutoModelForCausalLM, AutoTokenizer,
 from transformers.generation.streamers import TextStreamer
 from mmengine.config import Config, DictAction
 from xtuner.configs import cfgs_name_path
-from xtuner.dataset.utils import expand2square, load_image
+from xtuner.dataset.utils import expand2square, load_image, masks_expand2square, mask_transform
 from xtuner.model.utils import prepare_inputs_labels_for_multimodal
 from xtuner.tools.utils import get_stop_criteria
-from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
+from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,VISUAL_PROMPT_PLACEHOLDER,VISUAL_PROMPT_INDEX,
                           PROMPT_TEMPLATE)
 from xtuner.registry import BUILDER
 from xtuner.model.utils import guess_load_checkpoint
@@ -186,6 +187,19 @@ def get_image_input():
             print('Invalid characters detected. Please enter again.')
     return result
 
+def get_vpt_input():
+    """Helper function for getting input from users."""
+    sentinel = ''  # ends when this string is seen
+    result = None
+    while result is None:
+        print(('\nInput vpt image path, double enter to end input >>> '),
+              end='')
+        try:
+            result = '\n'.join(iter(input, sentinel))
+        except UnicodeDecodeError:
+            print('Invalid characters detected. Please enter again.')
+    return result
+
 def get_system_input():
     """Helper function for getting input from users."""
     sentinel = ''  # ends when this string is seen
@@ -222,29 +236,49 @@ def process_image(args,image_path,image_processor,visual_encoder,projector):
     pixel_values = projector(selected_feats)
     return pixel_values, selected_feats
 
-def process_vpt(selected_feats,vpt_encoder,visual_prompts=None):
-    if visual_prompts is not None:
+def process_vpt(selected_feats,vpt_encoder,vpt_path,previous_vpt,image_processor):
+    if os.path.isfile(vpt_path):
+        visual_prompts = Image.open(vpt_path)
+        visual_prompts = np.array(visual_prompts) / 255.
+        previous_vpt.append(visual_prompts)
+        previous_vpt = masks_expand2square(previous_vpt)
+
+        transformed_masks = []
+        for mask in previous_vpt:
+            transformed_masks.append(
+                    mask_transform(mask, image_processor)
+                )
+        previous_vpt = transformed_masks
         visual_prompts = vpt_encoder(
                     selected_feats,
-                    regions = visual_prompts, 
+                    regions = [previous_vpt], 
                     return_dict = True
                 )
-    else:
-        # fake regions for contain compute graph
-        bs = selected_feats.shape[0]
-        w = h = int(math.sqrt(selected_feats.shape[1]))
-        fake_region = np.zeros((h, w))
-        regions = [None] * bs
-        regions[0] = [fake_region]
-        vpt_count = [0] * bs
-        visual_prompts = vpt_encoder(
-            selected_feats,
-            regions = regions, 
-            return_dict = True,
-        )
-        visual_prompts['vpt_count'] = vpt_count
 
-    return visual_prompts
+    else:
+        if previous_vpt != []:
+            visual_prompts = vpt_encoder(
+                        selected_feats,
+                        regions = [previous_vpt], 
+                        return_dict = True
+                    )
+        else:        
+            print("no vpt path exists!")
+            # fake regions for contain compute graph
+            bs = selected_feats.shape[0]
+            w = h = int(math.sqrt(selected_feats.shape[1]))
+            fake_region = np.zeros((h, w))
+            regions = [None] * bs
+            regions[0] = [fake_region]
+            vpt_count = [0] * bs
+            visual_prompts = vpt_encoder(
+                selected_feats,
+                regions = regions, 
+                return_dict = True,
+            )
+            visual_prompts['vpt_count'] = vpt_count
+
+    return visual_prompts, previous_vpt
 
 def main():
     args = parse_args()
@@ -340,8 +374,16 @@ def main():
 
             if cfg.model.get('visual_encoder') and cfg.model.get('freeze_visual_encoder', True):
                 visual_encoder = model.visual_encoder
-                image_processor = BUILDER.build(cfg.train_dataset['image_processor'])
+                image_processor = BUILDER.build(cfg.clip_patch14_336['image_processor'])
                 print(f'Load visual encoder directly from {model_name}')
+
+            if cfg.model.get('projector'):
+                projector = model.projector
+                print(f'Load projector directly from {model_name}')
+
+            if cfg.model.get('vpt_encoder'):
+                vpt_encoder = model.vpt_encoder 
+                print(f'Load vpt encoder directly from {model_name}')
 
         if args.load_model_from_pth:
             assert args.checkpoint is not None, "Please add valid checkpoint path!"
@@ -466,6 +508,7 @@ def main():
         n_turn = 0
         inputs = ''
         pixel_values = None
+        previous_vpt = []
         while True:
             system_id = get_system_input()
             if n_turn == 0 :
@@ -474,17 +517,20 @@ def main():
                     pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
-                
+            if os.path.isfile(image_path):
+                vpt_path = get_vpt_input()
             text = get_input()
             while text.strip() == 'RESET':
                 print('Log: History responses have been removed!')
                 n_turn = 0
                 inputs = ''
                 pixel_values = None
+                previous_vpt = []
                 system_text = get_system_input()
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
                     pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    vpt_path = get_vpt_input()
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -493,6 +539,7 @@ def main():
                 image_path = get_image_input()
                 if os.path.isfile(image_path):
                     pixel_values, selected_feats = process_image(args,image_path,image_processor,visual_encoder,projector)
+                    vpt_path = get_vpt_input()
                 else:
                     print(f'Warning: image path [{image_path}] is None or not a valid file! Ignore the image path.')
                 text = get_input()
@@ -549,25 +596,57 @@ def main():
                 inputs += tokenizer.decode(generate_output[0])
 
             else:
+                # chunk_encode = []
+                # for idx, chunk in enumerate(inputs.split(DEFAULT_IMAGE_TOKEN)):
+                #     if idx == 0 and n_turn == 0:
+                #         cur_encode = tokenizer.encode(chunk)
+                #     else:
+                #         cur_encode = tokenizer.encode(
+                #             chunk, add_special_tokens=False)
+                #     chunk_encode.append(cur_encode)
+                # assert len(chunk_encode) == 2
+                # ids = []
+                # for idx, cur_chunk_encode in enumerate(chunk_encode):
+                #     ids.extend(cur_chunk_encode)
+                #     if idx != len(chunk_encode) - 1:
+                #         ids.append(IMAGE_TOKEN_INDEX)
+
                 chunk_encode = []
-                for idx, chunk in enumerate(inputs.split(DEFAULT_IMAGE_TOKEN)):
+                for idx, chunk_image in enumerate(inputs.split(DEFAULT_IMAGE_TOKEN)):
                     if idx == 0 and n_turn == 0:
-                        cur_encode = tokenizer.encode(chunk)
+                        add_special_tokens = True
                     else:
-                        cur_encode = tokenizer.encode(
-                            chunk, add_special_tokens=False)
-                    chunk_encode.append(cur_encode)
+                        add_special_tokens = False
+                    if VISUAL_PROMPT_PLACEHOLDER in chunk_image:
+                        chunk_vpt = [
+                                tokenizer.encode(chunk, add_special_tokens=add_special_tokens)
+                                for chunk in chunk_image.split(VISUAL_PROMPT_PLACEHOLDER)
+                        ]
+                    else:
+                        chunk_vpt = tokenizer.encode(chunk_image, add_special_tokens=add_special_tokens)                        
+                    chunk_encode.append(chunk_vpt)
+                    
                 assert len(chunk_encode) == 2
                 ids = []
                 for idx, cur_chunk_encode in enumerate(chunk_encode):
-                    ids.extend(cur_chunk_encode)
-                    if idx != len(chunk_encode) - 1:
-                        ids.append(IMAGE_TOKEN_INDEX)
+                    if isinstance(cur_chunk_encode[0], list):
+                        for idx_vpt, cur_chunk_encode_vpt in enumerate(cur_chunk_encode):
+                            ids.extend(cur_chunk_encode_vpt)
+                            if idx_vpt != len(cur_chunk_encode) - 1:
+                                ids.append(VISUAL_PROMPT_INDEX)
+                        
+                    else:
+                        ids.extend(cur_chunk_encode)
+                        if idx != len(chunk_encode) - 1:
+                            ids.append(IMAGE_TOKEN_INDEX)                
+
                 ids = torch.tensor(ids).cuda().unsqueeze(0)
-                visual_prompts = process_vpt(selected_feats,vpt_encoder)
+                visual_prompts,previous_vpt = process_vpt(selected_feats,vpt_encoder,vpt_path,previous_vpt,image_processor)
                 mm_inputs = prepare_inputs_labels_for_multimodal(
                     llm=llm, input_ids=ids, pixel_values=pixel_values,**visual_prompts)
-
+                for key in mm_inputs.keys():
+                    if mm_inputs[key] is not None:
+                        mm_inputs[key] = mm_inputs[key].to(llm.dtype)
                 generate_output = llm.generate(
                     **mm_inputs,
                     generation_config=gen_config,

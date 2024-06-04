@@ -45,7 +45,8 @@ class VQAComputeMetrics(BaseComputeMetrics):
             if self.stage == 2:
                 decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
                 target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
-
+            target = target.strip()
+            decode_pred = decode_pred.strip()
             if self.save_dir is not None:
                 self.save_outputs(decode_pred,target,"vqa")
                 

@@ -117,9 +117,9 @@ dataset_s2 = [
     train_all_dataset['ospery_detailed'],
 
     # # interact
+    train_all_dataset['interact_reg'],
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
-
 ]
 
 

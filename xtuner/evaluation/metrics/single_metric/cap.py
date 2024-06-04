@@ -45,7 +45,8 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             if self.stage == 2:
                 decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
                 target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
-
+            target = target.strip()
+            decode_pred = decode_pred.strip()
             if self.save_dir is not None:
                 self.save_outputs(decode_pred,target,"caption")
                 
@@ -96,6 +97,7 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         """
         try:
             string = string.split("ASSISTANT: ")[-1].lower().split("</s>")[0]
+
             return string
         except Exception as e:
             print_log(f"Warning: extract_ans for {string} but get exception: {e}")

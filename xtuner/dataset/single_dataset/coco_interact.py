@@ -26,7 +26,7 @@ from pycocotools import mask as maskUtils
 class COCOInteract(MInstrDataset):
 
     def __init__(self, *args, version,max_conv_length=None, **kwargs):
-        super().__init__(*args, placeholders=(IMAGE_PLACEHOLDER, REGION_PLACEHOLDER), **kwargs)
+        super().__init__(*args, **kwargs)
         self.version = version
         self.coco_class_ids = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
@@ -128,6 +128,22 @@ class COCOInteract(MInstrDataset):
 
             item['target']['masks'] = selected_masks
 
+        elif version == 'r':
+            target = item['target']
+            masks = target['masks']
+            conversations = item['conversations']
+            selected_masks = []
+
+            for i, conversation in enumerate(conversations):
+                if 'masks_seq' in conversation.keys():
+                    seq = conversation['masks_seq'][0][0]
+                    selected_masks.append(masks[seq])
+                    assert 'masks_seq' in item['conversations'][i].keys()
+                    item['conversations'][i]['masks_seq'] = [[len(selected_masks)-1]]
+
+            item['target']['masks'] = selected_masks
+
+
     
     def concat_conversations(self,conversations,concat_all=False):
 
@@ -182,9 +198,11 @@ class COCOInteract(MInstrDataset):
                 gt_masks.append(interact_mask)
             
             question = self.get_template()
-            question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+            
+
 
             if self.version == 's':
+                question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
                 random_num = random.randint(0,len(interact_list)-2)
                 answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
                 single_conversation = [
@@ -192,9 +210,22 @@ class COCOInteract(MInstrDataset):
                     {'from':'gpt','value':answer,'masks_seq':[[5*i]]}
                 ]
                 all_conversations.append(single_conversation)
-                all_system_values.append([{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+                all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+            
+            if self.version == 'r':
+                random_num = random.randint(0,len(interact_list)-1)
+                answer = "It is " + category_name
+                selected_mask.append(interact_list[random_num])
+                masks_seq = [[len(selected_mask)-1]]
+                single_conversation = [
+                    {'from':'human','value':question,'masks_seq':masks_seq},
+                    {'from':'gpt','value':answer}
+                ]
+                all_conversations.append(single_conversation)
+                all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])               
     
             elif self.version == 'd':
+                question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
                 gt_boxes.append(annotation['bbox'])
                 random_num = random.randint(1,len(interact_list)-1)
                 selected_mask.append(interact_list[random_num])
@@ -205,7 +236,7 @@ class COCOInteract(MInstrDataset):
                     {'from':'gpt','value':answer,'boxes_seq':[[i]]}
                 ]
                 all_conversations.append(single_conversation)
-                all_system_values.append([{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
     
 
         #random shuffle
@@ -222,10 +253,16 @@ class COCOInteract(MInstrDataset):
                 'target':{'masks':gt_masks},
                 'conversations': all_conversations
             }
+        elif self.version == 'r':
+            ret = {
+                'image':image,
+                'target':{'masks':selected_mask},
+                'conversations': all_conversations
+            }
         elif self.version == 'd':
             ret = {
                 'image':image,
-                'target':{'masks':gt_masks,'boxes':gt_boxes},
+                'target':{'masks':selected_mask,'boxes':gt_boxes},
                 'conversations': all_conversations
             }
         

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-conda activate next_gpt 
+
 echo $VC_TASK1_HOSTS | awk -F, '{print $1}'
 echo $VC_TASK1_HOSTS | awk -F, '{print $2}'
 echo $VC_TASK1_HOSTS | awk -F, '{print $3}'
@@ -18,7 +18,7 @@ host5_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $5}')
 host6_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $6}')
 host7_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $7}')
 
-work_dir="/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0530"
+work_dir="/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0603"
 
 local_host=$(hostname)
 node=7

@@ -23,11 +23,14 @@ with read_base():
 # Data configs
 max_length = 4096 - 576 # use cutoff lens instead
 cutoff_len = 4096
-batch_size = 4  # per_device
+batch_size = 15  # per_device
 dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
+cot_weight = 0.5
+vrt_weight = 0.5
+
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -70,4 +73,6 @@ model = dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
-    visual_encoder=clip_patch14_336['visual_encoder'])
+    visual_encoder=clip_patch14_336['visual_encoder'],
+    cot_weight=cot_weight,
+    vrt_weight=vrt_weight)

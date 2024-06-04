@@ -11,6 +11,7 @@ train_interact_variant = dict(
         template_name=r'Region_SEG',
         version='s',
         max_conv_length=6,
+        placeholders=('<image>','<region>'),
         map_placeholders=dict(
             input=["<masks>"],
             output=["<masks>"],
@@ -22,10 +23,22 @@ train_interact_variant = dict(
         template_name=r'Region_DET',
         version='d',
         max_conv_length=6,
+        placeholders=('<image>','<region>'),
         map_placeholders=dict(
             input=["<masks>"],
             output=["<boxes>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/box_offline'           
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/box_offline_new'           
+    ),
+    interact_reg=dict(
+        **interact_train_common_cfg, 
+        template_name=r'REG_SEG',
+        version='r',
+        max_conv_length=6,
+        placeholders=('<image>','<masks>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/reg_offline'           
     )
 )
