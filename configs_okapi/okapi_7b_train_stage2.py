@@ -28,8 +28,8 @@ dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
-cot_weight = 0.5
-vrt_weight = 0.5
+cot_weight = 1
+vrt_weight = 1
 
 
 train_dataset = dict(
