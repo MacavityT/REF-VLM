@@ -39,6 +39,7 @@ class ImageSketcher(gr.Image):
                 assert isinstance(x, dict)
                 assert isinstance(x['image'], str)
                 assert isinstance(x['boxes'], list)
+
         x = super().preprocess(x)
         return x
 
@@ -138,11 +139,16 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
 
     if isinstance(input_image,dict):
-        assert 'previous_box_length' in state.keys()
-        if state['previous_box_length'] < len(input_image['boxes']):
-            prompt_image_list = img_select_box(input_image,prompt_image_list)
-            state['previous_box_length'] += 1
-            
+        if 'previous_box_length' in state.keys():
+            if state['previous_box_length'] < len(input_image['boxes']):
+                prompt_image_list = img_select_box(input_image,prompt_image_list)
+                state['previous_box_length'] += 1
+        elif 'previous_mask_length' in state.keys():
+            if state['previous_mask_length'] < len(input_image['mask']):
+                print(input_image['mask'])
+                prompt_image_list.append(input_image['mask'])
+                state['previous_mask_length'] += 1
+
     return "", chatbot, state, prompt_image_list
 
 def submit_step2(chatbot,state,prompt_image_list):
@@ -416,12 +422,11 @@ with gr.Blocks(
             with gr.TabItem("Scribble"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_4 = gr.Image(bursh_radius=2, 
-                                               brush_color="#00FF00", 
-                                               tool='sketch',label="Input Image", height=550)
+                        input_img_4 = gr.Image(type="numpy",tool="sketch", brush_radius=2,
+                                                source="upload", label="Input Image", height=550)
                         radio_4 = gr.Radio(label="Type", choices=["VQA","Grounding Detection", 
                                                                     "Grounding Segmentation"])
-                        state_4 = gr.State(value={'prompt_input':None})
+                        state_4 = gr.State(value={'prompt_input':None,'previous_mask_length':0})
                         input_text_4 = gr.Textbox(label="Input Instruction")
                         submit_button_4 = gr.Button("Submit", variant="primary")                      
                         example_data_4 = gr.Dataset(
@@ -432,7 +437,7 @@ with gr.Blocks(
 
         with gr.Column():
 
-            chatbot = gr.Chatbot(show_copy_button=True,height=600)
+            chatbot = gr.Chatbot(height=600)
             # chatbot.like(print_like_dislike, None, None)
             output_mask = gr.Image(label="Output image", height=300, interactive=False)             
             clear_button = gr.Button("🗑 Clear Button")
