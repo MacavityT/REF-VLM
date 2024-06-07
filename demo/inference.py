@@ -1,5 +1,6 @@
 import os
 import math
+import argparse
 from PIL import Image
 import numpy as np
 import torch
@@ -21,65 +22,6 @@ from xtuner.configs import cfgs_name_path
 
 
 
-def process_image(args,image_path,image_processor,visual_encoder,projector):
-    """Load image from image path and send it to the visual encoder and projector."""
-    if image_path == '':
-        return None
-    image = load_image(image_path)
-    image = expand2square(
-        image, tuple(int(x * 255) for x in image_processor.image_mean))
-    image = image_processor.preprocess(
-        image, return_tensors='pt')['pixel_values'][0]
-    image = image.cuda().unsqueeze(0).to(visual_encoder.dtype)
-    visual_outputs = visual_encoder(image, output_hidden_states=True)
-    selected_feats = visual_outputs.hidden_states[args.visual_select_layer][:, 1:]
-    pixel_values = projector(selected_feats)
-    return pixel_values, selected_feats
-
-def process_vpt(selected_feats,vpt_encoder,prompt_image,previous_vpt,image_processor):
-    if prompt_image is not None:
-        visual_prompts = np.array(prompt_image) / 255.
-        previous_vpt.append(visual_prompts)
-        previous_vpt = masks_expand2square(previous_vpt)
-
-        transformed_masks = []
-        for mask in previous_vpt:
-            transformed_masks.append(
-                    mask_transform(mask, image_processor)
-                )
-        previous_vpt = transformed_masks
-        visual_prompts = vpt_encoder(
-                    selected_feats,
-                    regions = [previous_vpt], 
-                    return_dict = True
-                )
-
-    else:
-        if previous_vpt != []:
-            visual_prompts = vpt_encoder(
-                        selected_feats,
-                        regions = [previous_vpt], 
-                        return_dict = True
-                    )
-        else:        
-            print("no vpt path exists!")
-            # fake regions for contain compute graph
-            bs = selected_feats.shape[0]
-            w = h = int(math.sqrt(selected_feats.shape[1]))
-            fake_region = np.zeros((h, w))
-            regions = [None] * bs
-            regions[0] = [fake_region]
-            vpt_count = [0] * bs
-            visual_prompts = vpt_encoder(
-                selected_feats,
-                regions = regions, 
-                return_dict = True,
-            )
-            visual_prompts['vpt_count'] = vpt_count
-
-    return visual_prompts, previous_vpt
-
-
 
 class OkapiInference:
 
@@ -97,7 +39,8 @@ class OkapiInference:
                  top_p=0.75,
                  top_k=40,
                  repetition_penalty=1.0,
-                 stop_words=[]):
+                 stop_words=[],
+                 visual_select_layer=-2):
         
         self.config = config
         self.TORCH_DTYPE_MAP = dict(
@@ -126,6 +69,7 @@ class OkapiInference:
             pad_token_id=self.tokenizer.pad_token_id
             if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
         )
+        self.visual_select_layer = visual_select_layer
     
     def load_model(self,
                 llm_path=None,
@@ -163,7 +107,7 @@ class OkapiInference:
 
             if cfg.model.get('visual_encoder'):
                 self.visual_encoder = self.model.visual_encoder
-                self.image_processor = BUILDER.build(cfg.okapi_dataset['image_processor'])
+                self.image_processor = BUILDER.build(cfg.clip_patch14_336['image_processor'])
                 print(f'Load visual encoder directly from {model_name}')
             else:
                 raise f"visual encoder does not exisit in the {model_name}, please edit the config file!"
@@ -247,11 +191,60 @@ class OkapiInference:
         self.llm.cuda()
         self.llm.eval()
 
+    def process_image(self,image):
+        """Load image and send it to the visual encoder and projector."""
+        if isinstance(image,dict):
+            image = image['image']
+        image = Image.fromarray(image)
+        image = expand2square(
+            image, tuple(int(x * 255) for x in self.image_processor.image_mean))
+        image = self.image_processor.preprocess(
+            image, return_tensors='pt')['pixel_values'][0]
+        image = image.cuda().unsqueeze(0).to(self.visual_encoder.dtype)
+        visual_outputs = self.visual_encoder(image, output_hidden_states=True)
+        selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
+        pixel_values = self.projector(selected_feats)
+        return pixel_values, selected_feats
+
+    def process_vpt(self,selected_feats,prompt_image):
+        if prompt_image != []:
+            prompt_image = masks_expand2square(prompt_image)
+
+            transformed_masks = []
+            for mask in prompt_image:
+                transformed_masks.append(
+                        mask_transform(mask, self.image_processor)
+                    )
+            prompt_image = transformed_masks
+            visual_prompts = self.vpt_encoder(
+                        selected_feats,
+                        regions = [prompt_image], 
+                        return_dict = True
+                    )
+
+        else:
+
+            print("no vpt exists!")
+            # fake regions for contain compute graph
+            bs = selected_feats.shape[0]
+            w = h = int(math.sqrt(selected_feats.shape[1]))
+            fake_region = np.zeros((h, w))
+            regions = [None] * bs
+            regions[0] = [fake_region]
+            vpt_count = [0] * bs
+            visual_prompts = self.vpt_encoder(
+                selected_feats,
+                regions = regions, 
+                return_dict = True,
+            )
+            visual_prompts['vpt_count'] = vpt_count
+
+        return visual_prompts, prompt_image        
+
     def inference(self,
                  prompt_text,
                  n_turn,
                  history=None,
-                 vpt_history=None,
                  image=None,
                  prompt_image=None):
         
@@ -260,14 +253,14 @@ class OkapiInference:
         sep = ''
 
         history += prompt_text
+        print(f"history = {history}")
         pixel_values = None
         selected_feats = None
 
         if image is not None:
-            pixel_values,selected_feats = process_image(image,self.image_processor,
-                                         self.visual_encoder,self.projector)
-            visual_prompts,vpt_history = process_vpt(selected_feats,self.vpt_encoder,prompt_image,
-                                            vpt_history,self.image_processor)
+            pixel_values,selected_feats = self.process_image(image)
+            visual_prompts,prompt_image = self.process_vpt(selected_feats,
+                                                          prompt_image)
             
         if pixel_values is None:
             if n_turn == 0:
@@ -281,7 +274,7 @@ class OkapiInference:
                 generation_config=self.gen_config,
                 stopping_criteria=self.stop_criteria)
 
-            output_decode += self.tokenizer.decode(generate_output[0])
+            output_decode = self.tokenizer.decode(generate_output[0])
             history += output_decode
 
         else:
@@ -324,7 +317,7 @@ class OkapiInference:
                 generation_config=self.gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
                 stopping_criteria=self.stop_criteria)
-            output_decode += self.tokenizer.decode(generate_output[0])
+            output_decode = self.tokenizer.decode(generate_output[0])
             history += output_decode
 
         n_turn +=1
@@ -335,32 +328,34 @@ class OkapiInference:
                 f'it exceeds the length limitation {self.max_new_tokens}.')
             n_turn = 0
             history = ''
-            vpt_history = []
+            prompt_image = []
 
         return {
             'output': output_decode,
             'history': history,
-            'vpt_history': vpt_history,
+            'prompt_image': prompt_image,
             'n_turn': n_turn
         }
     
 
     def __call__(self,
-                 text,
+                 prompt_text,
+                 n_turn,
                  history,
                  image,
                  prompt_image,
-                 n_turn,
-                 **kwargs):
+                 ):
         """forward function to make the inference"""
 
 
         output_dict = self.inference(
-            text=text,
+            prompt_text=prompt_text,
+            n_turn=n_turn,
             history=history,
             image=image,
-            n_turn=n_turn,
             prompt_image=prompt_image,
         )
 
-        return output_dict['output'], output_dict['history'], output_dict['vpt_history'], output_dict['n_turn']
+        return output_dict['output'], output_dict['history'], output_dict['prompt_image'], output_dict['n_turn']
+    
+

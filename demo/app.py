@@ -1,11 +1,14 @@
 from typing import List
 import gradio as gr
 import numpy as np
+import torch
+import argparse
 import cv2
 import os
 import time
 import random
-from xtuner.utils import PROMPT_TEMPLATE
+from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER
+from inference import OkapiInference
 
 SYS_TEMPLATE_OKAPI = {
     'VQA': 'Task Command:\n- task name: vqa\n- answer element: sentence\n- unit: None',
@@ -17,6 +20,47 @@ SYS_TEMPLATE_OKAPI = {
     'Gcg Segmentation': 'Task Command:\n- task name: gcg_segmentation\n- answer element: phrase, sentence, unit\n- unit: <Unit>mask</Unit>\n',
 }
 
+TORCH_DTYPE_MAP = dict(
+    fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Chat with a HF model')
+    parser.add_argument(
+        '--adapter', default=None, help='adapter name or path')
+    parser.add_argument(
+        '--okapi', default=None, help='okapi name or path')
+    parser.add_argument(
+        '--config', default=None,help='config file name or path.')
+    parser.add_argument(
+        '--llm', default=None, help='llm path')
+    parser.add_argument(
+        '--visual-encoder', default=None, help='visual encoder name or path')
+    parser.add_argument(
+        '--vpt-encoder', default=None, help='vpt encoder name or path')
+    parser.add_argument(
+        '--projector', default=None, help='projector name or path')
+    parser.add_argument(
+        '--visual-select-layer', default=-2, help='visual select layer')
+    parser.add_argument(
+        '--load-model-from-pth', default=False, help='directly load pth pretrained model')
+    parser.add_argument(
+         '--checkpoint', default=None,type=str, help='model checkpoint path')
+    parser.add_argument(
+        '--torch-dtype',
+        default='fp32',
+        choices=TORCH_DTYPE_MAP.keys(),
+        help='Override the default `torch.dtype` and load the model under '
+        'a specific `dtype`.')
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=0,
+        help='Random seed for reproducible text generation')
+    
+    args = parser.parse_args()
+    return args
+
 class ImageSketcher(gr.Image):
     """
     Code is from https://github.com/jshilong/GPT4RoI/blob/7c157b5f33914f21cfbc804fb301d3ce06324193/gpt4roi/app.py#L365
@@ -27,7 +71,7 @@ class ImageSketcher(gr.Image):
     is_template = True  # Magic to make this work with gradio.Block, don't remove unless you know what you're doing.
 
     def __init__(self, **kwargs):
-        super().__init__(tool='boxes', **kwargs)
+        super().__init__(**kwargs)
 
     def preprocess(self, x):
         if x is None:
@@ -42,7 +86,6 @@ class ImageSketcher(gr.Image):
 
         x = super().preprocess(x)
         return x
-
 
 def init_image(img):
     if isinstance(img, dict):
@@ -73,19 +116,19 @@ def init_image(img):
     )
 
 
-def img_select_point(original_img: np.ndarray, sel_pix: list, evt: gr.SelectData, prompt_image_list: list):
+def img_select_point(original_img: np.ndarray, sel_pix: list, evt: gr.SelectData, point_mask: dict):
     img = original_img.copy()
     sel_pix.clear()
     sel_pix.append((evt.index, 1))  # append the foreground_point
-    point_mask = np.zeros((img.shape[0],img.shape[1]))
+    point_mask_img = np.zeros((img.shape[0],img.shape[1]))
     # draw points
     for point, label in sel_pix:
-        cv2.circle(img, point, 3, (240, 240, 240), -1, 0)
-        cv2.circle(img, point, 3, (30, 144, 255), 2, 0)
-        cv2.circle(point_mask, point, 3, (255, 255, 255), -1, 0)
+        cv2.circle(img, point, 10, (240, 240, 240), -1, 0)
+        cv2.circle(img, point, 10, (30, 144, 255), 2, 0)
+        cv2.circle(point_mask_img, point, 10, (255, 255, 255), -1, 0)
     sel_pix.clear()
-    prompt_image_list.append((point_mask/255.).astype(np.uint8))
-    return img, prompt_image_list
+    point_mask['point'] = (point_mask_img/255.).astype(np.uint8)
+    return img, point_mask
 
 
 def img_select_box(input_image: dict, prompt_image_list: list):
@@ -99,36 +142,26 @@ def img_select_box(input_image: dict, prompt_image_list: list):
     return prompt_image_list
 
 
-def img_select_scribble(original_img: np.ndarray, sel_pix: list, evt: gr.SelectData):
-    img = original_img.copy()
-    # Clear the previous selection
-    # sel_pix.clear()
-    print(evt.index)
-    # Append the new selected point
-    sel_pix.append(evt.index)
-
-    # Ensure we have exactly two points to draw the rectangle
-    if len(sel_pix) > 2:
-        pt1 = sel_pix[0]
-        pt2 = sel_pix[1]
-
-        # Draw a rectangle from pt1 to pt2
-        cv2.rectangle(img, pt1, pt2, (0, 0, 0), 1)
-
-        # After drawing the rectangle, clear the points for the next selection
-        sel_pix.clear()
-
-    return img
-
-
-
-
 # def print_like_dislike(x: gr.LikeData):
 #     print(x.index, x.value, x.liked)
 
-     
-def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_list):
-    
+
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
+
+args = parse_args()
+torch.manual_seed(args.seed)
+inference_model = OkapiInference(config=args.config,torch_dtype=args.torch_dtype)
+
+def model_predict(prompt_text,n_turn,history,image,prompt_image):
+    output,history,prompt_image,n_turn = inference_model(prompt_text,n_turn,history,image,prompt_image)
+    return output,history,prompt_image,n_turn 
+
+def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_list, point_mask=None):
+
+    if radio == "":
+        return "", chatbot, state, prompt_image_list,radio
+
     system_template = PROMPT_TEMPLATE['okapi']
     system_task_text = SYS_TEMPLATE_OKAPI[radio]
     if chatbot == []:
@@ -136,25 +169,60 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     else:
         system_text = system_template['SYSTEM'].format(system=system_task_text)
     chatbot = chatbot + [[input_text, None]]
+    if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
+        input_text = DEFAULT_IMAGE_TOKEN + '\n' + input_text
     state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
 
     if isinstance(input_image,dict):
-        if 'previous_box_length' in state.keys():
-            if state['previous_box_length'] < len(input_image['boxes']):
+        if 'boxes' in input_image.keys():
+            if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
+                if len(input_image['boxes']) > 1:
+                    gr.Warning("Multiple boxes will appear in the image; only the last box plotted will be selected.")
                 prompt_image_list = img_select_box(input_image,prompt_image_list)
                 state['previous_box_length'] += 1
-        elif 'previous_mask_length' in state.keys():
-            if state['previous_mask_length'] < len(input_image['mask']):
-                print(input_image['mask'])
-                prompt_image_list.append(input_image['mask'])
+            else:
+                gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+                           not equal to 1, we do not record the box that you plot!")
+        elif 'mask' in input_image.keys():
+            if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
+                mask = (input_image['mask'][:,:,0] / 255.).astype(np.uint8)
+                prompt_image_list.append(mask)
                 state['previous_mask_length'] += 1
+            else:
+                gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+                            not equal to 1, we do not record the scribble that you plot!")
+    
+    if point_mask is not None and isinstance(point_mask['point'],np.ndarray):
+        assert not isinstance(input_image,dict)
+        if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
+            prompt_image_list.append(point_mask['point'])
+            state['previous_point_length'] += 1
+        else:
+            gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+                           not equal to 1, we do not record the point that you plot!")
+        
 
-    return "", chatbot, state, prompt_image_list
+    return "", chatbot, state, prompt_image_list,radio
 
-def submit_step2(chatbot,state,prompt_image_list):
 
-    print(prompt_image_list)
-    bot_message = state['prompt_input']
+def submit_step2(chatbot,input_image, state,prompt_image_list,radio):
+
+    if radio == "":
+        raise gr.Error("You must set a valid task first!")
+    
+    if chatbot[-1][0] == "":
+        raise gr.Error("Please enter prompt sentences in the chatbox!")
+    n_turn = len(chatbot)
+    output,history,prompt_image_list,n_turn = model_predict(prompt_text=state['prompt_input'],
+                                                            n_turn=n_turn,
+                                                            history=state['history'],
+                                                            image=input_image,
+                                                            prompt_image=prompt_image_list)
+    state['history'] = history
+    print("prompt length: ", len(prompt_image_list))
+    output = output.replace("<","\<").replace(">","\>")
+    bot_message = output
+    print(output)
     chatbot[-1][1] = ""
     
     for character in bot_message:
@@ -164,17 +232,18 @@ def submit_step2(chatbot,state,prompt_image_list):
     
     return chatbot
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
-
-
 
 with gr.Blocks(
     title="Ladon: Multi-Visual Tasks Multimodal Large Language Model"
 ) as demo:
     preprocessed_img = gr.State(value=None)
     selected_points = gr.State(value=None)
+    point_mask = gr.State(value={'point':None})
     prompt_image_list = gr.State(value=[])
+    task_state = gr.State(value={'prompt_input':None,'history':'',
+                                 'previous_box_length':0,
+                                 'previous_mask_length':0,
+                                 'previous_point_length':0})
 
     example_list2 = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
@@ -375,13 +444,14 @@ with gr.Blocks(
             with gr.TabItem("Input Image"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_1 = gr.Image(type="numpy", label="Input Image", height=550)
-                        radio_1 = gr.Radio(
-                            label="Type", choices=["VQA", "Detection", "Segmentation", 
-                                                   "Grounding Detection", "Grounding Segmentation", 
-                                                   "Gcg Detection", "Gcg Segmentation"])
-                        state_1 = gr.State(value={'prompt_input':None})                   
-                        input_text_1 = gr.Textbox(label="Input Instruction")
+                        input_img_1 = ImageSketcher(type="numpy", label="Input Image", height=550)
+                        
+                        radio_1 = gr.Dropdown(
+                            label="Task", choices=["VQA", "Detection", "Segmentation", 
+                                                "Grounding Detection", "Grounding Segmentation", 
+                                                "Gcg Detection", "Gcg Segmentation"],
+                            value='VQA',info='Select valid task for Ladon!')                
+                        input_text_1 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon')
                         submit_button_1 = gr.Button("Submit", variant="primary")
                         example_data_1 = gr.Dataset(
                             label="Examples", components=[input_text_1], samples=example_list
@@ -390,11 +460,11 @@ with gr.Blocks(
             with gr.TabItem("Point"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_2 = gr.Image(type="numpy", label="Input Image", height=550)
-                        radio_2 = gr.Radio(label="Type", choices=["VQA","Grounding Detection", 
-                                                                    "Grounding Segmentation"])
-                        state_2 = gr.State(value={'prompt_input':None})
-                        input_text_2 = gr.Textbox(label="Input Instruction") 
+                        input_img_2 = ImageSketcher(type="numpy", label="Input Image", height=550)
+                        radio_2 = gr.Dropdown(label="Task", choices=["VQA","Grounding Detection", 
+                                                                    "Grounding Segmentation"],
+                                                value='VQA',info='Select valid task for Ladon!')
+                        input_text_2 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon') 
                         submit_button_2 = gr.Button("Submit", variant="primary")
                         example_data_2 = gr.Dataset(
                             label="Examples",
@@ -406,11 +476,11 @@ with gr.Blocks(
             with gr.TabItem("Box"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_3 = ImageSketcher(type="numpy", label='Input Image', height=550)
-                        radio_3 = gr.Radio(label="Type", choices=["VQA","Grounding Detection", 
-                                                                    "Grounding Segmentation"])
-                        state_3 = gr.State(value={'prompt_input':None,'previous_box_length':0})
-                        input_text_3 = gr.Textbox(label="Input Instruction") 
+                        input_img_3 = ImageSketcher(type="numpy", tool='boxes', label='Input Image', height=550)
+                        radio_3 = gr.Dropdown(label="Task", choices=["VQA","Grounding Detection", 
+                                                                    "Grounding Segmentation"],
+                                                value='VQA',info='Select valid task for Ladon!')
+                        input_text_3 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon') 
                         submit_button_3 = gr.Button("Submit", variant="primary")
                         example_data_3 = gr.Dataset(
                             label="Examples",
@@ -422,12 +492,12 @@ with gr.Blocks(
             with gr.TabItem("Scribble"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_4 = gr.Image(type="numpy",tool="sketch", brush_radius=2,
+                        input_img_4 = ImageSketcher(type="numpy",tool="sketch", brush_radius=2,
                                                 source="upload", label="Input Image", height=550)
-                        radio_4 = gr.Radio(label="Type", choices=["VQA","Grounding Detection", 
-                                                                    "Grounding Segmentation"])
-                        state_4 = gr.State(value={'prompt_input':None,'previous_mask_length':0})
-                        input_text_4 = gr.Textbox(label="Input Instruction")
+                        radio_4 = gr.Dropdown(label="Task", choices=["VQA","Grounding Detection", 
+                                                                    "Grounding Segmentation"],
+                                            value='VQA',info='Select valid task for Ladon!')
+                        input_text_4 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon')
                         submit_button_4 = gr.Button("Submit", variant="primary")                      
                         example_data_4 = gr.Dataset(
                             label="Examples", components=[input_text_2], samples=example_list3
@@ -446,10 +516,10 @@ with gr.Blocks(
     
 
 
-
+    
     clear_button.click(lambda: None, [], [input_text_1,input_text_2,input_text_3,input_text_4,
                                         preprocessed_img,input_img_1,input_img_2,input_img_3,input_img_4,
-                                        selected_points,prompt_image_list]).then(
+                                        selected_points,prompt_image_list,point_mask]).then(
         lambda: None,
         None,
         None,
@@ -511,50 +581,38 @@ with gr.Blocks(
 
     input_img_2.select(
         img_select_point,
-        [preprocessed_img, selected_points, prompt_image_list],
-        [input_img_2, prompt_image_list],
+        [preprocessed_img, selected_points, point_mask],
+        [input_img_2, point_mask],
     )
-
-    # input_img_2.select(
-    #     img_select,
-    #     [preprocessed_img, selected_points, radio_2, ground_det_state],
-    #     [input_img_2, ground_det_state],
-    # )
-
-    # input_img_3.select(
-    #     img_select,
-    #     [preprocessed_img, selected_points, radio_3, ground_seg_state],
-    #     [input_img_3, ground_seg_state],
-    # )
 
 
     submit_button_1.click(submit_step1,
-                          [input_text_1,input_img_1,chatbot,radio_1,state_1,prompt_image_list],
-                          [input_text_1,chatbot,state_1,prompt_image_list]).then(
-                          submit_step2,
-                          [chatbot,state_1,prompt_image_list],
-                          [chatbot]
+                        [input_text_1,input_img_1,chatbot,radio_1,task_state,prompt_image_list],
+                        [input_text_1,chatbot,task_state,prompt_image_list]).then(
+                        submit_step2,
+                        [chatbot,input_img_1,task_state,prompt_image_list,radio_1],
+                        [chatbot]
                         )
     submit_button_2.click(submit_step1,
-                          [input_text_2,input_img_2, chatbot,radio_2,state_2,prompt_image_list],
-                          [input_text_2,chatbot,state_2,prompt_image_list]).then(
-                          submit_step2,
-                          [chatbot,state_2,prompt_image_list],
-                          [chatbot]
+                        [input_text_2,input_img_2, chatbot,radio_2,task_state,prompt_image_list,point_mask],
+                        [input_text_2,chatbot,task_state,prompt_image_list]).then(
+                        submit_step2,
+                        [chatbot,input_img_2,task_state,prompt_image_list,radio_2],
+                        [chatbot]
                         )
     submit_button_3.click(submit_step1,
-                          [input_text_3,input_img_3,chatbot,radio_3,state_3,prompt_image_list],
-                          [input_text_3,chatbot,state_3,prompt_image_list]).then(
-                          submit_step2,
-                          [chatbot,state_3,prompt_image_list],
-                          [chatbot]
+                        [input_text_3,input_img_3,chatbot,radio_3,task_state,prompt_image_list],
+                        [input_text_3,chatbot,task_state,prompt_image_list]).then(
+                        submit_step2,
+                        [chatbot,input_img_3,task_state,prompt_image_list,radio_3],
+                        [chatbot]
                         )
     submit_button_4.click(submit_step1,
-                          [input_text_4,input_img_4,chatbot,radio_4,state_4,prompt_image_list],
-                          [input_text_4,chatbot,state_4,prompt_image_list]).then(
-                          submit_step2,
-                          [chatbot,state_4,prompt_image_list],
-                          [chatbot]
+                        [input_text_4,input_img_4,chatbot,radio_4,task_state,prompt_image_list],
+                        [input_text_4,chatbot,task_state,prompt_image_list]).then(
+                        submit_step2,
+                        [chatbot,input_img_4,task_state,prompt_image_list,radio_4],
+                        [chatbot]
                         )
 
 
