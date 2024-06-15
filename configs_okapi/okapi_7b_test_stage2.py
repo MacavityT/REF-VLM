@@ -28,11 +28,14 @@ vrt_length = 64
 ref_length = 1
 
 eval_type = 'all'
-prefix = 'cot_vrt'
+prefix = 'caption'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0530/eval_5000iter'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0607/eval_7500iter'
 
-test_dataset_args = [
+if prefix == 'vqa':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa')
+    test_dataset_args = [
     dict(
         type='SubSet',
         portion=1/200,
@@ -42,6 +45,33 @@ test_dataset_args = [
         cfg=test_all_dataset['vqav2_val'],
         )
 ]
+elif prefix == 'caption':
+    test_evaluator = dict(
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/20,
+            do_shuffle=False,
+            seed=43,
+            enforce_online=True,
+            cfg=test_all_dataset['caption'],
+            )
+    ]
+elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
+    test_evaluator = dict(
+        type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/20,
+            do_shuffle=False,
+            seed=43,
+            enforce_online=True,
+            cfg=test_all_dataset['rec_refcocog_umd_test'],
+            )
+    ]
+
 
 
 test_dataset = dict(
@@ -70,14 +100,7 @@ test_dataloader = dict(
     collate_fn=dict(type=okapi_collate_fn))
 
 
-test_evaluator = dict(
-    type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa')
 
-# test_evaluator = dict(
-#     type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
-
-# test_evaluator = dict(
-#     type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)
 
 
 model = dict(

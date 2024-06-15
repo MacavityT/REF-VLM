@@ -48,7 +48,14 @@ class OfflineDataset(Dataset):
 
     def read_pkl(self, pkl_path):
         with open(pkl_path,"rb") as f:
-            datas = pickle.load(f)
+            try:
+                datas = pickle.load(f)
+            except:
+                print(f"{pkl_path} is wrong!")
+                path = "/data/Aaronzhu/DatasetStage2and3/COCO_interactive/offline_box/10.pkl"
+                with open(path,"rb") as f1:
+                    datas = pickle.load(f1)
+                    f1.close()
             f.close()
         return datas
 

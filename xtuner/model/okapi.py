@@ -482,10 +482,6 @@ class OkapiModel(BaseModel):
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
 
-        with jsonlines.open("/code/okapi-mllm/Aaronzhu/weight_previous.jsonl","a") as f:
-            f.write(weight.clone().cpu().detach().numpy().tolist())
-            f.close()
-
         idx = idx.view(-1)
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
