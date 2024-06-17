@@ -3,7 +3,7 @@ from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 from transformers import AutoModelForCausalLM
 from xtuner.model import OkapiModel
-from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComputeMetrics,COTComputeMetrics
+from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComputeMetrics,COTComputeMetrics,LabelsComputeMetrics
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_template_map_fn_factory
@@ -27,10 +27,10 @@ dataloader_num_workers = 20
 vrt_length = 64
 ref_length = 1
 
-eval_type = 'all'
-prefix = 'caption'
+eval_type = 'phrase'
+prefix = 'label'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0607/eval_7500iter'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0616_cot_new/eval'
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -72,6 +72,20 @@ elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
             )
     ]
 
+elif prefix == 'label':
+    assert eval_type == 'phrase' or eval_type == 'count'
+    test_evaluator = dict(
+        type=LabelsComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/1000,
+            do_shuffle=False,
+            seed=43,
+            enforce_online=True,
+            cfg=test_all_dataset['grand_d_s'],
+            )
+    ]
 
 
 test_dataset = dict(

@@ -30,6 +30,53 @@ class LabelsComputeMetrics(BaseComputeMetrics):
 
         assert self.eval_type in ['phrase','count'], "evaluation type for PhraseComputeMetrics should be in phrase or count"
 
+    # def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
+    #     """Process one batch of data samples and predictions. The processed
+    #     results should be stored in ``self.results``, which will be used to
+    #     compute the metrics when all batches have been processed.
+
+    #     Args:
+    #         data_batch (Any): A batch of data from the dataloader.
+    #         data_samples (Sequence[dict]): A batch of outputs from
+    #             the model.  
+    #         {'generate_ids': generate ids}
+
+    #     for type 'phrase':
+    #         * pred: ['pred_label1', 'pred_label2', 'pred_label3']
+    #         * target: ['target_label1', 'target_label2','target_label3', 'target_label4']
+    #     for type 'count':
+    #         * pred: [('pred_label1',1), ('pred_label2',2), ('pred_label3',3)]
+    #         * target: [('target_label1',1), ('target_label2',2),('target_label3',3), ('target_label4',4)]
+    #     """
+        
+    #     for sample, gt in zip(
+    #         data_samples,data_batch['data']['labels']):
+    #         generate_ids =sample['generate_ids']
+    #         decode_pred = self.decode_generate_ids(ids=generate_ids)
+    #         gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
+    #         target = self.decode_generate_ids(ids=gt)
+
+    #         # remove cot tests
+    #         decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
+    #         target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
+
+    #         # retrieve phrase and units
+    #         decode_pred = decode_pred.replace(f"{PHRASE_ED_PLACEHOLDER_STAGE2} ",PHRASE_ED_PLACEHOLDER_STAGE2)
+    #         phrase_content_pred = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", decode_pred)
+    #         phrase_content_target = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", target)
+
+    #         if self.eval_type == 'phrase':
+    #             decode_pred = [item[0].strip(" ") for item in phrase_content_pred]
+    #             target = [item[0].strip(" ") for item in phrase_content_target]
+    #         elif self.eval_type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
+    #             decode_pred = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_pred]
+    #             target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
+
+    #         if self.save_dir is not None:
+    #             self.save_outputs(decode_pred,target,f"labels_{self.eval_type}")
+
+    #         self.results.append((decode_pred, target))
+
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
         results should be stored in ``self.results``, which will be used to
@@ -55,22 +102,20 @@ class LabelsComputeMetrics(BaseComputeMetrics):
             decode_pred = self.decode_generate_ids(ids=generate_ids)
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt)
-
-            # remove cot tests
-            decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
-            target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
+            print(f"decode_pred:{decode_pred}")
+            print(f"target:{target}")
+            # get contents from <Task> * </Task>
+            decode_pred = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", decode_pred, re.DOTALL).group(1).strip()
+            target = re.search(f"{BOT_TOKEN}(.*?){EOT_TOKEN}", target, re.DOTALL).group(1).strip()
 
             # retrieve phrase and units
-            decode_pred = decode_pred.replace(f"{PHRASE_ED_PLACEHOLDER_STAGE2} ",PHRASE_ED_PLACEHOLDER_STAGE2)
-            phrase_content_pred = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", decode_pred)
-            phrase_content_target = re.findall(r"<Phrase>(.*?)</Phrase>\((.*?)\)", target)
-
             if self.eval_type == 'phrase':
-                decode_pred = [item[0].strip(" ") for item in phrase_content_pred]
-                target = [item[0].strip(" ") for item in phrase_content_target]
-            elif self.eval_type == 'count':  # [('the slower crew', 2), ('the John Hancock Tower', 1)]
-                decode_pred = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_pred]
-                target = [(item[0].strip(" "), item[1].count(VISUAL_REFERENCE_TOKEN)) for item in phrase_content_target]
+                decode_pred = re.findall(r"<Phrase>(.*?)</Phrase>", decode_pred)
+                target = re.findall(r"<Phrase>(.*?)</Phrase>", target)
+            elif self.eval_type == 'count':  # [('the slower crew',mask/box, 2), ('the John Hancock Tower', mask/box, 1)]
+                entry_pattern = r"- Name: <Phrase>(.*?)</Phrase> Unit: <Unit>(.*?)</Unit> Num: (\d+)"
+                decode_pred = re.findall(entry_pattern, decode_pred)
+                target = re.findall(entry_pattern, target)
 
             if self.save_dir is not None:
                 self.save_outputs(decode_pred,target,f"labels_{self.eval_type}")

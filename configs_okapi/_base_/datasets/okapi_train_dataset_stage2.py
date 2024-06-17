@@ -99,7 +99,7 @@ for dataset in dataset_s1:
 dataset_s2 = [
     # subset
     grit,
-    grand_mix,
+    # grand_mix,
     # grand_seg_det,
 
     # # instruct

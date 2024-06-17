@@ -18,4 +18,5 @@ from .coco_interact import COCOInteract
 from .cityscapes import Cityscapes
 from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
-
+from .pascal import PascalDataset,PascalVoc59Dataset,PascalVoc459Dataset,PascalVocDataset
+from .ade20k import ADE20k
