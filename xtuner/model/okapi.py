@@ -170,23 +170,9 @@ class OkapiModel(BaseModel):
 
         self.visual_select_layer = visual_select_layer
 
+        self.cot_weight = cot_weight if cot_weight is not None else 1
+        self.vrt_weight = vrt_weight if vrt_weight is not None else 1
         self._is_init = True
-
-        if cot_weight is None and vrt_weight is None:
-            self.cot_weight = 1
-            self.vrt_weight = 1
-        else:
-            if cot_weight is None:
-                self.cot_weight = 1 - vrt_weight
-                self.vrt_weight = vrt_weight
-            elif vrt_weight is None:
-                self.vrt_weight = 1 - cot_weight
-                self.cot_weight = cot_weight
-            else:
-                self.vrt_weight = vrt_weight
-                self.cot_weight = cot_weight
-
-
 
     @staticmethod
     def _prepare_tokenizer(tokenizer_cfg):
@@ -473,18 +459,12 @@ class OkapiModel(BaseModel):
                 print("<v> and </v> not match!")
                 file_prefix = f"wrong_vrt"
                 save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
-
-            # Phrase and Unit Chunks
         
         # Flatten the tokens
         loss_fct = CrossEntropyLoss(reduction='none')
         shift_logits = shift_logits.view(-1, self.llm.config.vocab_size)
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
-
-        with jsonlines.open("/code/okapi-mllm/Aaronzhu/weight_previous.jsonl","a") as f:
-            f.write(weight.clone().cpu().detach().numpy().tolist())
-            f.close()
 
         idx = idx.view(-1)
         # Enable model parallelism

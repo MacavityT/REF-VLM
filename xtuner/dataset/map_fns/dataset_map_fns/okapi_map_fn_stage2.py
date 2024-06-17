@@ -12,9 +12,10 @@ from xtuner.utils.constants import (
     VISUAL_REFERENCE_TOKEN,
     BOT_TOKEN, EOT_TOKEN, 
     BOU_TOKEN, EOU_TOKEN,
-    BOV_TOKEN, EOV_TOKEN
+    BOV_TOKEN, EOV_TOKEN,
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2
     )
-from .okapi_map_fn import map_obj
 
 SEQ_MAP = {
     BOXES_PLACEHOLDER: 'boxes_seq',
@@ -198,27 +199,77 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
         elif msg['from'] == 'gpt':
             output = msg['value']
 
+            # #region old cot
+            # if map_placeholders:
+            #     output_placeholders = map_placeholders.get('output', [])
+            #     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
+
+            #     if unit_decode and not vrt_exist:
+            #         # cot = f"{BOT_TOKEN}Unit needs to be decoded, but the visual representation \\
+            #         #     has not been generated. Now, let's generate it.{EOT_TOKEN}"
+            #         cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (False). Generate VRT (True).{EOT_TOKEN}"
+            #         vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}"
+            #         vrt_exist = True
+                    
+            #     elif unit_decode and vrt_exist:
+            #         # cot = f"{BOT_TOKEN}Unit needs to be decoded, and the visual representation \\
+            #         #     has been generated. Now, let's generate it.{EOT_TOKEN}"
+            #         cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (True). Generate VRT (False).{EOT_TOKEN}"
+            #         vrt = ''
+            #     else:
+            #         # cot = f"{BOT_TOKEN}Unit needs not to be decoded, skip visual representation process.{EOT_TOKEN}"
+            #         cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
+            #         vrt = ''
+            #     output = cot + vrt + output
+                
+            #     for placeholder in output_placeholders:
+            #         target_seq = msg.get(SEQ_MAP[placeholder], None)
+            #         if not target_seq: continue
+                    
+            #         units = []
+            #         for tgts in target_seq:
+            #             for tgt_idx, tgt in enumerate(tgts):
+            #                 unit = BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + \
+            #                     VISUAL_REFERENCE_TOKEN * ref_len + f"[{tgt_idx}]"
+            #                 if tgt_idx == 0: unit = '(' + unit
+            #                 if tgt_idx == len(tgts) - 1: unit = unit + ')'
+            #                 if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
+            #                 units.append(unit)
+            #         output = map_units(output, units, placeholder)
+            # # for map placeholder is None
+            # else:
+            #     cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
+            #     output = cot + output
+            # #endregion
+
+            #region new cot
             if map_placeholders:
                 output_placeholders = map_placeholders.get('output', [])
                 unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
-
-                if unit_decode and not vrt_exist:
-                    # cot = f"{BOT_TOKEN}Unit needs to be decoded, but the visual representation \\
-                    #     has not been generated. Now, let's generate it.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (False). Generate VRT (True).{EOT_TOKEN}"
-                    vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}"
-                    vrt_exist = True
+                if unit_decode:
+                    p_pattern = PHRASE_ST_PLACEHOLDER_STAGE2 + r'.*?' + PHRASE_ED_PLACEHOLDER_STAGE2
+                    p_matches = re.findall(p_pattern, output)
+                    splits = re.split(p_pattern, output)[1:]
+                    assert len(splits) == len(p_matches)
                     
-                elif unit_decode and vrt_exist:
-                    # cot = f"{BOT_TOKEN}Unit needs to be decoded, and the visual representation \\
-                    #     has been generated. Now, let's generate it.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (True). VRT prepared (True). Generate VRT (False).{EOT_TOKEN}"
-                    vrt = ''
+                    u_counts = []
+                    u_names = []
+                    for split in splits:
+                        counts = [split.count(placeholder) for placeholder in output_placeholders]
+                        idx_nonzero = [idx for idx, num in enumerate(counts) if num != 0]
+                        assert len(idx_nonzero) == 1
+                        idx_placeholder = idx_nonzero[0]
+                        u_names.append(output_placeholders[idx_placeholder]) 
+                        u_counts.append(counts[idx_placeholder])
+                    
+                    cot_content = ''
+                    for cls_name, unit_name, tgt_num in zip(p_matches, u_names, u_counts):
+                        cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
+                    
+                    cot = f"{BOT_TOKEN}\nUnit decode (True). Class name, target unit and number:\n{cot_content}{EOT_TOKEN}\n"
+
                 else:
-                    # cot = f"{BOT_TOKEN}Unit needs not to be decoded, skip visual representation process.{EOT_TOKEN}"
-                    cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
-                    vrt = ''
-                output = cot + vrt + output
+                    cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
                 
                 for placeholder in output_placeholders:
                     target_seq = msg.get(SEQ_MAP[placeholder], None)
@@ -227,17 +278,17 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                     units = []
                     for tgts in target_seq:
                         for tgt_idx, tgt in enumerate(tgts):
-                            unit = BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + \
-                                VISUAL_REFERENCE_TOKEN * ref_len + f"[{tgt_idx}]"
-                            if tgt_idx == 0: unit = '(' + unit
+                            unit = f"[{tgt_idx}]" + VISUAL_REFERENCE_TOKEN * ref_len
+                            if tgt_idx == 0: unit = '(' + BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + unit
                             if tgt_idx == len(tgts) - 1: unit = unit + ')'
-                            if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
+                            # if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
                             units.append(unit)
                     output = map_units(output, units, placeholder)
             # for map placeholder is None
             else:
-                cot = f"{BOT_TOKEN}Unit decode (False). Generate VRT (False).{EOT_TOKEN}"
-                output = cot + output
+                cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
+            output = cot + output
+            #endregion
 
             conversation.append({'input': input, 'output': output})
             input = ''
