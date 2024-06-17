@@ -6,7 +6,9 @@ from pycocotools.coco import COCO
 from pycocotools.mask import decode
 from PIL import Image
 from xtuner.registry import DATASETS
+import cv2
 import random
+import numpy as np
 
 from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
@@ -188,10 +190,14 @@ class COCOInteract(MInstrDataset):
 
             category_name = self.coco_class_name[self.coco_class_ids.index(annotation['category_id'])]
             gt_masks.append(mask)
-
+            kernel = np.ones((10,10),np.uint8)
+            point_mask = decode(annotation['point_visual_prompt_mask'])
+            point_mask = cv2.dilate(point_mask,kernel,iterations=1)
+            scribble_mask = decode(annotation['scribble_visual_prompt_mask'])
+            scribble_mask = cv2.dilate(scribble_mask,kernel,iterations=1)
             interact_list = [decode(annotation['box_visual_prompt_mask']),
-                             decode(annotation['point_visual_prompt_mask']),
-                             decode(annotation['scribble_visual_prompt_mask']),
+                             point_mask,
+                             scribble_mask,
                              decode(annotation['mask_visual_prompt_mask']),]
             
             for interact_mask in interact_list:
@@ -228,6 +234,7 @@ class COCOInteract(MInstrDataset):
                 question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
                 gt_boxes.append(annotation['bbox'])
                 random_num = random.randint(1,len(interact_list)-1)
+                
                 selected_mask.append(interact_list[random_num])
                 masks_seq = [[len(selected_mask)-1]]
                 answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')

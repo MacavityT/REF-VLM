@@ -1,5 +1,6 @@
 from typing import List
 import gradio as gr
+from gradio.themes.utils import colors, fonts, sizes
 import numpy as np
 import torch
 import argparse
@@ -153,8 +154,10 @@ args = parse_args()
 torch.manual_seed(args.seed)
 inference_model = OkapiInference(config=args.config,torch_dtype=args.torch_dtype)
 
-def model_predict(prompt_text,n_turn,history,image,prompt_image):
-    output,history,prompt_image,n_turn = inference_model(prompt_text,n_turn,history,image,prompt_image)
+def model_predict(prompt_text,n_turn,history,image,prompt_image,temperature,top_p,top_k):
+    output,history,prompt_image,n_turn = inference_model(prompt_text,n_turn,history,
+                                                         image,prompt_image,
+                                                         temperature,top_p,top_k)
     return output,history,prompt_image,n_turn 
 
 def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_list, point_mask=None):
@@ -205,7 +208,7 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     return "", chatbot, state, prompt_image_list,radio
 
 
-def submit_step2(chatbot,input_image, state,prompt_image_list,radio):
+def submit_step2(chatbot,input_image, state,prompt_image_list,radio,temperature,top_p,top_k):
 
     if radio == "":
         raise gr.Error("You must set a valid task first!")
@@ -217,7 +220,10 @@ def submit_step2(chatbot,input_image, state,prompt_image_list,radio):
                                                             n_turn=n_turn,
                                                             history=state['history'],
                                                             image=input_image,
-                                                            prompt_image=prompt_image_list)
+                                                            prompt_image=prompt_image_list,
+                                                            temperature=temperature,
+                                                            top_p=top_p,
+                                                            top_k=top_k)
     state['history'] = history
     print("prompt length: ", len(prompt_image_list))
     output = output.replace("<","\<").replace(">","\>")
@@ -227,15 +233,65 @@ def submit_step2(chatbot,input_image, state,prompt_image_list,radio):
     
     for character in bot_message:
         chatbot[-1][1] += character
-        time.sleep(0.05)
+        time.sleep(0.005)
         yield chatbot
     
     return chatbot
 
+def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state):
+    return None,None,{'point':None},[],[],{'prompt_input':None,
+                                        'history':'',
+                                        'previous_box_length':0,
+                                        'previous_mask_length':0,
+                                        'previous_point_length':0}
+theme = gr.themes.Default()
+
+# title_markdown = ("""
+# ![LOGO](/code/okapi-mllm/demo/assets/logo/logo3.png)
+# # 🌋 Ladon: Multi-Visual Tasks Multimodal Large Language Model
+# [[Project Page]](https://github.com/MacavityT/okapi-mllm/) [[Paper]](https://github.com/MacavityT/okapi-mllm/) [[Code]](https://github.com/MacavityT/okapi-mllm/) [[Model]](https://github.com/MacavityT/okapi-mllm/)
+# """)
+
+# title_markdown = ("""
+# <p align="center">
+#   <a href="#">
+# <img src="https://i.mij.rip/2024/06/12/845590e05554cc3b25907dcb0649469a.md.png" alt="Logo" width="130"></a>
+#   <h4 align="center"><font color="#966661">Ladon</font>: Multi-Visual Tasks Multimodal Large Language Model</h4>
+#   <p align="center">
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Online-Demo-green'></a>
+#   </p>
+# </p>
+# """)
+
+title_markdown = ("""
+<p align="center">
+  <a href="#">
+<img src="https://i2.mjj.rip/2024/06/12/c1f69496f89fee9eca4a5a1c279e373b.png" alt="Logo"></a>
+</p>
+""")
+
+tos_markdown = ("""
+### Terms of use
+By using this service, users are required to agree to the following terms:
+The service is a research preview intended for non-commercial use only. It only provides limited safety measures and may generate offensive content. It must not be used for any illegal, harmful, violent, racist, or sexual purposes. The service may collect user dialogue data for future research.
+Please click the "Flag" button if you get any inappropriate answer! We will collect those to keep improving our moderator.
+For an optimal experience, please use desktop computers for this demo, as mobile devices may compromise its quality.
+""")
+
+
+learn_more_markdown = ("""
+### License
+The service is a research preview intended for non-commercial use only, subject to the model [License](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md) of LLaMA, [Terms of Use](https://openai.com/policies/terms-of-use) of the data generated by OpenAI, and [Privacy Practices](https://chrome.google.com/webstore/detail/sharegpt-share-your-chatg/daiacboceoaocpibfodeljbdfacokfjb) of ShareGPT. Please contact us if you find any potential violation.
+""")
+
 
 with gr.Blocks(
-    title="Ladon: Multi-Visual Tasks Multimodal Large Language Model"
+    title="Ladon: Multi-Visual Tasks Multimodal Large Language Model",
+    theme=theme
 ) as demo:
+    
     preprocessed_img = gr.State(value=None)
     selected_points = gr.State(value=None)
     point_mask = gr.State(value={'point':None})
@@ -244,154 +300,46 @@ with gr.Blocks(
                                  'previous_box_length':0,
                                  'previous_mask_length':0,
                                  'previous_point_length':0})
-
-    example_list2 = [
+    example_list_image = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
         [os.path.join(os.path.dirname(__file__), "assets/fishing.jpg")],
         [os.path.join(os.path.dirname(__file__), "assets/rec_bear.png")],
         [os.path.join(os.path.dirname(__file__), "assets/woman.jpeg")],
+        [os.path.join(os.path.dirname(__file__), "assets/view.jpg")],
     ]
 
-    example_list = [
-        ["Could you please give me a detailed description of the image?"],
-        ["Could you please give me a detailed description of the image?"],
-        ["Could you please give me a detailed description of the image?"],
-        ["Could you please give me a detailed description of the image?"],
+
+    example_list_1 = [
+         ["VQA","Describe the main features of the image."],
+         ["VQA","Where is the dog?"],
+         ["Detection","Detect objects in this image."],
+         ["Segmentation","Detect objects in this image."],
+         ["Grounding Detection", "Please identify the position of young boy in the image and give the bounding box coordinates."],
+         ["Grounding Segmentation", "Can you segment bears in the image and provide the masks for this class?"],
+         ["Gcg Detection","Can you provide a description of the image and include the coordinates [x0,y0,x1,y1] for each mentioned object?"],
+         ["Gcg Segmentation","Please explain what's happening in the photo and give masks for the items you reference."],
     ]
 
-    example_list3 = [
-        [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
-        [os.path.join(os.path.dirname(__file__), "assets/fishing.jpg")],
-        [os.path.join(os.path.dirname(__file__), "assets/rec_bear.png")],
-        [os.path.join(os.path.dirname(__file__), "assets/woman.jpeg")],
+    example_list_2 = [
+         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
     ]
 
-    example_list4 = [
-        [
-            os.path.join(os.path.dirname(__file__), "assets/dog.jpg"),
-            "Could you provide me with a detailed analysis of this photo? ",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/fishing.jpg"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/rec_bear.png"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/woman.jpeg"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
+    example_list_3 = [
+         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
     ]
 
-    example_list5 = [
-        [
-            os.path.join(os.path.dirname(__file__), "assets/dog.jpg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/fishing.jpg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/rec_bear.png"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/woman.jpeg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
+    example_list_4 = [
+         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
     ]
 
-    example_list6 = [
-        [
-            os.path.join(os.path.dirname(__file__), "assets/dog.jpg"),
-            "Could you provide me with a detailed analysis of this photo? ",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/fishing.jpg"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/rec_bear.png"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/woman.jpeg"),
-            "Could you provide me with a detailed analysis of this photo?",
-        ],
-    ]
 
-    example_list7 = [
-        [
-            os.path.join(os.path.dirname(__file__), "assets/dog.jpg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/fishing.jpg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/rec_bear.png"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-        [
-            os.path.join(os.path.dirname(__file__), "assets/woman.jpeg"),
-            "Please output with interleaved segmentation masks for the corresponding parts of the answer.",
-        ],
-    ]
-
-    descrip_detection = """
-                    ### 💡 Tips:
-                    
-                    🧸 Upload an image, and you can click on the image to select the area of interest.
-                    
-                    🖱️ Then click the **Submit** button to generate detection and description accordingly.
-            
-                    🔖 In the bottom left, you can choose description with different levels of detail. Default is short description. 
-                    
-                    ⌛️ It takes about 1~ seconds to generate the segmentation result and the short description. The detailed description my take a longer time to 2~ seconds. The concurrency_count of queue is 1, please wait for a moment when it is crowded.
-                    
-                    🔔 If you want to choose another area, just click another point on the image.
-
-                    📌 Click the button ❎ to clear the current image.
-    """
-
-    descrip_segmentation = """
-                    ### 💡 Tips:
-
-                    🧸 Upload an image, and you can pull a frame on the image to select the area of interest.
-
-                    🖱️ Then click the **Submit** button to generate segmentation and description accordingly.
-
-                    🔔 If you want to choose another area or switch to another photo, click the button ↪️ first.
-
-                    ❗️ If there are more than one box, the last one will be chosen.
-
-                    🔖 In the bottom left, you can choose description with different levels of detail. Default is short description. 
-                    
-                    ⌛️ It takes about 1~ seconds to generate the segmentation result and the short description. The detailed description my take a longer time to 2~ seconds. The concurrency_count of queue is 1, please wait for a moment when it is crowded.
-
-                    📌 Click the button **Clear Image** to clear the current image. 
-    
-    """
-
-    descrip_vqa = """
-                    ### 💡 Tips:
-
-    
-    """
-
-    descrip_gcg_detection = """
-                    ### 💡 Tips:
-    
-    """
-    descrip_gcg_segmentation = """
-                    ### 💡 Tips:
-    
-    """
-    descrip_grounding_detection = """
+    descrip_chatbot = """
                     ### 💡 Tips:
 
                     🧸 Upload an image, and you can pull a frame on the image to select the area of interest.
@@ -409,31 +357,28 @@ with gr.Blocks(
                     📌 Click the button **Clear Image** to clear the current image. 
     
     """
-    descrip_grounding_segmentation = """
-                    ### 💡 Tips:
+    # gr.Markdown(title_markdown)
 
-                    🧸 Upload an image, and you can pull a frame on the image to select the area of interest.
-
-                    🖱️ Then click the **Generate mask and description** button to generate segmentation and description accordingly.
-
-                    🔔 If you want to choose another area or switch to another photo, click the button ↪️ first.
-
-                    ❗️ If there are more than one box, the last one will be chosen.
-
-                    🔖 In the bottom left, you can choose description with different levels of detail. Default is short description. 
-                    
-                    ⌛️ It takes about 1~ seconds to generate the segmentation result and the short description. The detailed description my take a longer time to 2~ seconds. The concurrency_count of queue is 1, please wait for a moment when it is crowded.
-
-                    📌 Click the button **Clear Image** to clear the current image. 
-    
-    """
     with gr.Row():
+        # gr.HTML(
+        #     """
+        #     <p align="center">
+        #     <a href="#">
+        #     <img src="https://i.mij.rip/2024/06/12/845590e05554cc3b25907dcb0649469a.md.png" alt="Logo" width="200"></a>
+        #     </p>
+        #     <h1 style="text-align: center; font-weight: 800; font-size: 2rem; margin-top: 0.5rem; margin-bottom: 0.5rem">
+        #     Ladon: Multi-Visual Tasks Multimodal Large Language Model
+        #     """
+        # )
         gr.HTML(
             """
-            <h1 style="text-align: center; font-weight: 800; font-size: 2rem; margin-top: 0.5rem; margin-bottom: 0.5rem">
-            Ladon: Multi-Visual Tasks Multimodal Large Language Model
+            <p align="center">
+            <a href="#">
+            <img src="https://i2.mjj.rip/2024/06/12/c1f69496f89fee9eca4a5a1c279e373b.png" alt="Logo" width="1000"></a>
+            </p>
             """
         )
+
     with gr.Row():
         gr.Markdown(
             "[![Website](https://img.shields.io/badge/Project-Website-87CEEB)](https://github.com/MacavityT/okapi-mllm)"
@@ -454,7 +399,13 @@ with gr.Blocks(
                         input_text_1 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon')
                         submit_button_1 = gr.Button("Submit", variant="primary")
                         example_data_1 = gr.Dataset(
-                            label="Examples", components=[input_text_1], samples=example_list
+                            label="Image Examples",
+                            components=[input_img_1],
+                            samples=example_list_image,
+                        )
+                        gr.Examples(
+                            examples=example_list_1,
+                            inputs=[radio_1,input_text_1],
                         )
 
             with gr.TabItem("Point"):
@@ -467,11 +418,14 @@ with gr.Blocks(
                         input_text_2 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon') 
                         submit_button_2 = gr.Button("Submit", variant="primary")
                         example_data_2 = gr.Dataset(
-                            label="Examples",
-                            components=[input_img_2, input_text_2],
-                            samples=example_list6,
+                            label="Image Examples",
+                            components=[input_img_2],
+                            samples=example_list_image,
                         )
-
+                        gr.Examples(
+                            examples=example_list_2,
+                            inputs=[radio_2,input_text_2],
+                        )
 
             with gr.TabItem("Box"):
                 with gr.Row():
@@ -483,9 +437,13 @@ with gr.Blocks(
                         input_text_3 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon') 
                         submit_button_3 = gr.Button("Submit", variant="primary")
                         example_data_3 = gr.Dataset(
-                            label="Examples",
-                            components=[input_img_3, input_text_3],
-                            samples=example_list7,
+                            label="Image Examples",
+                            components=[input_img_3],
+                            samples=example_list_image,
+                        )
+                        gr.Examples(
+                            examples=example_list_3,
+                            inputs=[radio_3,input_text_3],
                         )
 
 
@@ -500,26 +458,42 @@ with gr.Blocks(
                         input_text_4 = gr.Textbox(label="Input Instruction",placeholder='Message Ladon')
                         submit_button_4 = gr.Button("Submit", variant="primary")                      
                         example_data_4 = gr.Dataset(
-                            label="Examples", components=[input_text_2], samples=example_list3
+                            label="Image Examples",
+                            components=[input_img_4],
+                            samples=example_list_image,
+                        )
+                        gr.Examples(
+                            examples=example_list_4,
+                            inputs=[radio_4,input_text_4],
                         )
 
 
 
         with gr.Column():
+            with gr.Row():
+                temp_slider = gr.Slider(minimum=0.0,maximum=1.0,value=0.1,
+                                step=0.05,interactive=True,label="Temperature")
+                top_p_slider = gr.Slider(minimum=0.0,maximum=1.0,value=0.75,
+                                step=0.05,interactive=True,label="Top P")
+                top_k_slider = gr.Slider(minimum=0,maximum=100,value=40,
+                                step=1,interactive=True,label="Top K")
+                
+            with gr.Row():
+                with gr.Column():
+                    chatbot = gr.Chatbot(height=600)
+                    # chatbot.like(print_like_dislike, None, None)
+                    output_mask = gr.Image(label="Output image", height=300, interactive=False)             
+                    clear_button = gr.Button("🗑 Clear Button")
+                    gr.Markdown(descrip_chatbot)
 
-            chatbot = gr.Chatbot(height=600)
-            # chatbot.like(print_like_dislike, None, None)
-            output_mask = gr.Image(label="Output image", height=300, interactive=False)             
-            clear_button = gr.Button("🗑 Clear Button")
-            gr.Markdown(descrip_grounding_detection)
+    gr.Markdown(tos_markdown)
+    gr.Markdown(learn_more_markdown)
+
 
     
-
-
-    
-    clear_button.click(lambda: None, [], [input_text_1,input_text_2,input_text_3,input_text_4,
-                                        preprocessed_img,input_img_1,input_img_2,input_img_3,input_img_4,
-                                        selected_points,prompt_image_list,point_mask]).then(
+    clear_button.click(clear_states,
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
         lambda: None,
         None,
         None,
@@ -590,33 +564,35 @@ with gr.Blocks(
                         [input_text_1,input_img_1,chatbot,radio_1,task_state,prompt_image_list],
                         [input_text_1,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_1,task_state,prompt_image_list,radio_1],
+                        [chatbot,input_img_1,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_2.click(submit_step1,
                         [input_text_2,input_img_2, chatbot,radio_2,task_state,prompt_image_list,point_mask],
                         [input_text_2,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_2,task_state,prompt_image_list,radio_2],
+                        [chatbot,input_img_2,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_3.click(submit_step1,
                         [input_text_3,input_img_3,chatbot,radio_3,task_state,prompt_image_list],
                         [input_text_3,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_3,task_state,prompt_image_list,radio_3],
+                        [chatbot,input_img_3,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_4.click(submit_step1,
                         [input_text_4,input_img_4,chatbot,radio_4,task_state,prompt_image_list],
                         [input_text_4,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_4,task_state,prompt_image_list,radio_4],
+                        [chatbot,input_img_4,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
 
 
-    example_data_1.click(
+    example_data_1.click(clear_states,
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
         init_image,
         [example_data_1],
         [
@@ -625,12 +601,59 @@ with gr.Blocks(
             input_img_2,
             input_img_3,
             input_img_4,
+            selected_points,
+        ],
+    )
 
+    example_data_2.click(clear_states,
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+        init_image,
+        [example_data_2],
+        [
+            preprocessed_img,
+            input_img_1,
+            input_img_2,
+            input_img_3,
+            input_img_4,
+            selected_points,
+        ],
+    )
+
+    example_data_3.click(clear_states,
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+        init_image,
+        [example_data_3],
+        [
+            preprocessed_img,
+            input_img_1,
+            input_img_2,
+            input_img_3,
+            input_img_4,
+            selected_points,
+        ],
+    )
+
+    example_data_4.click(clear_states,
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+        init_image,
+        [example_data_4],
+        [
+            preprocessed_img,
+            input_img_1,
+            input_img_2,
+            input_img_3,
+            input_img_4,
             selected_points,
         ],
     )
 
 
+
+
+
 demo.queue().launch(
-    debug=True,
+    debug=True,server_port=5590,
 )

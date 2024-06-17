@@ -18,7 +18,7 @@ with read_base():
 
 
 cutoff_len = 4096
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0606_iter1000'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0607_iter4500'
 
 
 projector = dict(

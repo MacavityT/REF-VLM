@@ -908,10 +908,10 @@ class GranDDataset(MInstrDataset):
 
         # construct multi-turn conversations and random selection
         if random_select:
-            det_dict['conversations']['ground_conversations'] = self.random_select(det_dict['conversations']['ground_conversations'],length=length)
-            seg_dict['conversations']['ground_conversations'] = self.random_select(seg_dict['conversations']['ground_conversations'],length=length)
-            det_dict['conversations']['rec_conversations'] = self.random_select(det_dict['conversations']['rec_conversations'],length=length)
-            seg_dict['conversations']['rec_conversations'] = self.random_select(seg_dict['conversations']['rec_conversations'],length=length)
+            det_dict['conversations']['ground_conversations'] = self.random_select(det_dict['conversations']['ground_conversations'],length=1)
+            seg_dict['conversations']['ground_conversations'] = self.random_select(seg_dict['conversations']['ground_conversations'],length=1)
+            det_dict['conversations']['rec_conversations'] = self.random_select(det_dict['conversations']['rec_conversations'],length=1)
+            seg_dict['conversations']['rec_conversations'] = self.random_select(seg_dict['conversations']['rec_conversations'],length=1)
             det_dict['conversations']['reg_conversations'] = self.random_select(det_dict['conversations']['reg_conversations'],length=length)
             seg_dict['conversations']['reg_conversations'] = self.random_select(seg_dict['conversations']['reg_conversations'],length=length)
             det_dict['conversations']['cap_det_conversations'] = self.random_select(det_dict['conversations']['cap_det_conversations'],length=length)

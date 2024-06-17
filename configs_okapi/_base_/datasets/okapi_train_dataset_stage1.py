@@ -38,8 +38,8 @@ dataset_args = [
     gc,
     recvg,
     # llava pretrain
-    # train_all_dataset['llavacc3m'],
-    # train_all_dataset['llavalcs'],
+    train_all_dataset['llavacc3m'],
+    train_all_dataset['llavalcs'],
     # vqa
     train_all_dataset['vqav2_train'],
     train_all_dataset['vqae_train'],

@@ -35,10 +35,6 @@ class OkapiInference:
                  torch_dtype='fp32',
                  bits=None,
                  max_new_tokens=2048,
-                 temperature=0.1,
-                 top_p=0.75,
-                 top_k=40,
-                 repetition_penalty=1.0,
                  stop_words=[],
                  visual_select_layer=-2):
         
@@ -58,17 +54,7 @@ class OkapiInference:
         self.stop_words = stop_words
         self.stop_criteria = get_stop_criteria(
                 tokenizer=self.tokenizer, stop_words=self.stop_words)
-        self.gen_config = GenerationConfig(
-            max_new_tokens=self.max_new_tokens,
-            do_sample=temperature > 0,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
-            eos_token_id=self.tokenizer.eos_token_id,
-            pad_token_id=self.tokenizer.pad_token_id
-            if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
-        )
+
         self.visual_select_layer = visual_select_layer
     
     def load_model(self,
@@ -244,10 +230,12 @@ class OkapiInference:
     def inference(self,
                  prompt_text,
                  n_turn,
+                 gen_config,
                  history=None,
                  image=None,
                  prompt_image=None):
-        
+
+
         if history is None:
             history = ''
         sep = ''
@@ -271,7 +259,7 @@ class OkapiInference:
                 
             generate_output = self.llm.generate(
                 inputs=ids.cuda(),
-                generation_config=self.gen_config,
+                generation_config=gen_config,
                 stopping_criteria=self.stop_criteria)
 
             output_decode = self.tokenizer.decode(generate_output[0])
@@ -312,9 +300,10 @@ class OkapiInference:
             for key in mm_inputs.keys():
                 if mm_inputs[key] is not None:
                     mm_inputs[key] = mm_inputs[key].to(self.llm.dtype)
+
             generate_output = self.llm.generate(
                 **mm_inputs,
-                generation_config=self.gen_config,
+                generation_config=gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
                 stopping_criteria=self.stop_criteria)
             output_decode = self.tokenizer.decode(generate_output[0])
@@ -344,9 +333,24 @@ class OkapiInference:
                  history,
                  image,
                  prompt_image,
+                 temperature,
+                 top_p,
+                 top_k,
+                 repetition_penalty=1.0,
                  ):
         """forward function to make the inference"""
 
+        gen_config = GenerationConfig(
+            max_new_tokens=self.max_new_tokens,
+            do_sample=temperature > 0,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
+            eos_token_id=self.tokenizer.eos_token_id,
+            pad_token_id=self.tokenizer.pad_token_id
+            if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
+        )
 
         output_dict = self.inference(
             prompt_text=prompt_text,
@@ -354,6 +358,7 @@ class OkapiInference:
             history=history,
             image=image,
             prompt_image=prompt_image,
+            gen_config=gen_config
         )
 
         return output_dict['output'], output_dict['history'], output_dict['prompt_image'], output_dict['n_turn']
