@@ -13,7 +13,7 @@ from .vqaex import VQAEXDataset
 from .pope import POPEVQADataset
 from .grit import GRITDataset,GRITOfflineDataset
 from .grand import GranDDataset
-from .ospery import OspreyShortForm, OspreyPartLevel, OspreyLVISPosNeg, OspreyConversations, OspreyDetailedDescription
+from .osprey import OspreyShortForm, OspreyPartLevel, OspreyLVISPosNeg, OspreyConversations, OspreyDetailedDescription
 from .coco_interact import COCOInteract
 from .cityscapes import Cityscapes
 from .offline import OfflineDataset

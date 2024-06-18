@@ -32,21 +32,21 @@ class VPTEncoderModel(PreTrainedModel):
         self.position_embedding = nn.Embedding(self.num_patches, config.visual_hidden_size)
         self.register_buffer("position_ids", torch.arange(self.num_patches).expand((1, -1)), persistent=False)
 
-        # projector
-        modules = [
-            nn.Linear(
-                config.visual_hidden_size,
-                config.llm_hidden_size,
-                bias=config.bias)
-        ]
-        for _ in range(1, config.depth):
-            modules.append(ACT2FN[config.hidden_act])
-            modules.append(
-                nn.Linear(
-                    config.llm_hidden_size,
-                    config.llm_hidden_size,
-                    bias=config.bias))
-        self.model = nn.Sequential(*modules)
+        # # projector
+        # modules = [
+        #     nn.Linear(
+        #         config.visual_hidden_size,
+        #         config.llm_hidden_size,
+        #         bias=config.bias)
+        # ]
+        # for _ in range(1, config.depth):
+        #     modules.append(ACT2FN[config.hidden_act])
+        #     modules.append(
+        #         nn.Linear(
+        #             config.llm_hidden_size,
+        #             config.llm_hidden_size,
+        #             bias=config.bias))
+        # self.model = nn.Sequential(*modules)
 
 
     def enable_input_require_grads(self):
@@ -56,7 +56,7 @@ class VPTEncoderModel(PreTrainedModel):
 
         self.position_embedding.register_forward_hook(make_inputs_require_grad)
         self.patch_embedding.register_forward_hook(make_inputs_require_grad)
-        self.model.register_forward_hook(make_inputs_require_grad)
+        # self.model.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
         if isinstance(module, VPTEncoderModel):
@@ -130,12 +130,12 @@ class VPTEncoderModel(PreTrainedModel):
             raise NotImplementedError
         return vpt_feats
 
-    def project(self, x):
-        if self.gradient_checkpointing and self.training:
-            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
-        else:
-            layer_outputs = self.model(x)
-        return layer_outputs
+    # def project(self, x):
+    #     if self.gradient_checkpointing and self.training:
+    #         layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
+    #     else:
+    #         layer_outputs = self.model(x)
+    #     return layer_outputs
 
     def forward(self, x, regions, return_dict=True):
         """
@@ -156,7 +156,7 @@ class VPTEncoderModel(PreTrainedModel):
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
         vpt_feats = self.mask_patch_feats(x, regions)  # b, q, n, c
         vpt_feats = vpt_feats + self.position_embedding(self.position_ids)
-        vpt_feats = self.project(vpt_feats)
+        # vpt_feats = self.project(vpt_feats)
 
         if return_dict:
             result = dict(

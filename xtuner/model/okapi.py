@@ -122,8 +122,8 @@ class OkapiModel(BaseModel):
                 vis_feats_len=vis_feats_len,
                 mask_patch_len=vis_feats_len // num_patches,
                 visual_hidden_size=self.visual_encoder.config.hidden_size,
-                llm_hidden_size=self.llm.config.hidden_size,
-                depth=projector_depth
+                # llm_hidden_size=self.llm.config.hidden_size,
+                # depth=projector_depth
             )
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
@@ -351,10 +351,28 @@ class OkapiModel(BaseModel):
                     return_dict = True
                 )
                 visual_prompts['vpt_count'] = vpt_count
-            data.update(visual_prompts)
 
-            pixel_values = self.projector(selected_feats)
+            # data.update(visual_prompts)
+
+            # pixel_values = self.projector(selected_feats)
+            # data['pixel_values'] = pixel_values
+
+            # concat and reuse projector
+            vpt_feats = visual_prompts['vpt_feats']
+            b, q, n, c = vpt_feats.shape
+            _, l, _ = selected_feats.shape
+            vpt_feats = vpt_feats.view(b, -1, c)
+            concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
+            concat_feats = self.projector(concat_feats)
+
+            pixel_values = concat_feats[:, :l, :]
+            vpt_feats = concat_feats[:, l:, :]
+            vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
+            visual_prompts['vpt_feats'] = vpt_feats
+            data.update(visual_prompts)
             data['pixel_values'] = pixel_values
+
+
 
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()

@@ -18,14 +18,14 @@ class VPTEncoderConfig(PretrainedConfig):
         bias=True,
         **kwargs,
     ):
+        self.visual_hidden_size = visual_hidden_size
         self.vis_feats_len = vis_feats_len
         self.mask_patch_len = mask_patch_len
         self.strategy = strategy
 
-        # projector
-        self.visual_hidden_size = visual_hidden_size
-        self.llm_hidden_size = llm_hidden_size
-        self.depth = depth
-        self.hidden_act = hidden_act
-        self.bias = bias
+        # # projector
+        # self.llm_hidden_size = llm_hidden_size
+        # self.depth = depth
+        # self.hidden_act = hidden_act
+        # self.bias = bias
         super().__init__(**kwargs)

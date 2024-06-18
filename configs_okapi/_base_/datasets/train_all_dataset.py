@@ -10,7 +10,7 @@ with read_base():
     from .train_vqaex_variant import train_vqaex_variant
     from .train_grit_variant import train_grit_variant
     from .train_grand_variant import train_grand_variant
-    from .train_ospery_variant import train_osprey_variant
+    from .train_osprey_variant import train_osprey_variant
     from .train_interact_variant import train_interact_variant
     from .train_ade20k_variant import train_ade20k_variant
     from .train_pascal_variant import train_voc_variant
