@@ -33,6 +33,15 @@ Reference: https://github.com/facebookresearch/detectron2/blob/main/detectron2/d
 
 """
 
+def resize_mask(mask,width,height,ratio=0.3):
+    if mask is None:
+        return None
+    mask = Image.fromarray(mask)
+    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.ANTIALIAS)
+    mask = np.array(mask)
+    mask[mask!=0] = 1
+    return mask.astype(np.uint8)
+
 
 @DATASETS.register_module()
 class Cityscapes(MInstrDataset):
@@ -105,22 +114,21 @@ class Cityscapes(MInstrDataset):
     classLabels.append('void')
 
 
-    def __init__(self, *args, split='train', target_type='', **kwargs):
-        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+    def __init__(self, *args, **kwargs):
+        self.split = kwargs.pop('split',None)
+        self.target_type = kwargs.pop('target_type',None) #  ("instance", "semantic", "polygon", "color", "depth")
+        assert self.split is not None
+        assert self.target_type is not None
+        super().__init__(*args, **kwargs)
         self.mode = "gtFine" 
-        self.split = split
-        self.target_type = target_type #  ("instance", "semantic", "polygon", "color", "depth")
+         
         self.targets_dir = self.text_path 
         self.images_dir = self.image_folder
         self.sem_question = "Can you segment <cls> in the image <image> and provide the masks for this class?"
         self.ins_question = "Can you segment this image<image> and display segmentation results?"
         self.data_infos = self.load_annotations(self.images_dir, self.targets_dir)
-    
-
-    def get_file_data(self, file_path):
-        pass
         
-    def load_annotations(self, images_dir, targets_dir, ):
+    def load_annotations(self, images_dir, targets_dir):
         
         data_infos = []
 
@@ -230,25 +238,27 @@ class Cityscapes(MInstrDataset):
             'target':  {'mask': gt_mask},
             'conversations': conversation
         }
+        ret['map_placeholders'] = self.map_placeholders
         return ret
 
 
 
 @DATASETS.register_module()
 class CityscapesSemantic(Cityscapes):
-    def __init__(self, *args, split='train', target_type='semantic', **kwargs):
-        super().__init__(*args, target_type = target_type, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
     
 @DATASETS.register_module()
 class CityscapesInstance(Cityscapes):
-    def __init__(self, *args, split='train',  target_type='instance', **kwargs):
+    def __init__(self, *args,**kwargs):
+        self.ratio = kwargs.pop('ratio',1)
+        super().__init__( *args, **kwargs)
         self.classes = ['person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle', 'bicycle']
         self.class_id = [24, 25, 26, 27, 28, 31, 32, 33]
         self.place_holder = MASKS_PLACEHOLDER
-        super().__init__(*args, target_type = target_type, **kwargs,)
-    
+         
 
     def get_ins_ids(self, target):
         ids = [iid for iid in np.unique(target) if iid >= 1000]  # <1000: sem, >=1000: ins
@@ -260,16 +270,19 @@ class CityscapesInstance(Cityscapes):
         data_info = self.data_infos[index]
         img_path = data_info['img_path']
         target_path = data_info['target_path']
-        height = data_info['height']
-        width = data_info['width']
+
+        height = int(data_info['height'] * self.ratio)
+        width = int(data_info['width'] * self.ratio)
 
         target = Image.open(target_path)
-        target = self.get_ins_ids(target)
+
+        target = np.array(target)
+        target_idx = self.get_ins_ids(target)
 
         gt_masks = []
         gt_names = []
         answers = []
-        unique_labels = np.unique(target)
+        unique_labels = np.unique(target_idx)
         
         class_label_counts = {}
         for i in range(len(unique_labels)):  
@@ -279,7 +292,7 @@ class CityscapesInstance(Cityscapes):
                 class_index = self.class_id.index(class_id)
                 class_label  = self.classes[class_index]
                 mask = (target == unique_labels[i]).astype(np.uint8)
-                gt_masks.append(mask)
+                gt_masks.append(resize_mask(mask,data_info['width'],data_info['height'],self.ratio))
                 class_label_counts[class_label] = class_label_counts.get(class_label, 0) + 1 
                 gt_names.append(class_label) 
    
@@ -287,27 +300,40 @@ class CityscapesInstance(Cityscapes):
 
         mask_seq = {}
         start_index = 0
-        for class_label, count in class_label_counts.items():
+        for i, (class_label, count) in enumerate(class_label_counts.items()):
             indices = [str(i) for i in range(start_index, start_index + count)]
             mask_seq[class_label] = indices
             start_index += count
             answers['masks_seq'].extend([list(map(int, indices))])
-            answers['value'] += f"{PHRASE_ST_PLACEHOLDER_STAGE2}{class_label}{PHRASE_ED_PLACEHOLDER_STAGE2},"
+            answers['value'] += f"{PHRASE_ST_PLACEHOLDER_STAGE2}{class_label}{PHRASE_ED_PLACEHOLDER_STAGE2}"
             if count > 0:
                 answers['value'] += "<masks>" * count
+            
+            if i != len(class_label_counts.items()) - 1:
+                answers['value'] += ', '
+            else:
+                answers['value'] += '.'
 
         # get conversation
         task = {'task_name': 'segmentation', 'element': ['phrase'], 'use_unit': True}
         unit = ['mask']
         system = {'from': 'system', 'value': [{'task': task, 'unit': unit}]}
-        human = {'from': 'human', 'value': self.ins_question}
+        if self.split == 'train':
+            question = self.get_template()
+        elif self.split == 'val' or self.split == 'test':
+            question = self.ins_question
+        else:
+            raise NotImplementedError
+        
+        human = {'from': 'human', 'value': question}
         conversations = [system, human, answers]
 
         ret = {
             'image': {'path': img_path, 'width': width, 'height': height},
-            'target': {'mask': target},
+            'target': {'masks': gt_masks},
             'conversations': conversations
         }
+        ret['map_placeholders'] = self.map_placeholders
         return ret
 
 

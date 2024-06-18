@@ -85,7 +85,7 @@ def resize_box(box,width,height,ratio=0.3):
 @DATASETS.register_module()
 class GranDDataset(MInstrDataset):
 
-    def __init__(self, *args,version,use_floating_objects=True,max_conv_length=None,**kwargs):
+    def __init__(self, *args, version,use_floating_objects=True,max_conv_length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.use_floating_objects = use_floating_objects

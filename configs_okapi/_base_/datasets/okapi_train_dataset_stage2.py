@@ -62,13 +62,13 @@ dataset_s1 = [
 
     # subsets
     gc,
-    reg,
-    caption,
 
 
     # general datasets
     train_all_dataset['flickr'],
     train_all_dataset['rec'],
+    train_all_dataset['caption'],
+    train_all_dataset['reg'],
     
     # vcr
     train_all_dataset['vcr_qc_rac'],
@@ -120,6 +120,11 @@ dataset_s2 = [
     train_all_dataset['interact_reg'],
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
+
+    # segmentation datasets
+    train_all_dataset['train_cityscapes_instance'],
+    train_all_dataset['train_ade20_with_instance'],
+    train_all_dataset['coco_rem'],
 ]
 
 
