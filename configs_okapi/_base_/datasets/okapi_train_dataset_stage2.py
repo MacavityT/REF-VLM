@@ -109,12 +109,12 @@ dataset_s2 = [
     train_all_dataset['gpt4gen_qbc'],
     train_all_dataset['gpt4gen_rd_qbc'],
 
-    # ospery
-    train_all_dataset['ospery_partlevel'],
-    train_all_dataset['ospery_shortform'],
-    train_all_dataset['ospery_lvis'],
-    train_all_dataset['ospery_conversations'],
-    train_all_dataset['ospery_detailed'],
+    # osprey
+    train_all_dataset['osprey_partlevel'],
+    train_all_dataset['osprey_shortform'],
+    train_all_dataset['osprey_lvis'],
+    train_all_dataset['osprey_conversations'],
+    train_all_dataset['osprey_detailed'],
 
     # # interact
     train_all_dataset['interact_reg'],
