@@ -1,5 +1,4 @@
 interact_train_common_cfg=dict(
-    type='COCOInteract',
     text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/coco_interactive_train_psalm.json',
     image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
 )
@@ -7,7 +6,8 @@ interact_train_common_cfg=dict(
 
 train_interact_variant = dict(
     interact_mask=dict(
-        **interact_train_common_cfg, 
+        **interact_train_common_cfg,
+        type='COCOInteract', 
         template_name=r'Region_SEG',
         version='s',
         max_conv_length=6,
@@ -19,7 +19,8 @@ train_interact_variant = dict(
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/mask_offline'     
     ),
     interact_box=dict(
-        **interact_train_common_cfg, 
+        **interact_train_common_cfg,
+        type='COCOInteract', 
         template_name=r'Region_DET',
         version='d',
         max_conv_length=6,
@@ -31,7 +32,8 @@ train_interact_variant = dict(
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/box_offline_new'           
     ),
     interact_reg=dict(
-        **interact_train_common_cfg, 
+        **interact_train_common_cfg,
+        type='COCOInteract', 
         template_name=r'REG_SEG',
         version='r',
         max_conv_length=6,

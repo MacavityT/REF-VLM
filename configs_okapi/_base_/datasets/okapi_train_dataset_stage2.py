@@ -61,32 +61,32 @@ grand_seg_det = dict(
 dataset_s1 = [
 
     # subsets
-    gc,
+    # gc,
 
 
-    # general datasets
-    train_all_dataset['flickr'],
-    train_all_dataset['rec'],
-    train_all_dataset['caption'],
-    train_all_dataset['reg'],
+    # # general datasets
+    # train_all_dataset['flickr'],
+    # train_all_dataset['rec'],
+    # train_all_dataset['caption'],
+    # train_all_dataset['reg'],
     
-    # vcr
-    train_all_dataset['vcr_qc_rac'],
-    train_all_dataset['vcr_qac_r'],
+    # # vcr
+    # train_all_dataset['vcr_qc_rac'],
+    # train_all_dataset['vcr_qac_r'],
 
-    # vqa v2
-    train_all_dataset['vqav2_train'],
-    train_all_dataset['vqae_train'],
-    train_all_dataset['vqax_train'],
+    # # vqa v2
+    # train_all_dataset['vqav2_train'],
+    # train_all_dataset['vqae_train'],
+    # train_all_dataset['vqax_train'],
 
-    # point qa
-    train_all_dataset['point_local_b'],
-    train_all_dataset['point_local_p'],
-    train_all_dataset['point_twice_oq_bp'],
-    train_all_dataset['point_twice_sq_bp'],
-    train_all_dataset['point_twice_gq_bp'],
-    train_all_dataset['point_v7w_p'],
-    train_all_dataset['point_v7w_b'],
+    # # point qa
+    # train_all_dataset['point_local_b'],
+    # train_all_dataset['point_local_p'],
+    # train_all_dataset['point_twice_oq_bp'],
+    # train_all_dataset['point_twice_sq_bp'],
+    # train_all_dataset['point_twice_gq_bp'],
+    # train_all_dataset['point_v7w_p'],
+    # train_all_dataset['point_v7w_b'],
 ]
 
 for dataset in dataset_s1:
@@ -98,28 +98,28 @@ for dataset in dataset_s1:
 
 dataset_s2 = [
     # subset
-    grit,
+    # grit,
     # grand_mix,
-    # grand_seg_det,
+    grand_seg_det,
 
     # # instruct
-    train_all_dataset['instruct'],
+    # train_all_dataset['instruct'],
 
-    # gpt gen
-    train_all_dataset['gpt4gen_qbc'],
-    train_all_dataset['gpt4gen_rd_qbc'],
+    # # gpt gen
+    # train_all_dataset['gpt4gen_qbc'],
+    # train_all_dataset['gpt4gen_rd_qbc'],
 
-    # osprey
-    train_all_dataset['osprey_partlevel'],
-    train_all_dataset['osprey_shortform'],
-    train_all_dataset['osprey_lvis'],
-    train_all_dataset['osprey_conversations'],
-    train_all_dataset['osprey_detailed'],
+    # # osprey
+    # train_all_dataset['osprey_partlevel'],
+    # train_all_dataset['osprey_shortform'],
+    # train_all_dataset['osprey_lvis'],
+    # train_all_dataset['osprey_conversations'],
+    # train_all_dataset['osprey_detailed'],
 
-    # # interact
-    train_all_dataset['interact_reg'],
-    train_all_dataset['interact_mask'],
-    train_all_dataset['interact_box'],
+    # # # interact
+    # train_all_dataset['interact_reg'],
+    # train_all_dataset['interact_mask'],
+    # train_all_dataset['interact_box'],
 
     # segmentation datasets
     # train_all_dataset['train_cityscapes_instance'],

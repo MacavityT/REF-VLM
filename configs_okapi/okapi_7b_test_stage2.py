@@ -23,7 +23,7 @@ with read_base():
 prompt_template = PROMPT_TEMPLATE.okapi
 max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096
-dataloader_num_workers = 20
+dataloader_num_workers = 8
 vrt_length = 64
 ref_length = 1
 

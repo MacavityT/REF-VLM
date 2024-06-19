@@ -11,6 +11,7 @@ with read_base():
     from ..models.all_visual_encoders import clip_patch14_336
     from .test_rec_variant import test_rec_variant
     from .train_grand_variant import train_grand_variant
+    from .test_interact_variant import test_interact_variant
 
 test_cfg = dict(type='TestLoop')
 
@@ -31,6 +32,7 @@ test_all_dataset = dict(
     ),
     **test_rec_variant,
     **train_grand_variant,
+    **test_interact_variant,
 )
 
 

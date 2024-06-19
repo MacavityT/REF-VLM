@@ -14,7 +14,7 @@ from .pope import POPEVQADataset
 from .grit import GRITDataset,GRITOfflineDataset
 from .grand import GranDDataset
 from .osprey import OspreyShortForm, OspreyPartLevel, OspreyLVISPosNeg, OspreyConversations, OspreyDetailedDescription
-from .coco_interact import COCOInteract
+from .coco_interact import COCOInteract,COCOInteractSingle
 from .cityscapes import Cityscapes
 from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path

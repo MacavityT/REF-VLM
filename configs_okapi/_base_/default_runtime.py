@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from mmengine.visualization import Visualizer, TensorboardVisBackend
 from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
                             LoggerHook, ParamSchedulerHook)
 # Save
@@ -35,7 +36,10 @@ env_cfg = dict(
 )
 
 # set visualizer
-visualizer = None
+visualizer = dict(
+    type=Visualizer,
+    vis_backends=[dict(type=TensorboardVisBackend)],
+    name='visualizer')
 
 # set log level
 log_level = 'INFO'
