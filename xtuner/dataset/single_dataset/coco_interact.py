@@ -428,6 +428,9 @@ class COCOInteractSingle(MInstrDataset):
                             'category_name':category_name,
                         }
                         self.all_items.append(single_item)
+
+    def __len__(self):
+        return len(self.all_items)                        
                         
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
