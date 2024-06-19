@@ -25,6 +25,7 @@ train_cityscapes_variant = dict(
         template_name=r'SEG',
         map_placeholders=dict(
             output=["<masks>"],
-        ),     
+        ),
+        offline_processed_text_folder='',     
     ),
 )

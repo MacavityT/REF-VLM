@@ -174,8 +174,8 @@ class ConversationDataset(MInstrDataset):
                             question = question.replace(f"<{region_tag}>",f"region{MASKS_PLACEHOLDER}")
                             mask_seq.append([int(number)-1])
                     if mask_seq == []:
-                        assert len(match) == 1
-                        question = question.replace(f"<{match[0]}>",f"{region_tag}")
+                        # assert len(match) == 1
+                        question = question.replace(f"<{match[0]}>",f"{match[0]}")
                         region_str = [f'region{i}{MASKS_PLACEHOLDER}' for i in range(1,region_num+1)]
                         question += ' ' + ', '.join(region_str)
                         question = question.strip()

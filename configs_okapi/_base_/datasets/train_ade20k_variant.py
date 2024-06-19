@@ -2,8 +2,6 @@ ade20k_train_common_cfg = dict(
     type='ADE20k',
     text_path=r'/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/ade20k_instance_train.json',  
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/images/training',
-    offline_processed_text_folder = '',
-    offline_processed_image_folder = '',
     )
 
 train_ade20k_variant = dict(
@@ -23,7 +21,8 @@ train_ade20k_variant = dict(
         template_name=r'SEG',
         map_placeholders=dict(
             output=["<masks>"],
-        ),     
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/offline',
     ),
     train_ade20_with_panotic=dict(
         **ade20k_train_common_cfg,
@@ -32,6 +31,6 @@ train_ade20k_variant = dict(
         template_name=r'Cond_SEG',
         map_placeholders=dict(
             output=["<masks>"],
-        ),     
+        ),  
     ),
 )

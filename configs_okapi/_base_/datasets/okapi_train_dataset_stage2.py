@@ -122,9 +122,9 @@ dataset_s2 = [
     train_all_dataset['interact_box'],
 
     # segmentation datasets
-    train_all_dataset['train_cityscapes_instance'],
-    train_all_dataset['train_ade20_with_instance'],
-    train_all_dataset['coco_rem'],
+    # train_all_dataset['train_cityscapes_instance'],
+    # train_all_dataset['train_ade20_with_instance'],
+    # train_all_dataset['coco_rem'],
 ]
 
 

@@ -213,7 +213,9 @@ class Cityscapes(MInstrDataset):
 
 
     def __getitem__(self, index):
-
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         data_info = self.data_infos[index]
         img_path = data_info['img_path']
         gt_mask = data_info['gt_mask']
@@ -266,7 +268,6 @@ class CityscapesInstance(Cityscapes):
 
 
     def __getitem__(self, index):
-
         data_info = self.data_infos[index]
         img_path = data_info['img_path']
         target_path = data_info['target_path']

@@ -112,8 +112,10 @@ train_all_dataset = dict(
         placeholders=('<image>',),
         map_placeholders=dict(
             output=["<masks>"],
-        )        
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
     ),
+    
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,

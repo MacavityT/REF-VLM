@@ -116,13 +116,12 @@ class COCOREMDataset(MInstrDataset):
         }
         ret['map_placeholders'] = self.map_placeholders
         return ret
+    
         
-        
-    def __len__(self):
-        return len(self.imgToAnns)
-
     def __getitem__(self, index):
-        
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         conversations = self.build_conversations(index)
         return conversations
 

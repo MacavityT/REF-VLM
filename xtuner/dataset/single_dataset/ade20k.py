@@ -196,10 +196,11 @@ class ADE20k(MInstrDataset):
 
         return selected_value
     
-    def __len__(self):
-        return len(self.imgToAnns)
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         if self.target_type == 'instance':
             conversations = self.build_conversations(index)
             return conversations
