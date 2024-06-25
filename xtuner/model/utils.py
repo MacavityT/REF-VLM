@@ -262,7 +262,8 @@ def prepare_inputs_labels_for_multimodal(
                             device=cur_labels.device,
                             dtype=cur_labels.dtype))
 
-        if all(vpt_count) == 0:
+
+        if vpt_count[batch_idx] == 0:
             cur_new_inputs_embeds.append(cur_vpt_feats[0][0:0])
 
         cur_new_inputs_embeds = torch.cat(cur_new_inputs_embeds)

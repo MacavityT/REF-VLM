@@ -187,7 +187,8 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
             if DEFAULT_IMAGE_TOKEN in msg['value']:
                 msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN,
                                                     '').strip()
-                msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + msg['value']
+                vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}\n"
+                msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + vrt + msg['value']
                 msg['value'] = msg['value'].strip()
             input += msg['value']
 
@@ -304,7 +305,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
     return {'conversation': res_conversation}
 
 
-def okapi_map_fn_stage2(example, vrt_len=64, ref_len=1):
+def okapi_map_fn_stage2(example, vrt_len=256, ref_len=1):
     messages = example['conversations']
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt

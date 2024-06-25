@@ -22,6 +22,7 @@ class VPTEncoderConfig(PretrainedConfig):
         self.vis_feats_len = vis_feats_len
         self.mask_patch_len = mask_patch_len
         self.strategy = strategy
+        assert strategy in ['embedding', 'pooling']
 
         # # projector
         # self.llm_hidden_size = llm_hidden_size

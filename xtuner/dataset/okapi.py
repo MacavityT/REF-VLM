@@ -385,17 +385,16 @@ class OkapiDataset(Dataset):
             image_info = data_dict['image']
             image_path = image_info['path']
             image_meta = self.image_process(image_path)
+            data_dict['image_path'] = image_path
             data_dict['pixel_values'] = image_meta['pixel_values']
             data_dict['ori_width'] = image_meta['ori_width']
             data_dict['ori_height'] = image_meta['ori_height']
-            
-            # if image_path.split('.')[-1] == '.npy':
-            #     data_dict['tensor_image'] = True
         else:
             if hasattr(self.image_processor, 'crop_size'):
                 crop_size = self.image_processor.crop_size
             else:
                 crop_size = self.image_processor.size
+            data_dict['image_path'] = ''
             data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                     crop_size['width'])
             data_dict['ori_height'] = 0

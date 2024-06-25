@@ -91,3 +91,9 @@ class COTComputeMetrics(BaseComputeMetrics):
         acc = float(true) / float(len(preds))
         return acc
 
+@METRICS.register_module()
+class COTComputeMetrics(BaseComputeMetrics):
+    def __init__(self, eval_type, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eval_type = eval_type
+        assert self.eval_type in ['cot','all'], "evaluation type for COTComputeMetrics should be in cot or vrt"
