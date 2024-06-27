@@ -27,8 +27,10 @@ from pycocotools import mask as maskUtils
 @DATASETS.register_module()
 class COCOInteract(MInstrDataset):
 
-    def __init__(self, *args, version,max_conv_length=None, **kwargs):
+    def __init__(self, *args, version, strategy='random', max_conv_length=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.strategy = strategy
+        assert self.strategy in ['random','full']
         self.version = version
         self.coco_class_ids = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
@@ -206,50 +208,91 @@ class COCOInteract(MInstrDataset):
             question = self.get_template()
             
 
-
             if self.version == 's':
-                question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
-                random_num = random.randint(0,len(interact_list)-2)
-                answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
-                single_conversation = [
-                    {'from':'human','value':question,'masks_seq':[[5*i+1+random_num]]},
-                    {'from':'gpt','value':answer,'masks_seq':[[5*i]]}
-                ]
-                all_conversations.append(single_conversation)
-                all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
-            
-            if self.version == 'r':
-                random_num = random.randint(0,len(interact_list)-1)
-                answer = "It is " + category_name
-                selected_mask.append(interact_list[random_num])
-                masks_seq = [[len(selected_mask)-1]]
-                single_conversation = [
-                    {'from':'human','value':question,'masks_seq':masks_seq},
-                    {'from':'gpt','value':answer}
-                ]
-                all_conversations.append(single_conversation)
-                all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])               
-    
-            elif self.version == 'd':
-                question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
-                gt_boxes.append(annotation['bbox'])
-                random_num = random.randint(1,len(interact_list)-1)
+                if self.strategy == 'random':
+                    question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+                    random_num = random.randint(0,len(interact_list)-2)
+                    answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
+                    single_conversation = [
+                        {'from':'human','value':question,'masks_seq':[[5*i+1+random_num]]},
+                        {'from':'gpt','value':answer,'masks_seq':[[5*i]]}
+                    ]
+                    all_conversations.append(single_conversation)
+                    all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
                 
-                selected_mask.append(interact_list[random_num])
-                masks_seq = [[len(selected_mask)-1]]
-                answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')
-                single_conversation = [
-                    {'from':'human','value':question,'masks_seq':masks_seq},
-                    {'from':'gpt','value':answer,'boxes_seq':[[i]]}
-                ]
-                all_conversations.append(single_conversation)
-                all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                elif self.strategy == 'full':
+                    for k in range(0,len(interact)-2):
+                        question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+                        answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
+                        single_conversation = [
+                                    {'from':'human','value':question,'masks_seq':[[5*i+1+k]]},
+                                    {'from':'gpt','value':answer,'masks_seq':[[5*i]]}
+                                ]
+                        all_conversations.append(single_conversation)
+                        all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+
+            if self.version == 'r':
+                answer = "It is " + category_name
+                if self.strategy == 'random':
+                    random_num = random.randint(0,len(interact_list)-1)
+                    selected_mask.append(interact_list[random_num])
+                    masks_seq = [[len(selected_mask)-1]]
+                    single_conversation = [
+                        {'from':'human','value':question,'masks_seq':masks_seq},
+                        {'from':'gpt','value':answer}
+                    ]
+                    all_conversations.append(single_conversation)
+                    all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])
+
+                elif self.strategy == 'full':
+                    for j,interact in enumerate(interact_list):
+                        selected_mask.append(interact)
+                        mask_seq = [[len(selected_mask)-1]]
+                        single_conversation = [
+                            {'from':'human','value':question,'masks_seq':masks_seq},
+                            {'from':'gpt','value':answer}
+                        ]
+                        all_conversations.append(single_conversation)
+                        all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])  
+             
+            elif self.version == 'd':
+                gt_boxes.append(annotation['bbox'])
+                if self.strategy == 'random':
+                    question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+                    random_num = random.randint(1,len(interact_list)-1)
+                    selected_mask.append(interact_list[random_num])
+                    masks_seq = [[len(selected_mask)-1]]
+                    answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')
+                    single_conversation = [
+                        {'from':'human','value':question,'masks_seq':masks_seq},
+                        {'from':'gpt','value':answer,'boxes_seq':[[i]]}
+                    ]
+                    all_conversations.append(single_conversation)
+                    all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+
+                elif self.strategy == 'full':
+                    for m in range(1,len(interact)-1):
+                        question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+                        selected_mask.append(interact_list[m])
+                        masks_seq = [[len(selected_mask)-1]]
+                        answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')
+                        single_conversation = [
+                            {'from':'human','value':question,'masks_seq':masks_seq},
+                            {'from':'gpt','value':answer,'boxes_seq':[[i]]}
+                        ]
+                        all_conversations.append(single_conversation)
+                        all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
     
 
         #random shuffle
-        all_conversations, all_system_values = self.random_select(conversations=all_conversations,
-                                                                  length=self.length,
-                                                                  system_value=all_system_values)
+        if self.strategy == 'random':
+            all_conversations, all_system_values = self.random_select(conversations=all_conversations,
+                                                                    length=self.length,
+                                                                    system_value=all_system_values)
+        elif self.strategy == 'full':
+            all_conversations, all_system_values = self.random_select(conversations=all_conversations,
+                                                                    length=None,
+                                                                    system_value=all_system_values)            
         all_system_values = self.concat_conversations(all_system_values)
         all_conversations = self.concat_conversations(all_conversations,concat_all=True)
         
@@ -279,3 +322,160 @@ class COCOInteract(MInstrDataset):
         ret['conversations'].insert(0,{'from':'system','value':all_system_values}) 
         return ret
     
+
+
+@DATASETS.register_module()
+class COCOInteractSingle(MInstrDataset):
+
+    def __init__(self, *args, version, split='val', **kwargs):
+        super().__init__(*args, **kwargs)
+        self.split = split
+        assert self.split in ['train','val']
+        self.version = version
+        self.coco_class_ids = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
+            18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
+            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49,
+            50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+            64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+            82, 84, 85, 86, 87, 88, 89, 90
+        ]
+        self.coco_class_name = [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+            'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
+            'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
+            'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag',
+            'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+            'sports ball', 'kite', 'baseball bat', 'baseball glove',
+            'skateboard', 'surfboard', 'tennis racket', 'bottle',
+            'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+            'banana', 'apple', 'sandwich', 'orange', 'broccoli',
+            'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+            'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+            'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+            'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
+            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
+        self.process_data()
+      
+    def annToMask(self, mask_ann, h, w):
+        if isinstance(mask_ann, list):
+            rles = maskUtils.frPyObjects(mask_ann, h, w)
+            rle = maskUtils.merge(rles)
+        elif isinstance(mask_ann['counts'], list):
+            # uncompressed RLE
+            rle = maskUtils.frPyObjects(mask_ann, h, w)
+        else:
+            # rle
+            rle = mask_ann
+        mask = maskUtils.decode(rle)
+        return mask
+    
+    def process_data(self):
+
+        self.all_items = []
+        for item in self.text_data:
+            img_path = item['image']
+            image_path_abs = os.path.join(self.image_folder,img_path)
+            width = item['image_info']['width']
+            height = item['image_info']['height']
+            image = {'path': image_path_abs,'width':width,'height':height}
+
+            #load annotations
+            annotations = item['anns']
+
+            selected_mask = []
+            for i,annotation in enumerate(annotations): 
+                mask = self.annToMask(annotation['segmentation'], height, width)
+                box = annotation['bbox']
+                category_name = self.coco_class_name[self.coco_class_ids.index(annotation['category_id'])]
+                kernel = np.ones((10,10),np.uint8)
+                point_mask = decode(annotation['point_visual_prompt_mask'])
+                point_mask = cv2.dilate(point_mask,kernel,iterations=1)
+                scribble_mask = decode(annotation['scribble_visual_prompt_mask'])
+                scribble_mask = cv2.dilate(scribble_mask,kernel,iterations=1)
+                interact_list = [decode(annotation['box_visual_prompt_mask']),
+                                point_mask,
+                                scribble_mask,
+                                decode(annotation['mask_visual_prompt_mask']),]
+                
+                if self.version == 's':
+                    interact_list = interact_list[:-1]
+                    for interact in interact_list:
+                        single_item = {
+                            'target':{'masks':[interact,mask]},
+                            'image':image,
+                            'category_name':category_name,
+                        }
+                        self.all_items.append(single_item)
+
+                elif self.version == 'd':
+                    interact_list = interact_list[1:]
+                    for interact in interact_list:
+                        single_item = {
+                            'target':{'masks':[interact,mask],'boxes':[box]},
+                            'image':image,
+                            'category_name':category_name,
+                        }
+                        self.all_items.append(single_item)
+
+                elif self.version == 'r':
+                    for interact in interact_list:
+                        single_item = {
+                            'target':{'masks':[interact]},
+                            'image':image,
+                            'category_name':category_name,
+                        }
+                        self.all_items.append(single_item)
+
+    def __len__(self):
+        return len(self.all_items)                        
+                        
+    def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+        
+        item = self.all_items[index]
+        question = self.get_template()
+        category_name = item['category_name']
+
+        if self.version == 's':
+            question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+            answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
+            single_conversation = [
+                {'from':'system','value':[{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]},
+                {'from':'human','value':question,'masks_seq':[[0]]},
+                {'from':'gpt','value':answer,'masks_seq':[[1]]}
+            ]
+
+        elif self.version == 'r':
+            answer = "It is " + category_name
+            single_conversation = [
+                {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
+                {'from':'human','value':question,'masks_seq':[[0]]},
+                {'from':'gpt','value':answer}
+            ]
+        
+        elif self.version == 'd':
+            question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+            answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}')
+            single_conversation = [
+                {'from':'system','value':[{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
+                {'from':'human','value':question,'masks_seq':[[0]]},
+                {'from':'gpt','value':answer,'boxes_seq':[[0]]}
+            ]
+
+        ret = {
+            'image': item['image'],
+            'target': item['target'],
+            'conversations': single_conversation,
+            'map_placeholders': self.map_placeholders
+        }
+
+        return ret
+
+
+
+

@@ -10,7 +10,8 @@ with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
     from .test_rec_variant import test_rec_variant
-
+    from .train_grand_variant import train_grand_variant
+    from .test_interact_variant import test_interact_variant
 
 test_cfg = dict(type='TestLoop')
 
@@ -29,7 +30,9 @@ test_all_dataset = dict(
         image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vqav2_val_shape.jsonl',
         template_name=r"VQA",
     ),
-    **test_rec_variant
+    **test_rec_variant,
+    **train_grand_variant,
+    **test_interact_variant,
 )
 
 

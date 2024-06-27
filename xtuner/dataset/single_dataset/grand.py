@@ -85,7 +85,7 @@ def resize_box(box,width,height,ratio=0.3):
 @DATASETS.register_module()
 class GranDDataset(MInstrDataset):
 
-    def __init__(self, *args,version,use_floating_objects=True,max_conv_length=None,**kwargs):
+    def __init__(self, *args, version,use_floating_objects=True,max_conv_length=None,**kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
         self.use_floating_objects = use_floating_objects
@@ -732,8 +732,11 @@ class GranDDataset(MInstrDataset):
 
             id_map[f"id_{object['id']}"] = i
 
-            cls_name = ', '.join(object['labels'])
-            cls_name = cls_name.replace('_',' ')
+            if 'label' in object.keys():
+                cls_name = object['label']
+            else:
+                cls_name = object['labels'][0]
+            cls_name = cls_name.replace("_"," ")
 
 
             if cls_name in cls_names:  # some class may have two or more boxes
@@ -1024,9 +1027,11 @@ class GranDDataset(MInstrDataset):
                              height=ret['image']['height'],ratio=ratio)
             det_dict['bboxes'].append(box)
             seg_dict['masks'].append(mask)
-
-            cls_name = ', '.join(object['labels'])
-            cls_name = cls_name.replace('_',' ')
+            if 'label' in object.keys():
+                cls_name = object['label']
+            else:
+                cls_name = object['labels'][0]
+            cls_name = cls_name.replace("_"," ")
 
             if cls_name in cls_names:  # some class may have two or more boxes
                 previous_seq = cls_names.index(cls_name)

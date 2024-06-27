@@ -10,6 +10,7 @@ with read_base():
     from test_vqav2_variant import test_vqav2_variant
     from test_point_variant import test_point_variant
     from test_pope_variant import test_pope_variant
+    from test_interact_variant import test_interact_variant
 
 test_all_dataset = dict(
     **test_rec_variant,
@@ -21,4 +22,5 @@ test_all_dataset = dict(
     **test_vqav2_variant,
     **test_point_variant,
     **test_pope_variant,
+    **test_interact_variant,
 )

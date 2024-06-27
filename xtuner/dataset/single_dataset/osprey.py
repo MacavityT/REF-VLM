@@ -148,24 +148,57 @@ class ConversationDataset(MInstrDataset):
 
             for i in range(len(ann['conversations'])//2):
                     
-                if i == 0:
-                    if region_num == 1:
-                        mid_str = "There are 1 part region in the picture: "+str_region+'. '
-                    else:
-                        mid_str = "There are {} part regions in the picture: ".format(str(region_num)) + str_region + '. '
+                # if i == 0:
+                #     if region_num == 1:
+                #         mid_str = "There are 1 part region in the picture: "+str_region+'. '
+                #     else:
+                #         mid_str = "There are {} part regions in the picture: ".format(str(region_num)) + str_region + '. '
 
-                    question = ann['conversations'][i*2]['value']
-                    question = question.replace('<','').replace('>','')
-                    question = self.begin_str + mid_str + question
-                    qa_s.append({'from': 'human', 'value': question + self.limit,'masks_seq':[[i] for i in range(region_num)]}) 
+                #     question = ann['conversations'][i*2]['value']
+                #     question = question.replace('<','').replace('>','')
+                #     question = self.begin_str + mid_str + question
+                #     qa_s.append({'from': 'human', 'value': question + self.limit,'masks_seq':[[i] for i in range(region_num)]}) 
+                # else:
+                #     question = ann['conversations'][i*2]['value']
+                #     question = question.replace('<','').replace('>','')
+                #     qa_s.append({'from': 'human', 'value': question + self.limit})         
+
+                question = ann['conversations'][i*2]['value']
+                match = re.findall(r'<(.*?)>', question)
+                if match != []:
+                    mask_seq = []
+                    for region_tag in match:
+                        number = re.search(r'\d+', region_tag)
+                        if number:
+                            number = number.group(0)
+                            question = question.replace(f"<{region_tag}>",f"region{MASKS_PLACEHOLDER}")
+                            mask_seq.append([int(number)-1])
+                    if mask_seq == []:
+                        # assert len(match) == 1
+                        question = question.replace(f"<{match[0]}>",f"{match[0]}")
+                        region_str = [f'region{i}{MASKS_PLACEHOLDER}' for i in range(1,region_num+1)]
+                        question += ' ' + ', '.join(region_str)
+                        question = question.strip()
+                        mask_seq = [[i] for i in range(region_num)]
                 else:
-                    question = ann['conversations'][i*2]['value']
-                    question = question.replace('<','').replace('>','')
-                    qa_s.append({'from': 'human', 'value': question + self.limit})         
-
+                    region_str = [f'region{i}{MASKS_PLACEHOLDER}' for i in range(1,region_num+1)]
+                    question += ' ' + ', '.join(region_str)
+                    question = question.strip()
+                    mask_seq = [[i] for i in range(region_num)]
                 
+                if i == 0:
+                    question = IMAGE_PLACEHOLDER + question
+                qa_s.append({'from': 'human', 'value': question + self.limit,'masks_seq':mask_seq}) 
+
+                def replacer(match):
+                    replacer.counter += 1
+                    return f'region{replacer.counter}'
+                replacer.counter = 0
                 answer = ann['conversations'][i*2+1]['value']
-                answer = answer.replace('<','').replace('>','')
+                pattern = r'<region\d>'
+                answer = re.sub(pattern, replacer, answer)
+
+
                 qa_s.append({'from': 'gpt', 'value': answer})
 
             data_infos.append(dict(
@@ -285,6 +318,7 @@ class OspreyConversations(ConversationDataset):
     def __init__(self, *args, **kwargs):
         self.limit = ""
         super().__init__(*args, **kwargs)
+    
         
 @DATASETS.register_module()
 class OspreyShortForm(ConversationDataset):

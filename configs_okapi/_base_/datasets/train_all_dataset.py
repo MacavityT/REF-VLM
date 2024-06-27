@@ -12,7 +12,9 @@ with read_base():
     from .train_grand_variant import train_grand_variant
     from .train_osprey_variant import train_osprey_variant
     from .train_interact_variant import train_interact_variant
-
+    from .train_ade20k_variant import train_ade20k_variant
+    from .train_pascal_variant import train_voc_variant
+    from .train_cityscapes_variant import train_cityscapes_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -102,7 +104,18 @@ train_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
         offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
     ),
-
+    coco_rem=dict(
+        type='COCOREMDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/instances_trainrem.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/train2017',
+        template_name=r'SEG',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<masks>"],
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
+    ),
+    
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,
@@ -114,4 +127,7 @@ train_all_dataset = dict(
     **train_grand_variant,
     **train_osprey_variant,
     **train_interact_variant,
+    **train_ade20k_variant,
+    **train_voc_variant,
+    **train_cityscapes_variant,
 )

@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from mmengine.visualization import Visualizer, TensorboardVisBackend
 from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
                             LoggerHook, ParamSchedulerHook, )
 from mmengine.visualization import Visualizer, TensorboardVisBackend
