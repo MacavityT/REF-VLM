@@ -33,6 +33,7 @@ from xtuner.utils.constants import (
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,
+    IMAGE_TOKEN_INDEX,
     SPECIAL_TOKENS
 )
 from xtuner.tools.utils import get_random_available_port
@@ -438,10 +439,14 @@ class OkapiModel(BaseModel):
             for ids in input_ids:
                 bov_idx = torch.where(ids == bov_id)[0].tolist()
                 eov_idx = torch.where(ids == eov_id)[0].tolist()
+                img_idx = torch.where(ids == IMAGE_TOKEN_INDEX)[0].tolist()
                 assert len(bov_idx) == len(eov_idx)
                 if len(bov_idx) == 1:
-                    bov_indices.append(bov_idx[0])
-                    eov_indices.append(eov_idx[0])
+                    # TODO: double check vrt tokens position
+                    assert len(img_idx) == 1 and img_idx < bov_idx
+                    image_token_len = pixel_values.shape[1]
+                    bov_indices.append(bov_idx[0] + image_token_len - 1)
+                    eov_indices.append(eov_idx[0] + image_token_len - 1)
                 elif len(bov_idx) == 0:
                     bov_indices.append(-1)
                     eov_indices.append(-1)

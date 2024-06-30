@@ -185,9 +185,11 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
     for msg in messages:
         if msg['from'] == 'human':
             if DEFAULT_IMAGE_TOKEN in msg['value']:
-                msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN,
-                                                    '').strip()
-                vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}\n"
+                msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
+                if vrt_len > 0:
+                    vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}\n"
+                else:
+                    vrt = ''
                 msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + vrt + msg['value']
                 msg['value'] = msg['value'].strip()
             input += msg['value']
