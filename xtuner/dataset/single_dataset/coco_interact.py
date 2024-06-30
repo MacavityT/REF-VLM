@@ -232,7 +232,7 @@ class COCOInteract(MInstrDataset):
                         all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
 
             if self.version == 'r':
-                answer = "It is " + category_name
+                answer =  category_name
                 if self.strategy == 'random':
                     random_num = random.randint(0,len(interact_list)-1)
                     selected_mask.append(interact_list[random_num])
@@ -358,6 +358,8 @@ class COCOInteractSingle(MInstrDataset):
             'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
         ]
         self.process_data()
+
+        self.question = 'Please generate a distinguishing description for the region <masks> in the image<image>.'
       
     def annToMask(self, mask_ann, h, w):
         if isinstance(mask_ann, list):
@@ -438,7 +440,10 @@ class COCOInteractSingle(MInstrDataset):
             return offline_item
         
         item = self.all_items[index]
-        question = self.get_template()
+        if self.split == 'train':
+            question = self.get_template()
+        elif self.split == 'val':
+            question = self.question
         category_name = item['category_name']
 
         if self.version == 's':
@@ -451,7 +456,7 @@ class COCOInteractSingle(MInstrDataset):
             ]
 
         elif self.version == 'r':
-            answer = "It is " + category_name
+            answer = category_name
             single_conversation = [
                 {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
                 {'from':'human','value':question,'masks_seq':[[0]]},

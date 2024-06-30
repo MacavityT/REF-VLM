@@ -22,10 +22,10 @@ with read_base():
 
 # Data configs
 max_length = 4096 - 576 # use cutoff lens instead
-cutoff_len = 4096
+cutoff_len = 4096  # 4096
 batch_size = 15  # per_device
 dataloader_num_workers = 8
-vrt_length = 64
+vrt_length = 0
 ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
 cot_weight = 1

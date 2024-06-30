@@ -313,7 +313,7 @@ with gr.Blocks(
          ["VQA","Describe the main features of the image."],
          ["VQA","Where is the dog?"],
          ["Detection","Detect objects in this image."],
-         ["Segmentation","Detect objects in this image."],
+         ["Segmentation","segment objects in this image."],
          ["Grounding Detection", "Please identify the position of young boy in the image and give the bounding box coordinates."],
          ["Grounding Segmentation", "Can you segment bears in the image and provide the masks for this class?"],
          ["Gcg Detection","Can you provide a description of the image and include the coordinates [x0,y0,x1,y1] for each mentioned object?"],
@@ -655,5 +655,5 @@ with gr.Blocks(
 
 
 demo.queue().launch(
-    debug=True,server_port=5590,
+    debug=True,server_port=7990,
 )

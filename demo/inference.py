@@ -189,8 +189,10 @@ class OkapiInference:
         image = image.cuda().unsqueeze(0).to(self.visual_encoder.dtype)
         visual_outputs = self.visual_encoder(image, output_hidden_states=True)
         selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
-        pixel_values = self.projector(selected_feats)
-        return pixel_values, selected_feats
+        pixel_values = selected_feats
+        # pixel_values = self.projector(selected_feats)
+        # return pixel_values, selected_feats
+        return selected_feats, pixel_values
 
     def process_vpt(self,selected_feats,prompt_image):
         if prompt_image != []:
@@ -242,8 +244,8 @@ class OkapiInference:
 
         history += prompt_text
         print(f"history = {history}")
-        pixel_values = None
         selected_feats = None
+        pixel_values = None
 
         if image is not None:
             pixel_values,selected_feats = self.process_image(image)
@@ -294,7 +296,20 @@ class OkapiInference:
                     ids.extend(cur_chunk_encode)
                     if idx != len(chunk_encode) - 1:
                         ids.append(IMAGE_TOKEN_INDEX)            
+            
             ids = torch.tensor(ids).cuda().unsqueeze(0)
+            vpt_feats = visual_prompts['vpt_feats']
+            b, q, n, c = vpt_feats.shape
+            _, l, _ = selected_feats.shape
+            vpt_feats = vpt_feats.view(b, -1, c)
+            concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
+            concat_feats = self.projector(concat_feats)
+
+            pixel_values = concat_feats[:, :l, :]
+            vpt_feats = concat_feats[:, l:, :]
+            vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
+            visual_prompts['vpt_feats'] = vpt_feats
+
             mm_inputs = prepare_inputs_labels_for_multimodal(
                 llm=self.llm, input_ids=ids, pixel_values=pixel_values,**visual_prompts)
             for key in mm_inputs.keys():

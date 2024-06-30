@@ -41,6 +41,18 @@ train_interact_variant = dict(
         map_placeholders=dict(
             input=["<masks>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/reg_offline'           
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/offline_reg'           
+    ),
+    interact_reg_single=dict(
+        **interact_train_common_cfg,
+        type='COCOInteractSingle', 
+        template_name=r'REG_SEG',
+        split='train',
+        version='r',
+        placeholders=('<image>','<masks>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+        ),       
     )
+
 )

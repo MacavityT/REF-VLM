@@ -15,6 +15,8 @@ with read_base():
     from .train_ade20k_variant import train_ade20k_variant
     from .train_pascal_variant import train_voc_variant
     from .train_cityscapes_variant import train_cityscapes_variant
+    from .train_llavag_variant import train_llavag_variant
+    from .train_png_variant import train_png_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -130,4 +132,6 @@ train_all_dataset = dict(
     **train_ade20k_variant,
     **train_voc_variant,
     **train_cityscapes_variant,
+    **train_llavag_variant,
+    **train_png_variant,
 )

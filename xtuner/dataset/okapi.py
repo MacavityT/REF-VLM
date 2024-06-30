@@ -323,7 +323,10 @@ class OkapiDataset(Dataset):
     def image_process(self, image):
         # load image
         image_path = image
-        image = imfrombytes(image, flag='color', channel_order='rgb') # array
+        try:
+            image = imfrombytes(image, flag='color', channel_order='rgb') # array
+        except:
+            image = np.zeros((336,336,3)).astype(np.uint8)
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
         ori_height = image.size[1]

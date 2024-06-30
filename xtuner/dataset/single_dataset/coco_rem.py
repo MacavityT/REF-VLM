@@ -47,8 +47,7 @@ class COCOREMDataset(MInstrDataset):
         # create index
         print('creating index...')
         self.anns, self.cats, = {}, {}
-        self.imgs = []
-        self.imgToAnns= defaultdict(list)
+        self.imgs = defaultdict(list)
         if 'annotations' in self.dataset:
             for ann in self.dataset['annotations']:
                 self.imgToAnns[ann['image_id']].append(ann)
