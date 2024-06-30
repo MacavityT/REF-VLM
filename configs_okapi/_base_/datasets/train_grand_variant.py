@@ -87,6 +87,7 @@ train_grand_variant = dict(
         **grand_train_common_cfg, 
         version='re_det', 
         use_floating_objects=True,
+        max_conv_length=6,
         template_name=r"REG",
         map_placeholders=dict(
             input=["<boxes>"],
@@ -96,7 +97,8 @@ train_grand_variant = dict(
     ),
     grand_re_seg=dict(
         **grand_train_common_cfg, 
-        version='re_seg', 
+        version='re_seg',
+        max_conv_length=6,
         use_floating_objects=True,
         template_name=r"REG_SEG",
         map_placeholders=dict(

@@ -43,10 +43,10 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
             if self.stage == 2:
-                decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred)
-                target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target)
-            target = target.strip()
-            decode_pred = decode_pred.strip()
+                decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred, flags=re.DOTALL)
+                target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target, flags=re.DOTALL)
+            target = target.replace('</s>','').strip()
+            decode_pred = decode_pred.replace('</s>','').strip()
             if self.save_dir is not None:
                 self.save_outputs(decode_pred,target,"caption")
                 

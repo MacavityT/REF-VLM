@@ -556,6 +556,7 @@ class GranDDataset(MInstrDataset):
                 raise "Please select valid template: REC or RES!"
 
         conversations = []
+        selected_target = []
         for j,caption in enumerate(captions):
             for detail in caption['details']:
                 phrase = detail['phrase']
@@ -579,11 +580,21 @@ class GranDDataset(MInstrDataset):
                 single_conversation_short = []
                 if isinstance(seq,List):
                     for id in seq:
-                        conversation_human = {'from': 'human','value': question,seq_name:[id]}
+                        try:
+                            selected_target.append(boxes_or_masks[id])
+                        except:
+                            continue
+                        seq_id = len(selected_target) - 1
+                        conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
                         conversation_gpt = {'from': 'gpt', 'value': phrase}
                         single_conversation_dense += [conversation_human,conversation_gpt]
                 else:
-                    conversation_human = {'from': 'human','value': question,seq_name:[seq]}
+                    try:
+                        selected_target.append(boxes_or_masks[seq])
+                    except:
+                        continue
+                    seq_id = len(selected_target) - 1
+                    conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
                     conversation_gpt = {'from': 'gpt', 'value': phrase}
                     single_conversation_short = [conversation_human,conversation_gpt]
                 
@@ -595,9 +606,10 @@ class GranDDataset(MInstrDataset):
 
         all_conversations = []
         all_conversations.append({'from':'system','value':[{'task':unit_task} for _ in range(len(conversations))]})
-        all_conversations.append(self.concat_conversations(conversations))
-        ret['target'] = {type:boxes_or_masks}
+        all_conversations.extend(self.concat_conversations(conversations))
+        ret['target'] = {type:selected_target}
         ret['conversations'] = all_conversations
+
 
         return ret
     
@@ -1127,12 +1139,12 @@ class GranDDataset(MInstrDataset):
         
         elif self.version == 're_det':
             task = 'detection'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=False)
+            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
             return ret  
 
         elif self.version == 're_seg':
             task = 'segmentation'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=False)
+            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
             return ret
         
         elif self.version == 'c_d':

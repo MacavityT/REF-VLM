@@ -28,9 +28,9 @@ vrt_length = 64
 ref_length = 1
 
 eval_type = 'phrase'
-prefix = 'label'
+prefix = 'reg'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0616_cot_new/eval'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0628/eval1500'
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -58,6 +58,21 @@ elif prefix == 'caption':
             cfg=test_all_dataset['caption'],
             )
     ]
+
+elif prefix == 'reg':
+    test_evaluator = dict(
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='reg')
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/140,
+            do_shuffle=False,
+            seed=43,
+            enforce_online=True,
+            cfg=test_all_dataset['interact_reg'],
+            )
+    ]
+
 elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
     test_evaluator = dict(
         type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)
