@@ -1,0 +1,41 @@
+reg_test_common_cfg = dict(
+    type='REGDataset',
+    template_name=r'REG',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
+    max_dynamic_size=None,
+)
+
+test_reg_variant = dict(
+    reg_refcocog_umd_test=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcocog_umd_test.jsonl',
+    ),
+    reg_refcocoa_unc_testa=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco+_unc_testA.jsonl',
+    ),
+    reg_refcocoa_unc_testb=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco+_unc_testB.jsonl',
+    ),
+    reg_refcoco_unc_testa=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco_unc_testA.jsonl',
+    ),
+    reg_refcoco_unc_testb=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco_unc_testB.jsonl',
+    ),
+    reg_refcocog_umd_val=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcocog_umd_val.jsonl',
+    ),
+    reg_refcocoa_unc_val=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco+_unc_val.jsonl',
+    ),
+    reg_refcoco_unc_val=dict(
+        **reg_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcoco_unc_val.jsonl',
+    ),
+)

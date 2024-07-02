@@ -147,8 +147,8 @@ def img_select_box(input_image: dict, prompt_image_list: list):
 #     print(x.index, x.value, x.liked)
 
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
+import debugpy
+debugpy.connect(('127.0.0.1', 5577))
 
 args = parse_args()
 torch.manual_seed(args.seed)

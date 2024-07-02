@@ -93,7 +93,7 @@ train_grand_variant = dict(
             input=["<boxes>"],
         ),     
         placeholders=('<image>','<objs>'),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_reg_det',
     ),
     grand_re_seg=dict(
         **grand_train_common_cfg, 
@@ -105,7 +105,7 @@ train_grand_variant = dict(
             input=["<masks>"],
         ), 
         placeholders=('<image>',"<masks>"),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_reg_seg',
     ),
 
     grand_c_d=dict(

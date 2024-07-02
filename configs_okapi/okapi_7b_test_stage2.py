@@ -30,7 +30,7 @@ ref_length = 1
 eval_type = 'phrase'
 prefix = 'reg'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0628/eval1500'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0701/eval845'
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -65,11 +65,13 @@ elif prefix == 'reg':
     test_dataset_args = [
         dict(
             type='SubSet',
-            portion=1/140,
+            # portion=1/140,
+            portion=1/3,
             do_shuffle=False,
             seed=43,
             enforce_online=True,
-            cfg=test_all_dataset['interact_reg'],
+            cfg=test_all_dataset['reg_refcocoa_unc_testa'],
+            # cfg=test_all_dataset['interact_reg']
             )
     ]
 
@@ -79,11 +81,11 @@ elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
     test_dataset_args = [
         dict(
             type='SubSet',
-            portion=1/20,
+            portion=1,
             do_shuffle=False,
             seed=43,
             enforce_online=True,
-            cfg=test_all_dataset['rec_refcocog_umd_test'],
+            cfg=test_all_dataset['rec_refcocoa_unc_testa'],
             )
     ]
 

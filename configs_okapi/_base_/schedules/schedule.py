@@ -4,7 +4,7 @@ from xtuner.engine.runner import TrainLoop
 
 accumulative_counts = 1
 
-max_epochs = 1
+max_epochs = 5
 lr = 2e-5  # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0

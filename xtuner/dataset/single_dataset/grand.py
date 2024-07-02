@@ -529,10 +529,8 @@ class GranDDataset(MInstrDataset):
         return ret
     
 
-    def reg(self,task,ret,objects,floating_objects,captions,template_name=None,random_select=False,length=None):
+    def reg(self,task,ret,objects,ratio,template_name=None,length=None):
 
-        if self.use_floating_objects:
-            objects = objects + floating_objects
         if task == 'detection':
             unit_task = {'task_name':'vqa','element':['sentence'],'use_unit':False}
             type = 'boxes'
@@ -545,69 +543,55 @@ class GranDDataset(MInstrDataset):
             place_holder = MASKS_PLACEHOLDER
         else:
             raise "Please select valid template: REG or REG_SEG!"
-        
+        if length == None:
+            length = 6
+        if len(objects) > length:
+            objects = random.sample(objects,length)
+
         boxes_or_masks = []
-        for i,object in enumerate(objects):
-            if task == 'detection':
-                boxes_or_masks.append(object['bbox'])
-            elif task == 'segmentation':
-                boxes_or_masks.append(decode(object['segmentation']))
-            else:
-                raise "Please select valid template: REC or RES!"
-
-        conversations = []
-        selected_target = []
-        for j,caption in enumerate(captions):
-            for detail in caption['details']:
-                phrase = detail['phrase']
-                if 'ids' in detail.keys():
-                    seq = detail['ids']
-                else:
-                    seq = detail['id']
-                if not isinstance(self.template_name,List):
-                    question = self.get_template()
-                else:
-                    assert template_name is not None
-                    question = self.get_template_from_dict(template_name)
-
-                if task == 'detection':
-                    question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
-                elif task == 'segmentation':
-                    question = question
-                if j != 0:
-                    question = question.replace(IMAGE_PLACEHOLDER,'')
-                single_conversation_dense = []
-                single_conversation_short = []
-                if isinstance(seq,List):
-                    for id in seq:
-                        try:
-                            selected_target.append(boxes_or_masks[id])
-                        except:
-                            continue
-                        seq_id = len(selected_target) - 1
-                        conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
-                        conversation_gpt = {'from': 'gpt', 'value': phrase}
-                        single_conversation_dense += [conversation_human,conversation_gpt]
-                else:
-                    try:
-                        selected_target.append(boxes_or_masks[seq])
-                    except:
-                        continue
-                    seq_id = len(selected_target) - 1
-                    conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
-                    conversation_gpt = {'from': 'gpt', 'value': phrase}
-                    single_conversation_short = [conversation_human,conversation_gpt]
-                
-                single_conversation = single_conversation_dense + single_conversation_short
-                conversations.append(single_conversation)                
-
-        if random_select:
-            conversations = self.random_select(conversations,length)
-
         all_conversations = []
-        all_conversations.append({'from':'system','value':[{'task':unit_task} for _ in range(len(conversations))]})
-        all_conversations.extend(self.concat_conversations(conversations))
-        ret['target'] = {type:selected_target}
+        for i,object in enumerate(objects):
+            attributes = object['attributes']
+            if attributes is None or attributes == []:
+                continue
+
+            if task == 'detection':
+                box = resize_box(object['bbox'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+
+                boxes_or_masks.append(box)
+            elif task == 'segmentation':
+                mask = resize_mask(decode(object['segmentation']),width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+                boxes_or_masks.append(mask)
+            else:
+                raise "Please select valid template: REC or RES!"            
+
+            # construct conversations
+            if not isinstance(self.template_name,List):
+                question = self.get_template()
+            else:
+                assert template_name is not None
+                question = self.get_template_from_dict(template_name)
+            if task == 'detection':
+                question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
+            elif task == 'segmentation':
+                question = question
+            if i != 0:
+                question = question.replace(IMAGE_PLACEHOLDER,'')
+            seq_id = len(boxes_or_masks) - 1
+            all_conversations.append({'from': 'human','value': question,seq_name:[[seq_id]]})
+            all_conversations.append({'from': 'gpt', 'value': attributes[0]})
+
+        
+        ret['image']['width'] = int(ret['image']['width']*ratio)
+        ret['image']['height'] = int(ret['image']['height']*ratio)             
+
+        
+        system = {'from':'system','value':[{'task':unit_task} for _ in range(len(all_conversations)//2)]}
+        all_conversations.insert(0,system)
+
+        ret['target'] = {type:boxes_or_masks}
         ret['conversations'] = all_conversations
 
 
@@ -1139,12 +1123,12 @@ class GranDDataset(MInstrDataset):
         
         elif self.version == 're_det':
             task = 'detection'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
+            ret = self.reg(task,ret,objects,ratio,length=self.length)
             return ret  
 
         elif self.version == 're_seg':
             task = 'segmentation'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
+            ret = self.reg(task,ret,objects,ratio,length=self.length)
             return ret
         
         elif self.version == 'c_d':
