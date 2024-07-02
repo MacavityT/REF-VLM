@@ -1,7 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
-                            LoggerHook, ParamSchedulerHook)
+                            LoggerHook, ParamSchedulerHook, )
+from mmengine.visualization import Visualizer, TensorboardVisBackend
 # Save
 save_steps = 500
 save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
@@ -38,8 +39,8 @@ env_cfg = dict(
 # set visualizer
 visualizer = dict(
     type=Visualizer,
-    vis_backends=[dict(type=TensorboardVisBackend)],
-    name='visualizer')
+    vis_backends=[dict(type=TensorboardVisBackend)]
+)
 
 # set log level
 log_level = 'INFO'

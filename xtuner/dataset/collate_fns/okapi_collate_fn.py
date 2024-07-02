@@ -41,8 +41,10 @@ def okapi_collate_fn(instances: Sequence[Dict],
                 decode_labels.append(None)
         data_dict['decode_labels'] = decode_labels
 
+    image_path = [example['image_path'] for example in instances]
     ori_height = [example['ori_height'] for example in instances]
     ori_width = [example['ori_width'] for example in instances]
+    data_dict['image_path'] = image_path
     data_dict['ori_height'] = ori_height
     data_dict['ori_width'] = ori_width
 

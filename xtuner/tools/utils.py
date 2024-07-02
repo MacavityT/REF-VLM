@@ -2,6 +2,8 @@
 import os.path as osp
 import re
 import warnings
+import socket
+import random
 
 import torch
 from transformers import PreTrainedTokenizerFast, StoppingCriteriaList
@@ -173,3 +175,16 @@ def get_seed_from_checkpoint(pth_model):
     else:
         raise FileNotFoundError(f'Cannot find {pth_model}')
     return checkpoint['meta']['seed']
+
+def get_random_available_port(start_port=1024, end_port=65535):
+    """
+    Select a random available port.
+    """
+    while True:
+        port = random.randint(start_port, end_port)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(('', port))
+                return port
+            except OSError:
+                continue

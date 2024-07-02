@@ -90,4 +90,3 @@ class COTComputeMetrics(BaseComputeMetrics):
 
         acc = float(true) / float(len(preds))
         return acc
-

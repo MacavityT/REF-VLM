@@ -25,12 +25,11 @@ from xtuner.utils.constants import (
 )
 from .mixin import MInstrDataset
 from mmengine.fileio import get
-import mmcv
 from panopticapi import utils
 from mmdet.datasets.api_wrappers.coco_api import COCOPanoptic
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import IMAGE_PLACEHOLDER
-
+from xtuner.utils import imfrombytes
 
 @DATASETS.register_module()
 class PNGDataset(MInstrDataset):
@@ -45,9 +44,7 @@ class PNGDataset(MInstrDataset):
 
     @staticmethod
     def _load_segm(segm_path):
-        img_bytes = get(segm_path)
-        pan_png = mmcv.imfrombytes(
-            img_bytes, flag='color', channel_order='rgb').squeeze()
+        pan_png = imfrombytes(segm_path, flag='color', channel_order='rgb').squeeze()
         segm_map = utils.rgb2id(pan_png)
 
         return segm_map

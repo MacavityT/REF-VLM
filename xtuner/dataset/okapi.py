@@ -326,7 +326,10 @@ class OkapiDataset(Dataset):
         try:
             image = imfrombytes(image, flag='color', channel_order='rgb') # array
         except:
+            image_path = ''
             image = np.zeros((336,336,3)).astype(np.uint8)
+            ori_width = 0
+            ori_height = 0
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
         ori_height = image.size[1]
@@ -339,6 +342,9 @@ class OkapiDataset(Dataset):
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
             image = image.resize((336,336))
+            image_path = ''
+            ori_width = 0
+            ori_height = 0
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
 
@@ -346,7 +352,8 @@ class OkapiDataset(Dataset):
         return dict(
             pixel_values = image,
             ori_width = ori_width,
-            ori_height = ori_height
+            ori_height = ori_height,
+            image_path = image_path,
         )
     
     def visual_prompts_process(self, visual_prompts, ori_width, ori_height, max_num):
@@ -391,9 +398,7 @@ class OkapiDataset(Dataset):
             data_dict['pixel_values'] = image_meta['pixel_values']
             data_dict['ori_width'] = image_meta['ori_width']
             data_dict['ori_height'] = image_meta['ori_height']
-            
-            # if image_path.split('.')[-1] == '.npy':
-            #     data_dict['tensor_image'] = True
+            data_dict['image_path'] = image_meta['image_path']
         else:
             if hasattr(self.image_processor, 'crop_size'):
                 crop_size = self.image_processor.crop_size
@@ -403,6 +408,7 @@ class OkapiDataset(Dataset):
                                                     crop_size['width'])
             data_dict['ori_height'] = 0
             data_dict['ori_width'] = 0
+            data_dict['image_path'] = ''
         
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():

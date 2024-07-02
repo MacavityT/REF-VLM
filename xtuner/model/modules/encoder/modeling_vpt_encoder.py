@@ -107,16 +107,16 @@ class VPTEncoderModel(PreTrainedModel):
         b, q, h, w = mask.shape
         
         if self.config.strategy == 'pooling':
-            div = math.sqrt(self.num_patches)
+            div = int(math.sqrt(self.num_patches))
             x_patches = x.reshape(b, c, self.num_patches, h // div, w // div)
             mask_patches = mask.reshape(b, q, self.num_patches, h // div, w // div)
             b, c, n, h, w = x_patches.shape
             b, q, n, h, w = mask_patches.shape
             vpt_feats = torch.einsum(
                 "bcnhw,bqnhw->bqnc",
-                x,
+                x_patches,
                 mask_patches,
-            )
+            ).contiguous()
         elif self.config.strategy == 'embedding':
             target_dtype = self.patch_embedding.weight.dtype
             x = x.unsqueeze(1) # [b, 1, c, h, w]
