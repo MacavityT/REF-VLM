@@ -190,13 +190,13 @@ class UnitComputeMetrics(BaseComputeMetrics):
 
     def metrics(self, preds, targets):
         result = {}
-        for key in pred.keys():
+        for key in preds.keys():
             assert key in targets.keys()
 
             accuracy = []
             precision = []
             recall = []
-            for pred, target in zip(preds,targets):
+            for pred, target in zip(preds, targets):
                 common_elements = set(pred).intersection(set(target))
                 union_set = set(pred).union(set(target))
                 accuracy = float(len(common_elements)) / float(len(union_set))

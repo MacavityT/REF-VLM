@@ -8,6 +8,7 @@ from itertools import chain
 import torch
 import numpy as np
 import requests
+import random
 from PIL import Image
 
 from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
@@ -451,7 +452,7 @@ def norm_point_xyxy(point, w, h):
 def bbox2mask(box, width, height):
     mask = np.zeros((height, width))
     x1, y1, x2, y2 = box
-    mask[int(x1):int(x2), int(y1):int(y2)] = 1
+    mask[int(y1):int(y2), int(x1):int(x2)] = 1
     return mask
 
 def point2mask(point, radius, height, width):
@@ -464,5 +465,56 @@ def point2mask(point, radius, height, width):
     mask = (x-center_x)**2 + (y-center_y)**2 <= radius**2
     return mask.astype(int)
 
-def scribble2mask(scribble, radus):
-    pass
+def visualize_mask(image, masks, alpha=0.5, beta=1.0):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    if not isinstance(masks, list):
+        masks = [masks]
+
+    for mask in masks:
+        # 创建一个彩色mask
+        assert mask.shape == image.shape[:-1]
+        mask = mask * 255
+        mask = mask.astype(np.uint8)
+        random_color = [random.randint(0, 255) for _ in range(3)]
+        colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        for i in range(3):  # 遍历B, G, R通道
+            colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
+
+        # 创建一个alpha通道的mask，值为半透明度
+        alpha_channel = np.ones_like(mask) * int(alpha * 255)
+
+        # 创建带alpha通道的mask
+        colored_mask = cv2.merge([colored_mask, alpha_channel])
+
+        # 将image转换为带alpha通道的图像
+        if image.shape[2] == 3:  # 如果原图像没有alpha通道，添加一个全透明的alpha通道
+            b, g, r = cv2.split(image)
+            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255  # 全不透明
+            image = cv2.merge([b, g, r, alpha_channel])
+    
+        image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
+
+    return image
+
+def visualize_point(image, points):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    if not isinstance(points, list):
+        points = [points]
+
+    result = visualize_mask(image, points)
+    return result
+
+def visualize_box(image, boxes, line_thickness=2):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    if not isinstance(boxes, list):
+        boxes = [boxes]
+    
+    for box in boxes:
+        x1, y1, x2, y2 = box
+        left_top = tuple(x1, y1)
+        right_bottom = tuple(x2, y2)
+        line_color = tuple(random.randint(0, 255) for _ in range(3)) 
+        cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)

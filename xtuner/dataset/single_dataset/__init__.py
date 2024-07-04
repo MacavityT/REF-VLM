@@ -22,4 +22,4 @@ from .pascal import PascalDataset,PascalVoc59Dataset,PascalVoc459Dataset,PascalV
 from .ade20k import ADE20k
 from .coco_rem import COCOREMDataset
 from .llava_g import LLAVAGrounding
-from .png import PNGDataset
+# from .png import PNGDataset

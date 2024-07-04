@@ -8,25 +8,15 @@ class VPTEncoderConfig(PretrainedConfig):
 
     def __init__(
         self,
-        vis_feats_len=576,
-        mask_patch_len=64,
+        num_patches=9,
+        patch_size=64,
         strategy='embedding',
         visual_hidden_size=1024,
-        llm_hidden_size=4096,
-        depth=2,
-        hidden_act='gelu',
-        bias=True,
         **kwargs,
     ):
         self.visual_hidden_size = visual_hidden_size
-        self.vis_feats_len = vis_feats_len
-        self.mask_patch_len = mask_patch_len
+        self.num_patches = num_patches
+        self.patch_size = patch_size
         self.strategy = strategy
         assert strategy in ['embedding', 'pooling']
-
-        # # projector
-        # self.llm_hidden_size = llm_hidden_size
-        # self.depth = depth
-        # self.hidden_act = hidden_act
-        # self.bias = bias
         super().__init__(**kwargs)
