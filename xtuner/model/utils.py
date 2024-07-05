@@ -206,8 +206,9 @@ def prepare_inputs_labels_for_multimodal(
             cur_inputs_embeds_1 = llm.get_input_embeddings()(cur_input_ids)
             cur_inputs_embeds = torch.cat(
                 [cur_inputs_embeds_1, cur_pixel_values[0:0]], dim=0)
-            cur_inputs_embeds = torch.cat(
-                [cur_inputs_embeds, cur_vpt_feats[0][0:0]], dim=0)
+            if cur_vpt_feats is not None:
+                cur_inputs_embeds = torch.cat(
+                    [cur_inputs_embeds, cur_vpt_feats[0][0:0]], dim=0)
             new_inputs_embeds.append(cur_inputs_embeds)
             new_labels.append(labels[batch_idx])
             cur_image_idx += 1
@@ -218,8 +219,13 @@ def prepare_inputs_labels_for_multimodal(
         vpt_token_indices = torch.where(
             cur_input_ids == VISUAL_PROMPT_INDEX)[0].tolist()
         
-        all_indices = image_token_indices + vpt_token_indices
-        vpt_flag = [False] * len(image_token_indices) + [True] * len(vpt_token_indices)
+        if cur_vpt_feats is None:
+            all_indices = image_token_indices
+            vpt_flag = [False] * len(image_token_indices)
+        else:
+            all_indices = image_token_indices + vpt_token_indices
+            vpt_flag = [False] * len(image_token_indices) + [True] * len(vpt_token_indices)
+        
         sorted_id = sorted(zip(all_indices, vpt_flag))
         all_indices = [id[0] for id in sorted_id]
         vpt_flag = [id[1] for id in sorted_id]
@@ -263,7 +269,7 @@ def prepare_inputs_labels_for_multimodal(
                             dtype=cur_labels.dtype))
 
 
-        if vpt_count[batch_idx] == 0:
+        if (vpt_count is not None) and (vpt_count[batch_idx] == 0):
             cur_new_inputs_embeds.append(cur_vpt_feats[0][0:0])
 
         cur_new_inputs_embeds = torch.cat(cur_new_inputs_embeds)

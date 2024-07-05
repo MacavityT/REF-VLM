@@ -53,6 +53,7 @@ class OkapiModel(BaseModel):
                  freeze_llm=False,
                  freeze_visual_encoder=False,
                  freeze_projector=False,
+                 freeze_vpt_encoder=False,
                  freeze_visual_sync_tuner=False,
                  freeze_moe_adapter=False,
                  visual_select_layer=-2,
@@ -71,6 +72,7 @@ class OkapiModel(BaseModel):
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
         self.freeze_projector = freeze_projector
+        self.freeze_vpt_encoder = freeze_vpt_encoder
         self.freeze_visual_sync_tuner = freeze_visual_sync_tuner
         self.freeze_moe_adapter = freeze_moe_adapter
         self.cutoff_len = cutoff_len
@@ -107,12 +109,14 @@ class OkapiModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder)
-            if vpt_encoder is not None:
-                self.vpt_encoder = self._build_from_cfg_or_module(
-                    vpt_encoder)
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector)
+            if vpt_encoder is not None and 'type' in vpt_encoder:
+                self.vpt_encoder = self._build_from_cfg_or_module(
+                    vpt_encoder)
+            else:
+                self.vpt_encoder = None
             if visual_sync_tuner is not None and 'type' in visual_sync_tuner:
                 self.visual_sync_tuner = self._build_from_cfg_or_module(
                     visual_sync_tuner)
@@ -152,23 +156,13 @@ class OkapiModel(BaseModel):
             )
             self.projector = ProjectorModel(projector_config).to(
                 self.visual_encoder.dtype)
-        if vpt_encoder is None:
-            image_size = self.visual_encoder.config.image_size
-            patch_size = self.visual_encoder.config.patch_size
-            vis_feats_len = (image_size // patch_size) ** 2
-            num_patches = 9
-            vpt_encoder_config = VPTEncoderConfig(
-                strategy='pooling',
-                vis_feats_len=vis_feats_len,
-                mask_patch_len=vis_feats_len // num_patches,
-                visual_hidden_size=self.visual_encoder.config.hidden_size,
-                # llm_hidden_size=self.llm.config.hidden_size,
-                # depth=projector_depth
-            )
+        if vpt_encoder is not None:
+            vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
         if visual_sync_tuner is not None:
             sync_tuner_config = SyncTunerConfig(**visual_sync_tuner)
+            assert sync_tuner_config.num_queries > 0, 'vrt length error!'
             self.visual_sync_tuner = SyncTunerModel(sync_tuner_config).to(
                 self.visual_encoder.dtype)
 
@@ -178,6 +172,9 @@ class OkapiModel(BaseModel):
             self.visual_encoder.requires_grad_(False)
         if self.freeze_projector:
             self.projector.requires_grad_(False)
+        if self.freeze_vpt_encoder and \
+            self.vpt_encoder is not None:
+            self.vpt_encoder.requires_grad_(False)
         if self.freeze_visual_sync_tuner and \
             self.visual_sync_tuner is not None:
             self.visual_sync_tuner.requires_grad_(False)
@@ -198,7 +195,8 @@ class OkapiModel(BaseModel):
                 self.visual_encoder.get_input_embeddings(
                 ).register_forward_hook(make_inputs_require_grad)
             self.projector.enable_input_require_grads()
-            self.vpt_encoder.enable_input_require_grads()
+            if self.vpt_encoder is not None:
+                self.vpt_encoder.enable_input_require_grads()
             if self.visual_sync_tuner is not None:
                 self.visual_sync_tuner.enable_input_require_grads()
             if self.moe_adapter is not None:
@@ -226,6 +224,7 @@ class OkapiModel(BaseModel):
 
         self.cot_weight = cot_weight if cot_weight is not None else 1
         self.vrt_weight = vrt_weight if vrt_weight is not None else 1
+        self.loss_weight = loss_weight
         self._is_init = True
 
     @staticmethod
@@ -390,45 +389,45 @@ class OkapiModel(BaseModel):
                 output_hidden_states=True)
             selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
 
-            if 'visual_prompts' in data:
-                visual_prompts = self.vpt_encoder(
-                    selected_feats,
-                    regions = data['visual_prompts'], 
-                    return_dict = True
-                )
+            if self.vpt_encoder is not None:
+                if 'visual_prompts' in data:
+                    visual_prompts = self.vpt_encoder(
+                        selected_feats,
+                        regions = data['visual_prompts'], 
+                        return_dict = True
+                    )
+                else:
+                    # fake regions for contain compute graph
+                    bs = selected_feats.shape[0]
+                    w = h = int(math.sqrt(selected_feats.shape[1]))
+                    fake_region = np.zeros((h, w))
+                    regions = [None] * bs
+                    regions[0] = [fake_region]
+                    vpt_count = [0] * bs
+                    visual_prompts = self.vpt_encoder(
+                        selected_feats,
+                        regions = regions, 
+                        return_dict = True
+                    )
+                    visual_prompts['vpt_count'] = vpt_count
+
+                # concat and reuse projector
+                vpt_feats = visual_prompts['vpt_feats']
+                b, q, n, c = vpt_feats.shape
+                _, l, _ = selected_feats.shape
+                vpt_feats = vpt_feats.view(b, -1, c)
+                concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
+                concat_feats = self.projector(concat_feats)
+
+                pixel_values = concat_feats[:, :l, :]
+                vpt_feats = concat_feats[:, l:, :]
+                vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
+                visual_prompts['vpt_feats'] = vpt_feats
+                data.update(visual_prompts)
+                data['pixel_values'] = pixel_values
             else:
-                # fake regions for contain compute graph
-                bs = selected_feats.shape[0]
-                w = h = int(math.sqrt(selected_feats.shape[1]))
-                fake_region = np.zeros((h, w))
-                regions = [None] * bs
-                regions[0] = [fake_region]
-                vpt_count = [0] * bs
-                visual_prompts = self.vpt_encoder(
-                    selected_feats,
-                    regions = regions, 
-                    return_dict = True
-                )
-                visual_prompts['vpt_count'] = vpt_count
-
-            # pixel_values = self.projector(selected_feats)
-            # data['pixel_values'] = pixel_values
-            # data.update(visual_prompts)
-
-            # concat and reuse projector
-            vpt_feats = visual_prompts['vpt_feats']
-            b, q, n, c = vpt_feats.shape
-            _, l, _ = selected_feats.shape
-            vpt_feats = vpt_feats.view(b, -1, c)
-            concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
-            concat_feats = self.projector(concat_feats)
-
-            pixel_values = concat_feats[:, :l, :]
-            vpt_feats = concat_feats[:, l:, :]
-            vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
-            visual_prompts['vpt_feats'] = vpt_feats
-            data.update(visual_prompts)
-            data['pixel_values'] = pixel_values
+                pixel_values = self.projector(selected_feats)
+                data['pixel_values'] = pixel_values
 
             # get vrt mask
             bov_id = self.token_ids[BOV_TOKEN]
@@ -585,7 +584,7 @@ class OkapiModel(BaseModel):
         b, l, c = pred.shape
         grid_size = int(math.sqrt(l))
         if pred.shape[1] != image.shape[-1] * image.shape[-2]:
-            pred = pred.reshape(b, grid_size, grid_size, c).permute(0, 3, 1, 2) # b, c, h, w
+            pred = pred.view(b, grid_size, grid_size, c).permute(0, 3, 1, 2) # b, c, h, w
             pred = F.interpolate(
                 pred,
                 size=image.shape[2:],

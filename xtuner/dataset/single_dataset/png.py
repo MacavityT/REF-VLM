@@ -106,20 +106,20 @@ class PNGDataset(MInstrDataset):
 
         
         
-        # TODO: add reg tasks
-        # elif self.version == 'reg_mask':
+#         # TODO: add reg tasks
+#         # elif self.version == 'reg_mask':
             
-            # all_conversations = []
-            # for i, segment in enumerate(caption_segments):
-            #     caption = segment['utterance']
-            #     if segment['segment_ids'] != []:
-            #         for segment_id in segment['segment_ids']:
-            #             question = self.get_template()
-            #             question = question.replace()
-            #             segment_mask = self.anns[int(segment_id)]['mask']
-            #             gt_masks.append(segment_mask)
+#             # all_conversations = []
+#             # for i, segment in enumerate(caption_segments):
+#             #     caption = segment['utterance']
+#             #     if segment['segment_ids'] != []:
+#             #         for segment_id in segment['segment_ids']:
+#             #             question = self.get_template()
+#             #             question = question.replace()
+#             #             segment_mask = self.anns[int(segment_id)]['mask']
+#             #             gt_masks.append(segment_mask)
 
-            #             human = {'from':'human','value':question}
-            #             all_conversations.append()
+#             #             human = {'from':'human','value':question}
+#             #             all_conversations.append()
         
-        return ret
+#         return ret

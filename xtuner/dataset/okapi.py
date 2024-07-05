@@ -1,5 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os
+import cv2
+import shutil
 import json
 import jsonlines
 import numpy as np
@@ -32,7 +34,10 @@ from .utils import (
     mask_transform,
     norm_box_xyxy, 
     norm_point_xyxy,
-    de_norm_box_xyxy
+    de_norm_box_xyxy,
+    visualize_mask,
+    visualize_box,
+    visualize_point
 )
 from xtuner.utils.constants import SPECIAL_TOKENS
 
@@ -296,6 +301,7 @@ class OkapiDataset(Dataset):
                 target['masks'] = masks_expand2square(target['masks'])
             width = max(width, height)
             height = width
+        
         # normalize or transform all targets
         if 'boxes' in target.keys():
             normalized_boxes = []
@@ -362,6 +368,7 @@ class OkapiDataset(Dataset):
         if self.pad_image_to_square:
             ori_width = max(ori_width, ori_height)
             ori_height = ori_width
+
         converted_vpt = []
         for vpt_one_turn in visual_prompts:
             if vpt_one_turn is None: continue
@@ -452,5 +459,23 @@ class OkapiDataset(Dataset):
                 data_dict.pop('visual_prompts',None)
             else:
                 raise f"max num:{max_num} is lower than 0"
+
+        # #region debug
+        # ori_path = 'vis_origin.jpg'
+        # shutil.copy(data_dict['image_path'], ori_path)
+
+        # image = data_dict['pixel_values'].numpy().transpose((1, 2, 0))
+        # image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        # image = image.astype(np.uint8)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # res_path = 'vis_normed.jpg'
+        # cv2.imwrite(res_path, image)
+
+        # vpts = data_dict['visual_prompts']
+        # vis_img = visualize_mask(image, vpts, alpha=1.0, beta=1.0)
+        # save_path = 'vis_vpt.jpg'
+        # cv2.imwrite(save_path, vis_img)
+        # #endregion
+
         return data_dict
 

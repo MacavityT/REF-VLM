@@ -115,7 +115,7 @@ class SyncTunerModel(PreTrainedModel):
         b, l, c = x.shape
         grid_size = int(math.sqrt(l))
         target_size = grid_size * 2
-        x = x.reshape(b, grid_size, grid_size, c)
+        x = x.view(b, grid_size, grid_size, c)
         x = x.permute(0, 3, 1, 2) # b, c, h, w
         x = F.interpolate(
             x, 
@@ -123,7 +123,7 @@ class SyncTunerModel(PreTrainedModel):
             mode="bicubic",
             align_corners=False
         )
-        x = x.permute(0, 2, 3, 1).reshape(b, -1, c) # b, l, c
+        x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
         return x
 
     def forward(self, x):
