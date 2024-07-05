@@ -2,7 +2,6 @@
 from mmengine.config import read_base
 with read_base():
     from .train_all_dataset import train_all_dataset
-    from .test_reg_variant import test_reg_variant
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
@@ -56,37 +55,54 @@ grand_seg_det = dict(
     cfg=train_all_dataset['grand_d_s'],
 )
 
+grand_re_seg = dict(
+    type='SubSet',
+    portion=1/20,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_re_seg'],
+)
+
+grand_re_det = dict(
+    type='SubSet',
+    portion=1/20,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_re_det'],
+)
+
+
 
 # train_all_dataset['vcr_q_ra'],
 
 dataset_s1 = [
 
     # subsets
-    # gc,
+    gc,
 
-    # # general datasets
-    # train_all_dataset['flickr'],
-    # train_all_dataset['rec'],
-    # train_all_dataset['caption'],
-    # train_all_dataset['reg'],
+    # general datasets
+    train_all_dataset['flickr'],
+    train_all_dataset['rec'],
+    train_all_dataset['caption'],
+    train_all_dataset['reg'],
     
-    # # # vcr
-    # train_all_dataset['vcr_qc_rac'],
-    # train_all_dataset['vcr_qac_r'],
+    # # vcr
+    train_all_dataset['vcr_qc_rac'],
+    train_all_dataset['vcr_qac_r'],
 
-    # # vqa v2
-    # train_all_dataset['vqav2_train'],
-    # train_all_dataset['vqae_train'],
-    # train_all_dataset['vqax_train'],
+    # vqa v2
+    train_all_dataset['vqav2_train'],
+    train_all_dataset['vqae_train'],
+    train_all_dataset['vqax_train'],
 
-    # # point qa
-    # train_all_dataset['point_local_b'],
-    # train_all_dataset['point_local_p'],
-    # train_all_dataset['point_twice_oq_bp'],
-    # train_all_dataset['point_twice_sq_bp'],
-    # train_all_dataset['point_twice_gq_bp'],
-    # train_all_dataset['point_v7w_p'],
-    # train_all_dataset['point_v7w_b'],
+    # point qa
+    train_all_dataset['point_local_b'],
+    train_all_dataset['point_local_p'],
+    train_all_dataset['point_twice_oq_bp'],
+    train_all_dataset['point_twice_sq_bp'],
+    train_all_dataset['point_twice_gq_bp'],
+    train_all_dataset['point_v7w_p'],
+    train_all_dataset['point_v7w_b'],
 ]
 
 for dataset in dataset_s1:
@@ -98,46 +114,38 @@ for dataset in dataset_s1:
 
 dataset_s2 = [
     # subset
-    # grit,
-    # grand_mix,
-    # grand_seg_det,
+    grit,
+    grand_mix,
+    grand_seg_det,
+    grand_re_seg,
+    grand_re_det,
 
     # llava grounding
-    # train_all_dataset['llavag_reg'],
-    # train_all_dataset['llavag_gcg'],
+    train_all_dataset['llavag_reg'],
+    train_all_dataset['llavag_gcg'],
     
     # png
-    # train_all_dataset['png_gcg'],
+    train_all_dataset['png_gcg'],
 
-    # # instruct
-    # train_all_dataset['instruct'],
+    # instruct
+    train_all_dataset['instruct'],
 
-    # # gpt gen
-    # train_all_dataset['gpt4gen_qbc'],
-    # train_all_dataset['gpt4gen_rd_qbc'],
+    # gpt gen
+    train_all_dataset['gpt4gen_qbc'],
+    train_all_dataset['gpt4gen_rd_qbc'],
 
-    # # osprey
-    # train_all_dataset['osprey_partlevel'],
-    # train_all_dataset['osprey_shortform'],
-    # train_all_dataset['osprey_lvis'],
-    # train_all_dataset['osprey_conversations'],
-    # train_all_dataset['osprey_detailed'],
+    # osprey
+    train_all_dataset['osprey_partlevel'],
+    train_all_dataset['osprey_shortform'],
+    train_all_dataset['osprey_lvis'],
+    train_all_dataset['osprey_conversations'],
+    train_all_dataset['osprey_detailed'],
 
-    # # interact
-    # train_all_dataset['interact_reg'],
-    # train_all_dataset['interact_mask'],
-    # train_all_dataset['interact_box'],
+    # interact
+    train_all_dataset['interact_reg'],
+    train_all_dataset['interact_mask'],
+    train_all_dataset['interact_box'],
 
-    # grand
-    # train_all_dataset['grand_re_seg'],
-    # train_all_dataset['grand_re_seg'],
-
-    # segmentation datasets
-    # train_all_dataset['train_cityscapes_instance'],
-    # train_all_dataset['train_ade20_with_instance'],
-    # train_all_dataset['coco_rem'],
-
-    test_reg_variant['reg_refcocoa_unc_val'],
 ]
 
 

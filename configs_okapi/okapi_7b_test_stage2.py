@@ -30,7 +30,7 @@ ref_length = 1
 eval_type = 'phrase'
 prefix = 'reg'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0701/eval845'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0702/eval3012'
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -65,13 +65,13 @@ elif prefix == 'reg':
     test_dataset_args = [
         dict(
             type='SubSet',
-            # portion=1/140,
-            portion=1/3,
+            portion=1/140,
+            # portion=1/3,
             do_shuffle=False,
             seed=43,
             enforce_online=True,
-            cfg=test_all_dataset['reg_refcocoa_unc_testa'],
-            # cfg=test_all_dataset['interact_reg']
+            # cfg=test_all_dataset['reg_refcocoa_unc_testa'],
+            cfg=test_all_dataset['interact_reg']
             )
     ]
 
@@ -129,10 +129,6 @@ test_dataloader = dict(
     dataset=test_dataset,
     sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=okapi_collate_fn))
-
-
-
-
 
 model = dict(
     type=OkapiModel,

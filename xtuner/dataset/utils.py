@@ -451,7 +451,7 @@ def norm_point_xyxy(point, w, h):
 def bbox2mask(box, width, height):
     mask = np.zeros((height, width))
     x1, y1, x2, y2 = box
-    mask[int(x1):int(x2), int(y1):int(y2)] = 1
+    mask[int(y1):int(y2), int(x1):int(x2)] = 1
     return mask
 
 def point2mask(point, radius, height, width):

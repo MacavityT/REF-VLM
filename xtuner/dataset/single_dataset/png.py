@@ -29,7 +29,7 @@ from panopticapi import utils
 from mmdet.datasets.api_wrappers.coco_api import COCOPanoptic
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import IMAGE_PLACEHOLDER
-from xtuner.utils import imfrombytes
+from xtuner.dataset.utils import imfrombytes
 
 @DATASETS.register_module()
 class PNGDataset(MInstrDataset):

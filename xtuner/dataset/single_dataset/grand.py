@@ -530,7 +530,7 @@ class GranDDataset(MInstrDataset):
     
 
     def reg(self,task,ret,objects,ratio,template_name=None,length=None):
-
+        objects = delete_objects(objects,filter_num=10)
         if task == 'detection':
             unit_task = {'task_name':'vqa','element':['sentence'],'use_unit':False}
             type = 'boxes'
@@ -561,7 +561,7 @@ class GranDDataset(MInstrDataset):
 
                 boxes_or_masks.append(box)
             elif task == 'segmentation':
-                mask = resize_mask(decode(object['segmentation']),width=ret['image']['width'],
+                mask = resize_mask(object['segmentation'],width=ret['image']['width'],
                              height=ret['image']['height'],ratio=ratio)
                 boxes_or_masks.append(mask)
             else:
@@ -761,8 +761,21 @@ class GranDDataset(MInstrDataset):
                 seq_cond_seg = [i]
                 question_cond_det = self.get_template_from_dict('Cond_DET')
                 cls_name_cond = cls_name
-                if object['attributes'] is not None:
-                    attributes = ', '.join(object['attributes'])
+                if object['attributes'] is not None and object['attributes'] != []:
+                    attributes = object['attributes'][0]
+
+                    # generate reg detection & segmentation conversations
+                    question_reg_det = self.get_template_from_dict('REG')
+                    question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
+                    question_reg_seg = self.get_template_from_dict('REG_SEG')
+                    single_conversation_det = [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[i]]},
+                                                     {'from': 'gpt', 'value': attributes}]
+                    single_conversation_seg = [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[i]]},
+                                                     {'from': 'gpt', 'value': attributes}]
+
+                    det_dict['conversations']['reg_conversations'].append(single_conversation_det)
+                    seg_dict['conversations']['reg_conversations'].append(single_conversation_seg)
+
                     rand_prob = random.uniform(0,1)
                     if rand_prob >= 0.8:
                         cls_name_cond = attributes
@@ -808,7 +821,7 @@ class GranDDataset(MInstrDataset):
             if caption['is_dense']:
                 question_cap_det = self.dense_question(question_cap_det)
                 question_cap_seg = self.dense_question(question_cap_seg)
-                cation_cap = self.dense_question(question_cap)
+                question_cap = self.dense_question(question_cap)
 
             all_indices = []
             # place_holders_det = ''
@@ -856,30 +869,6 @@ class GranDDataset(MInstrDataset):
                 det_dict['conversations']['rec_conversations'].append(single_conversation_rec_det)
                 seg_dict['conversations']['rec_conversations'].append(single_conversation_rec_seg)
 
-
-                # generate reg detection & segmentation conversations
-                question_reg_det = self.get_template_from_dict('REG')
-                question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
-                question_reg_seg = self.get_template_from_dict('REG_SEG')
-                question_reg_seg = question_reg_seg
-                single_conversation_dense_det = []
-                single_conversation_dense_seg = []
-                single_conversation_short_det = []
-                single_conversation_short_seg = []
-                if isinstance(reg_seq,List):
-                    for id in reg_seq:
-                        single_conversation_dense_det += [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[id]]},
-                                                          {'from': 'gpt', 'value': phrase}]
-                        single_conversation_dense_seg += [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[id]]},
-                                                          {'from': 'gpt', 'value': phrase}]
-                else:
-                    single_conversation_short_det = [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[reg_seq]]},
-                                                     {'from': 'gpt', 'value': phrase}]
-                    single_conversation_short_seg = [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[reg_seq]]},
-                                                     {'from': 'gpt', 'value': phrase}]
-                
-                det_dict['conversations']['reg_conversations'].append(single_conversation_dense_det + single_conversation_short_det)
-                seg_dict['conversations']['reg_conversations'].append(single_conversation_dense_seg + single_conversation_short_seg)
 
                 # generate caption + detection conversation
                 if isinstance(reg_seq,List):

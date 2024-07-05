@@ -21,6 +21,8 @@ SYSTEM = ''
 evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
 
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/eval3558'
+
 
 # test_dataset_args = [
 #     dict(
@@ -34,20 +36,47 @@ evaluation_inputs = ['请描述一下这张照片', 'Please describe this pictur
     
 # ]
 
+# test_dataset_args = [
+#     dict(
+#         type='SubSet',
+#         portion=1/1000,
+#         do_shuffle=True,
+#         seed=43,
+#         enforce_online=True,
+#         cfg=test_all_dataset['caption'],
+#             )
+    
+# ]
+
+
+# test_dataset_args = [
+#     dict(
+#         type='SubSet',
+#         # portion=1/140,
+#         portion=1/3,
+#         do_shuffle=False,
+#         seed=43,
+#         enforce_online=True,
+#         cfg=test_all_dataset['reg_refcocoa_unc_testa'],
+#         # cfg=test_all_dataset['interact_reg']
+#         )
+# ]
+
+
 test_dataset_args = [
     dict(
         type='SubSet',
-        portion=1/1000,
-        do_shuffle=True,
+        portion=1/5,
+        do_shuffle=False,
         seed=43,
         enforce_online=True,
-        cfg=test_all_dataset['caption'],
-            )
-    
+        cfg=test_all_dataset['reg'],
+        )
 ]
 
 okapi_dataset_test = dict(
     type=OkapiDataset,
+    pretokenize=False,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
@@ -69,18 +98,5 @@ test_dataloader = dict(
 #     type=VQAComputeMetrics, tokenizer=tokenizer, prefix='vqa')
 
 test_evaluator = dict(
-    type=ImgCapComputeMetrics, tokenizer=tokenizer, prefix='caption')
+    type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=1, save_dir=save_dir, prefix='reg')
 
-# Log the dialogue periodically during the training process, optional
-custom_hooks = [
-    dict(type=DatasetInfoHook, tokenizer=tokenizer),
-    dict(
-        type=EvaluateChatHook,
-        tokenizer=tokenizer,
-        image_processor=clip_patch14_336['image_processor'],
-        every_n_iters=evaluation_freq,
-        evaluation_inputs=evaluation_inputs,
-        evaluation_images=evaluation_images,
-        system=SYSTEM,
-        prompt_template=prompt_template)
-]

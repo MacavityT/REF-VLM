@@ -294,7 +294,8 @@ class OkapiDataset(Dataset):
                 target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
             if 'masks' in target.keys():
                 target['masks'] = masks_expand2square(target['masks'])
-        
+            width = max(width, height)
+            height = width
         # normalize or transform all targets
         if 'boxes' in target.keys():
             normalized_boxes = []
@@ -339,6 +340,7 @@ class OkapiDataset(Dataset):
                 image,
                 tuple(int(x * 255) for x in self.image_processor.image_mean)
             )
+            # image.save('square_image.jpg')
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
             image = image.resize((336,336))
@@ -357,7 +359,9 @@ class OkapiDataset(Dataset):
         )
     
     def visual_prompts_process(self, visual_prompts, ori_width, ori_height, max_num):
-
+        if self.pad_image_to_square:
+            ori_width = max(ori_width, ori_height)
+            ori_height = ori_width
         converted_vpt = []
         for vpt_one_turn in visual_prompts:
             if vpt_one_turn is None: continue

@@ -9,7 +9,7 @@ from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComp
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
-
+    from .test_reg_variant import test_reg_variant
 
 # Data
 prompt_template = PROMPT_TEMPLATE.vicuna
@@ -34,6 +34,17 @@ test_all_dataset = dict(
         image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vqav2_val_shape.jsonl',
         template_name=r"VQA",
     ),
+    reg=dict(
+        type='REGDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcocog_umd_test.jsonl',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
+        image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2014_train_shape.jsonl',
+        template_name=r'REG',
+        map_placeholders=dict(
+            input=["<boxes>"],
+        )        
+    ),
+    **test_reg_variant,
 )
 
 test_dataset_args = [
@@ -49,23 +60,7 @@ test_dataset_args = [
 ]
 
 
-okapi_dataset_test = dict(
-    type=OkapiDataset,
-    dataset=test_dataset_args,
-    image_processor=clip_patch14_336['image_processor'],
-    tokenizer=vicuna_7b_path_tokenizer,
-    dataset_map_fn=okapi_map_fn,
-    template_map_fn=dict(
-        type=template_map_fn_factory, template=prompt_template),
-    max_length=max_length,
-    pad_image_to_square=True)
 
-test_dataloader = dict(
-    batch_size=1,
-    num_workers=dataloader_num_workers,
-    dataset=okapi_dataset_test,
-    sampler=dict(type=DefaultSampler, shuffle=False),
-    collate_fn=dict(type=default_collate_fn))
 
 
 test_evaluator = dict(
