@@ -45,12 +45,14 @@ class VPTEncoderModel(PreTrainedModel):
                         bias=config.bias))
             self.model = nn.Sequential(*modules)
 
+        num_patches = config.num_patches
         if config.use_mask_token:
+            num_patches = num_patches + 1
             self.mask_pooling = nn.AdaptiveAvgPool2d((1, 1))
             self.mask_embedding = nn.Linear(1, config.visual_hidden_size)
 
-        self.position_embedding = nn.Embedding(config.num_patches, config.visual_hidden_size)
-        self.register_buffer("position_ids", torch.arange(config.num_patches).expand((1, -1)), persistent=False)
+        self.position_embedding = nn.Embedding(num_patches, config.visual_hidden_size)
+        self.register_buffer("position_ids", torch.arange(num_patches).expand((1, -1)), persistent=False)
 
     def enable_input_require_grads(self):
         def make_inputs_require_grad(module, input, output):
@@ -167,12 +169,11 @@ class VPTEncoderModel(PreTrainedModel):
         regions, vpt_count = self.pad_regions(regions, x.dtype, x.device) # b, q, h, w
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
         vpt_feats = self.mask_patch_feats(x, regions)  # b, q, n, c
-        vpt_feats = vpt_feats + self.position_embedding(self.position_ids)
-        
         if self.config.use_mask_token:
             mask_token = self.get_mask_token(regions)
             vpt_feats = torch.cat([vpt_feats, mask_token], dim=2) # [b, q, n+1, c]
-
+        
+        vpt_feats = vpt_feats + self.position_embedding(self.position_ids)
         if self.config.use_projector:
             vpt_feats = self.project(vpt_feats)
 
