@@ -240,7 +240,6 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
     map_placeholders = example.get('map_placeholders', None)
     input = ''
     conversation = []
-    vrt_exist = False
     for msg in messages:
         if msg['from'] == 'human':
             if DEFAULT_IMAGE_TOKEN in msg['value']:
@@ -270,7 +269,6 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                         cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
                     
                     cot = f"{BOT_TOKEN}\nUnit decode (True). Class name, target unit and number:\n{cot_content}{EOT_TOKEN}\n"
-
                 else:
                     cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
                 
