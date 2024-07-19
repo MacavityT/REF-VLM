@@ -18,7 +18,14 @@ with read_base():
 
 
 cutoff_len = 4096
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0702_iter3012'
+visual_hidden_size = 1024 # visual_encoder.config.hidden_size
+vrt_length = 256
+vpt_num_patches = 9
+vpt_patch_size = 8 # sqrt(576/9)=8
+ref_length = 1
+cot_weight = 1
+vrt_weight = 1
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0716_iter6500'
 
 
 projector = dict(
@@ -33,16 +40,40 @@ vpt_encoder = dict(
     trust_remote_code=True,
 )
 
-model = dict(
-    type=OkapiModel,
-    freeze_llm=True,
-    tokenizer=tokenizer,
-    freeze_visual_encoder=True,
-    cutoff_len=cutoff_len,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=model_dir,
-        trust_remote_code=True),
-    projector=projector,
-    vpt_encoder=vpt_encoder,
-    visual_encoder=clip_patch14_336['visual_encoder'])
+
+if os.path.exists(os.path.join(model_dir,'visual_sync_tuner')):
+    visual_sync_tuner = dict(
+        type=AutoModel.from_pretrained,
+        pretrained_model_name_or_path=os.path.join(model_dir,'visual_sync_tuner'),
+        trust_remote_code=True,
+    )
+
+    model = dict(
+        type=OkapiModel,
+        freeze_llm=True,
+        tokenizer=tokenizer,
+        freeze_visual_encoder=True,
+        cutoff_len=cutoff_len,
+        llm=dict(
+            type=AutoModelForCausalLM.from_pretrained,
+            pretrained_model_name_or_path=model_dir,
+            trust_remote_code=True),
+        visual_encoder=clip_patch14_336['visual_encoder'],
+        projector=projector,
+        vpt_encoder=vpt_encoder,
+        visual_sync_tuner=visual_sync_tuner)
+
+else:
+    model = dict(
+        type=OkapiModel,
+        freeze_llm=True,
+        tokenizer=tokenizer,
+        freeze_visual_encoder=True,
+        cutoff_len=cutoff_len,
+        llm=dict(
+            type=AutoModelForCausalLM.from_pretrained,
+            pretrained_model_name_or_path=model_dir,
+            trust_remote_code=True),
+        visual_encoder=clip_patch14_336['visual_encoder'],
+        projector=projector,
+        vpt_encoder=vpt_encoder)

@@ -8,7 +8,7 @@ import cv2
 import os
 import time
 import random
-from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER
+from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
 from inference import OkapiInference
 
 SYS_TEMPLATE_OKAPI = {
@@ -41,6 +41,8 @@ def parse_args():
         '--vpt-encoder', default=None, help='vpt encoder name or path')
     parser.add_argument(
         '--projector', default=None, help='projector name or path')
+    parser.add_argument(
+        '--vrt_length', default=256,type=int, help='vrt length')
     parser.add_argument(
         '--visual-select-layer', default=-2, help='visual select layer')
     parser.add_argument(
@@ -173,7 +175,8 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
         system_text = system_template['SYSTEM'].format(system=system_task_text)
     chatbot = chatbot + [[input_text, None]]
     if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
-        input_text = DEFAULT_IMAGE_TOKEN + '\n' + input_text
+        vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * args.vrt_length}{EOV_TOKEN}\n"
+        input_text = DEFAULT_IMAGE_TOKEN + '\n' + vrt + input_text
     state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
 
     if isinstance(input_image,dict):
@@ -655,5 +658,5 @@ with gr.Blocks(
 
 
 demo.queue().launch(
-    debug=True,server_port=7990,
+    debug=True,server_port=6229,
 )

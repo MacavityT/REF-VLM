@@ -497,6 +497,47 @@ def visualize_mask(image, masks, alpha=0.5, beta=1.0):
 
     return image
 
+
+def visualize_mask_single(image, mask, alpha=0.5, beta=1.0):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+
+    # 创建一个彩色mask
+    assert mask.shape == image.shape[:-1]
+    mask = mask * 255
+    mask = mask.astype(np.uint8)
+    random_color = [random.randint(0, 255) for _ in range(3)]
+    colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+    for i in range(3):  # 遍历B, G, R通道
+        colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
+
+    # 创建一个alpha通道的mask，值为半透明度
+    alpha_channel = np.ones_like(mask) * int(alpha * 255)
+
+    # 创建带alpha通道的mask
+    colored_mask = cv2.merge([colored_mask, alpha_channel])
+
+    # 将image转换为带alpha通道的图像
+    if image.shape[2] == 3:  # 如果原图像没有alpha通道，添加一个全透明的alpha通道
+        b, g, r = cv2.split(image)
+        alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255  # 全不透明
+        image = cv2.merge([b, g, r, alpha_channel])
+
+    image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
+
+    return image
+
+def visualize_box_single(image, box, line_thickness=10):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    x1, y1, x2, y2 = box
+    left_top = tuple((int(x1), int(y1)))
+    right_bottom = tuple((int(x2), int(y2)))
+    line_color = tuple(random.randint(0, 255) for _ in range(3)) 
+    cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
+
+    return image
+
 def visualize_point(image, points):
     if isinstance(image, Image.Image):
         image = np.array(image)
@@ -514,7 +555,7 @@ def visualize_box(image, boxes, line_thickness=2):
     
     for box in boxes:
         x1, y1, x2, y2 = box
-        left_top = tuple(x1, y1)
-        right_bottom = tuple(x2, y2)
+        left_top = tuple((x1, y1))
+        right_bottom = tuple((x2, y2))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)

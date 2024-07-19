@@ -77,6 +77,7 @@ class Point_QA_local(MInstrDataset):
             system = {
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                        # 'value': [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}],
                     }
             ret['conversations'].insert(0, system)
             ret['map_placeholders'] = self.map_placeholders
@@ -157,6 +158,7 @@ class Point_QA_twice(MInstrDataset):
             system = {
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                        # 'value': [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}],
                     }
             ret['conversations'].insert(0, system)
             ret['map_placeholders'] = self.map_placeholders
@@ -242,6 +244,7 @@ class V7W_POINT(MInstrDataset):
             if ret['conversations'][1]['points_seq'] is not None:
                 unit = 'point'
             value = [{'task':{'task_name':'gcg_detection','element':['sentence','phrase'],'use_unit':True},'unit':[unit]}]
+            # value = [{'task':{'task_name':'referring gcg_detection','element':['sentence','phrase'],'use_unit':True},'unit':[unit]}]
             system = {
                         'from':'system',
                         'value': value,

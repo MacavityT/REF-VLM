@@ -7,7 +7,7 @@ with read_base():
 
 gc = dict(
     type='SubSet',
-    portion=1/30,
+    portion=1/20,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['gc'],
@@ -30,50 +30,53 @@ reg = dict(
     cfg=train_all_dataset['reg'],
 )
 
-
-grit = dict(
+grand_re_cap = dict(
     type='SubSet',
-    portion=1/15,
+    portion=1/2,
     do_shuffle=True,
     seed=42,
-    cfg=train_all_dataset['grit_combine_offline'],
+    cfg=train_all_dataset['grand_c'],
 )
 
-grand_mix = dict(
+grand_det_seg = dict(
     type='SubSet',
-    portion=4/5,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['grand_mix'],
-)
-
-grand_seg_det = dict(
-    type='SubSet',
-    portion=1/5,
+    portion=1/10,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_d_s'],
 )
 
-grand_re_seg = dict(
+grand_cond_d = dict(
     type='SubSet',
-    portion=1/20,
+    portion=1/13,
     do_shuffle=True,
     seed=42,
-    cfg=train_all_dataset['grand_re_seg'],
+    cfg=train_all_dataset['grand_cond_d'],
+)
+
+grand_cond_s = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_cond_s'],
 )
 
 grand_re_det = dict(
     type='SubSet',
-    portion=1/20,
+    portion=1/2,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_re_det'],
 )
 
-
-
-# train_all_dataset['vcr_q_ra'],
+grand_re_seg = dict(
+    type='SubSet',
+    portion=1/2,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['grand_re_seg'],
+)
 
 dataset_s1 = [
 
@@ -86,7 +89,7 @@ dataset_s1 = [
     train_all_dataset['caption'],
     train_all_dataset['reg'],
     
-    # # vcr
+    # vcr
     train_all_dataset['vcr_qc_rac'],
     train_all_dataset['vcr_qac_r'],
 
@@ -113,12 +116,7 @@ for dataset in dataset_s1:
 
 
 dataset_s2 = [
-    # subset
-    grit,
-    grand_mix,
-    grand_seg_det,
-    grand_re_seg,
-    grand_re_det,
+
 
     # llava grounding
     train_all_dataset['llavag_reg'],
@@ -135,16 +133,34 @@ dataset_s2 = [
     train_all_dataset['gpt4gen_rd_qbc'],
 
     # osprey
-    train_all_dataset['osprey_partlevel'],
-    train_all_dataset['osprey_shortform'],
-    train_all_dataset['osprey_lvis'],
-    train_all_dataset['osprey_conversations'],
-    train_all_dataset['osprey_detailed'],
+    # train_all_dataset['osprey_partlevel'],
+    # train_all_dataset['osprey_shortform'],
+    # train_all_dataset['osprey_lvis'],
+    # train_all_dataset['osprey_conversations'],
+    # train_all_dataset['osprey_detailed'],
 
     # interact
     train_all_dataset['interact_reg'],
     train_all_dataset['interact_mask'],
     train_all_dataset['interact_box'],
+
+    # grit
+    train_all_dataset['grit_c'],
+    train_all_dataset['grit_d'],
+    train_all_dataset['grit_cond_d'],
+    train_all_dataset['grit_r'],
+    train_all_dataset['grit_g'],
+    train_all_dataset['grit_c_d'],
+
+    # grand
+    grand_re_cap,
+    grand_det_seg,
+    grand_cond_d,
+    grand_cond_s,
+    train_all_dataset['grand_re_det'],
+    train_all_dataset['grand_re_seg'],
+    train_all_dataset['grand_c_d'],
+    train_all_dataset['grand_c_s'],
 
 ]
 

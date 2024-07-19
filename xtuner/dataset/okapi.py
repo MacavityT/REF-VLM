@@ -36,6 +36,8 @@ from .utils import (
     norm_point_xyxy,
     de_norm_box_xyxy,
     visualize_mask,
+    visualize_mask_single,
+    visualize_box_single,
     visualize_box,
     visualize_point
 )
@@ -335,8 +337,8 @@ class OkapiDataset(Dataset):
         except:
             image_path = ''
             image = np.zeros((336,336,3)).astype(np.uint8)
-            ori_width = 0
-            ori_height = 0
+            # ori_width = 0
+            # ori_height = 0
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
         ori_height = image.size[1]
@@ -351,8 +353,8 @@ class OkapiDataset(Dataset):
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
             image = image.resize((336,336))
             image_path = ''
-            ori_width = 0
-            ori_height = 0
+            ori_width = 336
+            ori_height = 336
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
 
@@ -407,8 +409,12 @@ class OkapiDataset(Dataset):
             image_path = image_info['path']
             image_meta = self.image_process(image_path)
             data_dict['pixel_values'] = image_meta['pixel_values']
-            data_dict['ori_width'] = image_meta['ori_width']
-            data_dict['ori_height'] = image_meta['ori_height']
+            if 'width' in data_dict['image'].keys() and 'height' in data_dict['image'].keys():
+                data_dict['ori_width'] = data_dict['image']['width']
+                data_dict['ori_height'] = data_dict['image']['height']
+            else:
+                data_dict['ori_width'] = image_meta['ori_width']
+                data_dict['ori_height'] = image_meta['ori_height']
             data_dict['image_path'] = image_meta['image_path']
         else:
             if hasattr(self.image_processor, 'crop_size'):
@@ -423,11 +429,16 @@ class OkapiDataset(Dataset):
         
         if 'input_ids' not in data_dict.keys():
             if 'target' in data_dict.keys():
-                self.target_process(
-                    data_dict['target'], 
-                    width=data_dict['ori_width'],
-                    height=data_dict['ori_height']
-                )
+                if 'image' in data_dict.keys():
+                    self.target_process(
+                        data_dict['target'], 
+                        width=data_dict['ori_width'],
+                        height=data_dict['ori_height']
+                    )
+                else:
+                    from xtuner.model.utils import save_wrong_data
+                    save_wrong_data("wrong_okapi",data_dict)
+                    del data_dict['target']
             # 'visual_prompts', 'decode_labels', 'conversation'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))
@@ -460,7 +471,7 @@ class OkapiDataset(Dataset):
             else:
                 raise f"max num:{max_num} is lower than 0"
 
-        # #region debug
+        #region debug
         # ori_path = 'vis_origin.jpg'
         # shutil.copy(data_dict['image_path'], ori_path)
 
@@ -471,11 +482,30 @@ class OkapiDataset(Dataset):
         # res_path = 'vis_normed.jpg'
         # cv2.imwrite(res_path, image)
 
-        # vpts = data_dict['visual_prompts']
-        # vis_img = visualize_mask(image, vpts, alpha=1.0, beta=1.0)
-        # save_path = 'vis_vpt.jpg'
-        # cv2.imwrite(save_path, vis_img)
-        # #endregion
+        # if 'visual_prompts' in data_dict.keys():
+        #     vpts = data_dict['visual_prompts']
+        #     for i,vpt in enumerate(vpts):
+        #         vis_vpt = visualize_mask_single(image, vpt, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_vpt_{i}.jpg'
+        #         cv2.imwrite(save_path, vis_vpt)
+
+        # if 'masks' in data_dict['target'].keys():
+        #     masks = data_dict['target']['masks']
+        #     for j,mask in enumerate(masks):
+        #         vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_mask_{j}.jpg'
+        #         cv2.imwrite(save_path, vis_mask)
+        
+        # if 'boxes' in data_dict['target'].keys():
+        #     boxes = data_dict['target']['boxes']
+        #     width = image.shape[0]
+        #     height = image.shape[1]
+        #     for k,box in enumerate(boxes):
+        #         denorm_box = de_norm_box_xyxy(box,width,height)
+        #         vis_box = visualize_box_single(image.copy(), denorm_box)
+        #         save_path = f'vis_box_{k}.jpg'
+        #         cv2.imwrite(save_path, vis_box)
+        #endregion
 
         return data_dict
 

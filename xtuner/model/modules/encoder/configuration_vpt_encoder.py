@@ -9,8 +9,8 @@ class VPTEncoderConfig(PretrainedConfig):
     def __init__(
         self,
         num_patches=9,
-        patch_size=64,
-        strategy='embedding',
+        patch_size=8,
+        strategy='pooling',
         visual_hidden_size=1024,
         **kwargs,
     ):

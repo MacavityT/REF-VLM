@@ -9,7 +9,9 @@ from xtuner.registry import DATASETS
 import cv2
 import random
 import numpy as np
-
+import jsonlines
+import pickle
+from tqdm import tqdm
 from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
     MASKS_PLACEHOLDER,
@@ -219,6 +221,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+                    # all_system_values.append([{'task':{'task_name':'referring grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
                 
                 elif self.strategy == 'full':
                     for k in range(0,len(interact)-2):
@@ -230,6 +233,7 @@ class COCOInteract(MInstrDataset):
                                 ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+                        # all_system_values.append([{'task':{'task_name':'referring grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
 
             if self.version == 'r':
                 answer =  category_name
@@ -243,6 +247,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])
+                    # all_system_values.append([{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}])
 
                 elif self.strategy == 'full':
                     for j,interact in enumerate(interact_list):
@@ -254,6 +259,7 @@ class COCOInteract(MInstrDataset):
                         ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])  
+                        # all_system_values.append([{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}])
              
             elif self.version == 'd':
                 gt_boxes.append(annotation['bbox'])
@@ -269,6 +275,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                    # all_system_values.append([{'task':{'task_name':'referring grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
 
                 elif self.strategy == 'full':
                     for m in range(1,len(interact)-1):
@@ -282,6 +289,7 @@ class COCOInteract(MInstrDataset):
                         ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                        # all_system_values.append([{'task':{'task_name':'referring grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
     
 
         #random shuffle
@@ -357,7 +365,7 @@ class COCOInteractSingle(MInstrDataset):
             'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
             'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
         ]
-        self.process_data()
+        self.save_data()
 
         self.question = 'Please generate a distinguishing description for the region <masks> in the image<image>.'
       
@@ -374,7 +382,7 @@ class COCOInteractSingle(MInstrDataset):
         mask = maskUtils.decode(rle)
         return mask
     
-    def process_data(self):
+    def save_data(self):
 
         self.all_items = []
         for item in self.text_data:
@@ -410,7 +418,9 @@ class COCOInteractSingle(MInstrDataset):
                             'image':image,
                             'category_name':category_name,
                         }
+
                         self.all_items.append(single_item)
+
 
                 elif self.version == 'd':
                     interact_list = interact_list[1:]
@@ -459,6 +469,7 @@ class COCOInteractSingle(MInstrDataset):
             answer = category_name
             single_conversation = [
                 {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
+                # {'from':'system','value':[{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}]},
                 {'from':'human','value':question,'masks_seq':[[0]]},
                 {'from':'gpt','value':answer}
             ]

@@ -25,7 +25,7 @@ train_grit_variant = dict(
         template_name=r"image_cap",
         map_placeholders=None,
         placeholders=(IMAGE_PLACEHOLDER,),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_caption',
     ),
     grit_d=dict(
         **grit_train_common_cfg, 
@@ -35,17 +35,18 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_det',
     ),
     grit_cond_d=dict(
         **grit_train_common_cfg, 
         version='cond_d', 
         template_name=r"Cond_DET",
+        max_conv_length=5,
         map_placeholders=dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
-        offline_processed_text_folder='',        
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det',        
     ),
     grit_r=dict(
         **grit_train_common_cfg, 
@@ -55,7 +56,7 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec',
     ),
     grit_g=dict(
         **grit_train_common_cfg, 
@@ -65,7 +66,8 @@ train_grit_variant = dict(
             input=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_reg_noref',
+        # offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_reg',
     ),
     grit_c_d=dict(
         **grit_train_common_cfg, 
@@ -75,7 +77,7 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_gcg',
     ),
     grit_combine = dict(
         **grit_train_common_cfg, 
@@ -99,6 +101,6 @@ train_grit_variant = dict(
             input=["<boxes>"],
             output=["<boxes>"],
         ),         
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/grit_offline',
     ),
 )

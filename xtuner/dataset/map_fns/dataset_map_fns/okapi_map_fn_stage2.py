@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import re
 import numpy as np
+import copy
 from typing import List, Dict, Any, Tuple, Union
 from xtuner.utils.constants import (
     DEFAULT_IMAGE_TOKEN,
@@ -163,7 +164,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
         messages = messages[1:]
         assert 0.5 * len(messages) == len(systems['value'])
 
-        for info in systems['value']:
+        for i, info in enumerate(systems['value']):
             task_name = f"- task name: {info['task']['task_name']}\n"
             if info['task']['use_unit']:
                 info['task']['element'].append('unit')

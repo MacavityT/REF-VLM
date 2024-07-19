@@ -211,7 +211,6 @@ class OkapiInference:
                     )
 
         else:
-
             print("no vpt exists!")
             # fake regions for contain compute graph
             bs = selected_feats.shape[0]

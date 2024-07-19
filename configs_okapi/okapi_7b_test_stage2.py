@@ -22,29 +22,34 @@ with read_base():
 # Data
 prompt_template = PROMPT_TEMPLATE.okapi
 max_length = 10000  # use cutoff lens instead
-cutoff_len = 4096
+cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
-vrt_length = 64
+visual_hidden_size = 1024
+vrt_length = 256
 ref_length = 1
+vpt_num_patches = 9
+vpt_patch_size = 8 # sqrt(576/9)=8
+cot_weight = 1
+vrt_weight = 1
 
 eval_type = 'phrase'
 prefix = 'reg'
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0702/eval3012'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval4000'
 
 if prefix == 'vqa':
     test_evaluator = dict(
         type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa')
     test_dataset_args = [
-    dict(
-        type='SubSet',
-        portion=1/200,
-        do_shuffle=False,
-        seed=43,
-        enforce_online=True,
-        cfg=test_all_dataset['vqav2_val'],
-        )
-]
+        dict(
+            type='SubSet',
+            portion=1/200,
+            do_shuffle=False,
+            seed=43,
+            enforce_online=True,
+            cfg=test_all_dataset['vqav2_val'],
+            )
+    ]
 elif prefix == 'caption':
     test_evaluator = dict(
         type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
@@ -140,4 +145,23 @@ model = dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
-    visual_encoder=clip_patch14_336['visual_encoder'])
+    visual_encoder=clip_patch14_336['visual_encoder'],
+    vpt_encoder=dict(
+        strategy='pooling',
+        patch_size=vpt_patch_size,
+        num_patches = vpt_num_patches,
+        visual_hidden_size=visual_hidden_size
+    ),
+    visual_sync_tuner=dict(
+        num_layers=3,
+        num_queries=vrt_length,
+        d_input=4096,
+        d_model=512,
+        d_ffn=2048,
+        output_dim=3,
+        num_heads=8,
+        dropout=0.1,
+        ratio=0.5
+    ),
+    cot_weight=cot_weight,
+    vrt_weight=vrt_weight)
