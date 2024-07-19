@@ -88,7 +88,6 @@ class InterleaveDateset(Dataset):
             cfgs,
             probabilities: Optional[List[float]] = None,
             seed: Optional[int] = 42,
-            enforce_online=False,
             stopping_strategy: Literal["first_exhausted", "all_exhausted"] = "first_exhausted",
     ):
         self.cfgs = cfgs
@@ -105,7 +104,6 @@ class InterleaveDateset(Dataset):
             seed=seed,
             stopping_strategy=stopping_strategy,
         )
-        self.enforce_online = enforce_online
 
     def __len__(self):
         return len(self.index_mapping)
@@ -130,7 +128,7 @@ class InterleaveDateset(Dataset):
 
 @DATASETS.register_module()
 class SubSet(TorchSubset):
-    def __init__(self, cfg, portion, do_shuffle=True, enforce_online=False, seed=42):
+    def __init__(self, cfg, portion, do_shuffle=True, seed=42):
         assert 0 < portion <= 1
         dataset = DATASETS.build(cfg=cfg)
         target_len = int(len(dataset) * portion)
@@ -141,7 +139,6 @@ class SubSet(TorchSubset):
             indices = indices[:target_len]
         else:
             indices = list(range(target_len))
-        self.enforce_online = enforce_online
         super().__init__(dataset, indices)
 
 
@@ -149,7 +146,7 @@ class SubSet(TorchSubset):
 class ConcatDatasetWithShuffle(TorchSubset):
     _repr_indent = 4
 
-    def __init__(self, cfgs, seed=42, portion=1, enforce_online=False):
+    def __init__(self, cfgs, seed=42, portion=1):
         self.cfgs = cfgs
         self.seed = seed
         self.portion = portion
@@ -160,7 +157,6 @@ class ConcatDatasetWithShuffle(TorchSubset):
         rng = np.random.default_rng(seed)
         rng.shuffle(indices)
         indices = indices[:target_len]
-        self.enforce_online = enforce_online
         super().__init__(dataset, indices)
 
 

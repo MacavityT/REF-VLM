@@ -156,11 +156,13 @@ class OkapiModel(BaseModel):
             )
             self.projector = ProjectorModel(projector_config).to(
                 self.visual_encoder.dtype)
-        if vpt_encoder is not None:
+        if vpt_encoder is not None and \
+            'type' in vpt_encoder:
             vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
-        if visual_sync_tuner is not None:
+        if visual_sync_tuner is not None and \
+            'type' not in visual_sync_tuner:
             sync_tuner_config = SyncTunerConfig(**visual_sync_tuner)
             assert sync_tuner_config.num_queries > 0, 'vrt length error!'
             self.visual_sync_tuner = SyncTunerModel(sync_tuner_config).to(
