@@ -258,36 +258,39 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
 
         elif msg['from'] == 'gpt':
             output = msg['value']
-            if map_placeholders:
-                output_placeholders = map_placeholders.get('output', [])
-                unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
-                if unit_decode:
-                    p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)                    
-                    cot_content = ''
-                    for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
-                        cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
+            if output is not None and output != '':
+                if map_placeholders:
+                    output_placeholders = map_placeholders.get('output', [])
+                    unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
+                    if unit_decode:
+                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)                    
+                        cot_content = ''
+                        for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
+                            cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
+                        
+                        cot = f"{BOT_TOKEN}\nUnit decode (True). Class name, target unit and number:\n{cot_content}{EOT_TOKEN}\n"
+                    else:
+                        cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
                     
-                    cot = f"{BOT_TOKEN}\nUnit decode (True). Class name, target unit and number:\n{cot_content}{EOT_TOKEN}\n"
+                    for placeholder in output_placeholders:
+                        target_seq = msg.get(SEQ_MAP[placeholder], None)
+                        if not target_seq: continue
+                        
+                        units = []
+                        for tgts in target_seq:
+                            for tgt_idx, tgt in enumerate(tgts):
+                                unit = f"[{tgt_idx}]" + VISUAL_REFERENCE_TOKEN * ref_len
+                                if tgt_idx == 0: unit = '(' + BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + unit
+                                if tgt_idx == len(tgts) - 1: unit = unit + ')'
+                                # if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
+                                units.append(unit)
+                        output = map_units(output, units, placeholder)
+                # for map placeholder is None
                 else:
                     cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
-                
-                for placeholder in output_placeholders:
-                    target_seq = msg.get(SEQ_MAP[placeholder], None)
-                    if not target_seq: continue
-                    
-                    units = []
-                    for tgts in target_seq:
-                        for tgt_idx, tgt in enumerate(tgts):
-                            unit = f"[{tgt_idx}]" + VISUAL_REFERENCE_TOKEN * ref_len
-                            if tgt_idx == 0: unit = '(' + BOU_TOKEN + UNIT_MAP[placeholder] + EOU_TOKEN + unit
-                            if tgt_idx == len(tgts) - 1: unit = unit + ')'
-                            # if tgt_idx != 0 and len(tgts) > 1: unit = ', ' + unit
-                            units.append(unit)
-                    output = map_units(output, units, placeholder)
-            # for map placeholder is None
+                output = cot + output
             else:
-                cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
-            output = cot + output
+                output = ''
             conversation.append({'input': input, 'output': output})
             input = ''
         else:
