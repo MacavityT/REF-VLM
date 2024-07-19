@@ -419,20 +419,25 @@ class OkapiModel(BaseModel):
                     )
                     visual_prompts['vpt_count'] = vpt_count
 
-                # concat and reuse projector
-                vpt_feats = visual_prompts['vpt_feats']
-                b, q, n, c = vpt_feats.shape
-                _, l, _ = selected_feats.shape
-                vpt_feats = vpt_feats.view(b, -1, c)
-                concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
-                concat_feats = self.projector(concat_feats)
+                if self.vpt_encoder.config.use_projector:
+                    pixel_values = self.projector(selected_feats)
+                    data['pixel_values'] = pixel_values
+                    data.update(visual_prompts)
+                else:
+                    # concat and reuse projector
+                    vpt_feats = visual_prompts['vpt_feats']
+                    b, q, n, c = vpt_feats.shape
+                    _, l, _ = selected_feats.shape
+                    vpt_feats = vpt_feats.view(b, -1, c)
+                    concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
+                    concat_feats = self.projector(concat_feats)
 
-                pixel_values = concat_feats[:, :l, :]
-                vpt_feats = concat_feats[:, l:, :]
-                vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
-                visual_prompts['vpt_feats'] = vpt_feats
-                data.update(visual_prompts)
-                data['pixel_values'] = pixel_values
+                    pixel_values = concat_feats[:, :l, :]
+                    vpt_feats = concat_feats[:, l:, :]
+                    vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
+                    visual_prompts['vpt_feats'] = vpt_feats
+                    data.update(visual_prompts)
+                    data['pixel_values'] = pixel_values
             else:
                 pixel_values = self.projector(selected_feats)
                 data['pixel_values'] = pixel_values
@@ -449,7 +454,6 @@ class OkapiModel(BaseModel):
                 img_idx = torch.where(ids == IMAGE_TOKEN_INDEX)[0].tolist()
                 assert len(bov_idx) == len(eov_idx)
                 if len(bov_idx) == 1:
-                    # TODO: double check vrt tokens position
                     assert len(img_idx) == 1 and img_idx < bov_idx
                     image_token_len = pixel_values.shape[1]
                     bov_indices.append(bov_idx[0] + image_token_len - 1)
@@ -643,7 +647,6 @@ class OkapiModel(BaseModel):
                     vrt_hidden_states.append(selected_hidden_states[batch_idx, bov_idx+1:eov_idx, :])
                 elif bov_idx == -1 and eov_idx == -1:
                     # fake features
-                    b, _, c = selected_hidden_states.shape
                     vrt_hidden_states.append(
                         torch.zeros(
                             self.visual_sync_tuner.config.num_queries, c

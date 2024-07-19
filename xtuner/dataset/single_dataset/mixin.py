@@ -177,23 +177,7 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         else:
             image_path_abs = image_path
         # image = Image.open(image_path).convert('RGB')
-
         item = {'path': image_path_abs}
-        if self.image_info_folder is not None:
-            key_example = list(self.image_data_info.keys())[0]
-            image_path_abs_list = image_path_abs.split("/")
-            if len(key_example.split("/")) == 2:
-                image_path = os.path.join(image_path_abs_list[-2],image_path_abs_list[-1])
-            elif len(key_example.split("/")) == 3:
-                image_path = os.path.join(image_path_abs_list[-3],image_path_abs_list[-2],image_path_abs_list[-1])
-
-            try:
-                width = self.image_data_info[image_path]['width']
-                height = self.image_data_info[image_path]['height']
-                item['width'] = width
-                item['height'] = height
-            except:
-                Warning(f"get height and width info failed, image path: {image_path}")
         return item
 
     def get_template(self):
