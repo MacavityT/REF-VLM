@@ -2,14 +2,12 @@ voc2010_train_common_cfg = dict(
     text_path=r'/data/Aaronzhu/DatasetStage2and3/VOCdevkit/VOC2010/trainval_merged.json',  
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/pascal_ctx_d2/images/training',
     offline_processed_text_folder = '',
-    offline_processed_image_folder = '',
     )
 voc2012_train_common_cfg = dict(
     type='PscalVocDataset',
     text_path=r'/data/Aaronzhu/DatasetStage2and3/VOCdevkit/VOC2010/trainval_merged.json',  
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/pascal_ctx_d2/images/training',
     offline_processed_text_folder = '',
-    offline_processed_image_folder = '',
     )
 train_voc_variant = dict(
     train_voc59_with_semantic=dict(

@@ -108,11 +108,6 @@ dataset_s1 = [
     train_all_dataset['point_v7w_b'],
 ]
 
-for dataset in dataset_s1:
-    if dataset['type'] == 'SubSet':
-        dataset['cfg'].setdefault('enforce_online',True)
-    else:
-        dataset['enforce_online'] = True
 
 
 dataset_s2 = [

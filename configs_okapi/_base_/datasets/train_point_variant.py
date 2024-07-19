@@ -2,8 +2,6 @@ point_train_common_cfg_local = dict(
     type='Point_QA_local',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_local_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
-    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
-    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
@@ -11,8 +9,6 @@ point_train_common_cfg_twice = dict(
     type='Point_QA_twice',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/pointQA_twice_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual Genome',
-    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vg100k_shape.jsonl',
-    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
@@ -20,8 +16,6 @@ point_train_common_cfg_v7w = dict(
     type='V7W_POINT',
     text_path='/data/Aaronzhu/DatasetStage1/Shikra/v7w_pointing_train.jsonl',
     image_folder='/data/Aaronzhu/DatasetStage1/Visual7W/images',
-    image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/visual7w_shape.jsonl',
-    offline_processed_image_folder = '',
     template_name=r"VQA",
 )
 
@@ -32,7 +26,7 @@ train_point_variant = dict(
             input=["<boxes>"],
         ), 
         version='b',
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_b',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_b',
     ),
     point_local_p=dict(
         **point_train_common_cfg_local, 
@@ -40,7 +34,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<points>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_p',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_p',
     ),
     point_local_bp=dict(
         **point_train_common_cfg_local, 
@@ -48,7 +42,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>","<points>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_bp',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_local_bp',
     ),
     point_twice_oq_b=dict(
         **point_train_common_cfg_twice, 
@@ -56,7 +50,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_b',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_b',
     ),
     point_twice_oq_p=dict(
         **point_train_common_cfg_twice, 
@@ -64,7 +58,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<points>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_p',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_p',
     ),
     point_twice_oq_bp=dict(
         **point_train_common_cfg_twice, 
@@ -72,7 +66,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>","<points>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_bp',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_oq_bp',
     ),
     point_twice_sq_b=dict(
         **point_train_common_cfg_twice, 
@@ -80,7 +74,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_b',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_b',
     ),
     point_twice_sq_p=dict(
         **point_train_common_cfg_twice, 
@@ -88,7 +82,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<points>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_p',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_p',
     ),
     point_twice_sq_bp=dict(
         **point_train_common_cfg_twice, 
@@ -96,7 +90,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>","<points>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_bp',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_sq_bp',
     ),
     point_twice_gq_b=dict(
         **point_train_common_cfg_twice, 
@@ -104,7 +98,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_b',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_b',
     ),
     point_twice_gq_p=dict(
         **point_train_common_cfg_twice, 
@@ -112,7 +106,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<points>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_p',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_p',
     ),
     point_twice_gq_bp=dict(
         **point_train_common_cfg_twice, 
@@ -120,7 +114,7 @@ train_point_variant = dict(
         map_placeholders=dict(
             input=["<boxes>","<points>"],
         ), 
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_bp',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_twice_gq_bp',
     ),
     point_v7w_p=dict(
         **point_train_common_cfg_v7w, 
@@ -129,7 +123,7 @@ train_point_variant = dict(
             input=["<boxes>"],
             output=["<points>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_p',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_p',
     ),
     point_v7w_b=dict(
         **point_train_common_cfg_v7w, 
@@ -138,7 +132,7 @@ train_point_variant = dict(
             input=["<boxes>"],
             output=["<boxes>"],
         ),
-        offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_b',
+        # offline_processed_text_folder = '/data/Aaronzhu/DatasetStage1/offline_text_datasets/point_v7w_b',
     ),
 )
 
