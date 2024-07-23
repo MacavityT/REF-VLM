@@ -46,7 +46,6 @@ if prefix == 'vqa':
             portion=1/200,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['vqav2_val'],
             )
     ]
@@ -59,7 +58,6 @@ elif prefix == 'caption':
             portion=1/20,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['caption'],
             )
     ]
@@ -74,7 +72,6 @@ elif prefix == 'reg':
             # portion=1/3,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             # cfg=test_all_dataset['reg_refcocoa_unc_testa'],
             cfg=test_all_dataset['interact_reg']
             )
@@ -89,7 +86,6 @@ elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
             portion=1,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['rec_refcocoa_unc_testa'],
             )
     ]
@@ -104,7 +100,6 @@ elif prefix == 'label':
             portion=1/1000,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['grand_d_s'],
             )
     ]
@@ -112,7 +107,6 @@ elif prefix == 'label':
 
 test_dataset = dict(
     type=OkapiDataset,
-    pretokenize=False,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
@@ -150,7 +144,9 @@ model = dict(
         strategy='pooling',
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
-        visual_hidden_size=visual_hidden_size
+        visual_hidden_size=visual_hidden_size,
+        use_mask_token=False,
+        use_projector=False,
     ),
     visual_sync_tuner=dict(
         num_layers=3,

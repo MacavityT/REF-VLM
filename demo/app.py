@@ -169,15 +169,35 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
 
     system_template = PROMPT_TEMPLATE['okapi']
     system_task_text = SYS_TEMPLATE_OKAPI[radio]
-    if chatbot == []:
+
+    if state['previous_system'] is None or state['previous_system'] == system_task_text:
+        if chatbot == []:
+            system_text = system_template['SYSTEM_PREFIX'] + system_template['SYSTEM'].format(system=system_task_text)
+        else:
+            system_text = system_template['SYSTEM'].format(system=system_task_text)
+        chatbot = chatbot + [[input_text, None]]
+        if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
+            # input_text = DEFAULT_IMAGE_TOKEN + input_text
+            vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * args.vrt_length}{EOV_TOKEN}\n"
+            input_text = DEFAULT_IMAGE_TOKEN + '\n' + vrt + input_text
+        state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
+        
+
+    else:  # current system != previous system
+        # chatbot = []
+        state['history'] = ''
+        state['previous_box_length'] = 0
+        state['previous_mask_length'] = 0
+        state['previous_point_length'] = 0
         system_text = system_template['SYSTEM_PREFIX'] + system_template['SYSTEM'].format(system=system_task_text)
-    else:
-        system_text = system_template['SYSTEM'].format(system=system_task_text)
-    chatbot = chatbot + [[input_text, None]]
-    if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
-        vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * args.vrt_length}{EOV_TOKEN}\n"
-        input_text = DEFAULT_IMAGE_TOKEN + '\n' + vrt + input_text
-    state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
+        chatbot = chatbot + [[input_text, None]]
+        if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
+            # input_text = DEFAULT_IMAGE_TOKEN + input_text
+            vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * args.vrt_length}{EOV_TOKEN}\n"
+            input_text = DEFAULT_IMAGE_TOKEN + '\n' + vrt + input_text
+        state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
+    # chatbot = chatbot + [[input_text, None]]
+    state['previous_system'] = system_task_text
 
     if isinstance(input_image,dict):
         if 'boxes' in input_image.keys():
@@ -242,7 +262,9 @@ def submit_step2(chatbot,input_image, state,prompt_image_list,radio,temperature,
     return chatbot
 
 def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state):
-    return None,None,{'point':None},[],[],{'prompt_input':None,
+    return None,None,{'point':None},[],[],{
+                                        'previous_system':None,
+                                        'prompt_input':None,
                                         'history':'',
                                         'previous_box_length':0,
                                         'previous_mask_length':0,
@@ -299,7 +321,9 @@ with gr.Blocks(
     selected_points = gr.State(value=None)
     point_mask = gr.State(value={'point':None})
     prompt_image_list = gr.State(value=[])
-    task_state = gr.State(value={'prompt_input':None,'history':'',
+    task_state = gr.State(value={'previous_system':None,
+                                 'prompt_input':None,
+                                 'history':'',
                                  'previous_box_length':0,
                                  'previous_mask_length':0,
                                  'previous_point_length':0})

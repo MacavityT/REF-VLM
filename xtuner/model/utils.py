@@ -50,7 +50,7 @@ def find_all_linear_names(model):
     return list(lora_module_names)
 
 def save_wrong_data(file_prefix,data,save_path="/code/okapi-mllm/Aaronzhu/wrong"):
-    data_file = f"{file_prefix}_{len(os.listdir(save_path))}"
+    data_file = f"{file_prefix}_{len(os.listdir(save_path))}.pkl"
     with open(os.path.join(save_path,data_file),"wb") as f:
         pickle.dump(data,f)
         f.close()

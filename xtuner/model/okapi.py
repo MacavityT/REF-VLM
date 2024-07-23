@@ -649,7 +649,7 @@ class OkapiModel(BaseModel):
                     # fake features
                     vrt_hidden_states.append(
                         torch.zeros(
-                            self.visual_sync_tuner.config.num_queries, c
+                            self.visual_sync_tuner.config.num_queries, selected_hidden_states.shape[-1]
                             ).to(selected_hidden_states.device).to(selected_hidden_states.dtype)
                     )
                 else:

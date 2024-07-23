@@ -19,14 +19,12 @@ val_all_dataset = dict(
         type='CaptionDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CAP_coco2017_val.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/val2017',
-        image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/coco2017_val_shape.jsonl',
         template_name=r'image_cap',
     ),
     vqav2_val=dict(
         type='VQAv2Dataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/v2_OpenEnded_mscoco_val2014_questions.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/VQAv2/real_images/',
-        image_info_folder='/data/Aaronzhu/DatasetStage1/Shikra/shape/vqav2_val_shape.jsonl',
         template_name=r"VQA",
     ),
 )
@@ -37,7 +35,6 @@ val_dataset_args = [
         portion=1/20,
         do_shuffle=True,
         seed=43,
-        enforce_online=True,
         cfg=val_all_dataset['caption'],
             )
     

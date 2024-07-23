@@ -69,7 +69,6 @@ test_dataset_args = [
         portion=1/5,
         do_shuffle=False,
         seed=43,
-        enforce_online=True,
         cfg=test_all_dataset['reg'],
         )
 ]

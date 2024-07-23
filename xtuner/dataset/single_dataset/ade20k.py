@@ -30,8 +30,8 @@ def find_duplicate_indices(my_list):
 
 @DATASETS.register_module()
 class ADE20k(MInstrDataset):
-    def __init__(self, text_path, image_folder=None, target_type='semantic', image_info_folder=None, gt_info=None, **kwargs):
-        super().__init__(text_path, image_folder, image_info_folder, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+    def __init__(self, text_path, image_folder=None, target_type='semantic', gt_info=None, **kwargs):
+        super().__init__(text_path, image_folder, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
         self.gt_info = gt_info
         self.mode = "gtFine" 
         self.target_type = target_type #  ("instance", "semantic", "polygon", "color", "depth")

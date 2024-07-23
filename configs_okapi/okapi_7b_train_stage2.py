@@ -25,7 +25,7 @@ with read_base():
 max_length = 2048 - 576 # use cutoff lens instead  4096 
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 16  # per_device
+batch_size = 15  # per_device
 dataloader_num_workers = 4
 vrt_length = 256
 vpt_num_patches = 9
@@ -37,7 +37,6 @@ vrt_weight = 1
 
 train_dataset = dict(
     type=OkapiDataset,
-    pretokenize=False,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
@@ -81,7 +80,9 @@ model = dict(
         strategy='pooling',
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
-        visual_hidden_size=visual_hidden_size
+        visual_hidden_size=visual_hidden_size,
+        use_mask_token=False,
+        use_projector=False,
     ),
     visual_sync_tuner=dict(
         num_layers=3,

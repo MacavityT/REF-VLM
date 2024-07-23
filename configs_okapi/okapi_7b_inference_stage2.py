@@ -25,7 +25,7 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 cot_weight = 1
 vrt_weight = 1
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0716_iter6500'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0719_iter5500'
 
 
 projector = dict(
