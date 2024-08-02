@@ -59,7 +59,8 @@ class OkapiDataset(Dataset):
                  dataset_map_fn=None,
                  template_map_fn=None,
                  max_length=2048,
-                 pad_image_to_square=False):
+                 pad_image_to_square=False,
+                 mode='train'):
         super().__init__()
 
         self.max_dataset_length = max_dataset_length
@@ -67,13 +68,18 @@ class OkapiDataset(Dataset):
         self.template_map_fn = template_map_fn
         self.max_length = max_length
         self.pad_image_to_square = pad_image_to_square
+        self.data = None
+        self.mode = mode
         self.init_visual_tokenizer(image_processor, tokenizer)
 
-        # Build datasets
-        print_log("Okapi Datasets Building ...")
-        self.dataset = self.build_dataset(dataset)
-        print_log("Okapi Datasets Build Success.")
-        
+        if mode == 'train' or mode == 'test':
+            # Build datasets
+            print_log("Okapi Datasets Building ...")
+            self.dataset = self.build_dataset(dataset)
+            print_log("Okapi Datasets Build Success.")
+            self.data = TorchConcatDataset(self.dataset)
+
+
         if isinstance(dataset_map_fn, str):
             map_fn_obj = MAP_FUNC.get(dataset_map_fn) or \
                 get_object_from_string(dataset_map_fn)
@@ -95,8 +101,17 @@ class OkapiDataset(Dataset):
             isinstance(template_map_fn, Config) or \
             isinstance(template_map_fn, ConfigDict):
             self.template_map_fn = BUILDER.build(template_map_fn)
-        self.data = TorchConcatDataset(self.dataset)
-
+    
+    def add_dataset(self,dataset):
+        assert self.mode == 'inference', 'Wrong mode, only inference mode could add additional dataset.'
+        '''for inference mode, add dataset'''
+        if isinstance(dataset,Dataset):
+            self.data = dataset
+        elif isinstance(dataset,list):
+            self.dataset = self.build_dataset(dataset)
+            self.data = TorchConcatDataset(self.dataset)
+        else:
+            raise NotImplementedError
 
     # @property
     # def modality_length(self):
@@ -181,13 +196,17 @@ class OkapiDataset(Dataset):
     def image_process(self, image):
         # load image
         image_path = image
-        try:
-            image = imfrombytes(image, flag='color', channel_order='rgb') # array
-        except:
+        if isinstance(image_path,str):
+            try:
+                image = imfrombytes(image, flag='color', channel_order='rgb') # array
+            except:
+                image_path = ''
+                image = np.zeros((336,336,3)).astype(np.uint8)
+                # ori_width = 0
+                # ori_height = 0
+        elif isinstance(image_path,np.ndarray):
+            image = image
             image_path = ''
-            image = np.zeros((336,336,3)).astype(np.uint8)
-            # ori_width = 0
-            # ori_height = 0
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
         ori_height = image.size[1]
@@ -250,13 +269,18 @@ class OkapiDataset(Dataset):
         return converted_vpt
 
     def __getitem__(self, index):
+        assert self.data is not None, 'Please add valid dataset first!'
         data_dict = self.data[index]
 
         # image
         if data_dict.get('image', None) is not None:
             image_info = data_dict['image']
-            image_path = image_info['path']
-            image_meta = self.image_process(image_path)
+            if 'path' in image_info.keys():
+                image_path = image_info['path']
+                image_meta = self.image_process(image_path)
+            elif 'value' in image_info.keys():
+                image_value = image_info['value']
+                image_meta = self.image_process(image_value)
             data_dict['pixel_values'] = image_meta['pixel_values']
             if 'width' in data_dict['image'].keys() and 'height' in data_dict['image'].keys():
                 data_dict['ori_width'] = data_dict['image']['width']

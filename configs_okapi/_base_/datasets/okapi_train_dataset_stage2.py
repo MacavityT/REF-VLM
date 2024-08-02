@@ -40,7 +40,7 @@ grand_re_cap = dict(
 
 grand_det_seg = dict(
     type='SubSet',
-    portion=1/10,
+    portion=1/3,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_d_s'],

@@ -3,7 +3,13 @@ from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 from transformers import AutoModelForCausalLM
 from xtuner.model import OkapiModel
-from xtuner.evaluation.metrics.single_metric import ImgCapComputeMetrics,VQAComputeMetrics,COTComputeMetrics,LabelsComputeMetrics
+from xtuner.evaluation.metrics.single_metric import (
+    ImgCapComputeMetrics,
+    VQAComputeMetrics,
+    COTComputeMetrics,
+    LabelsComputeMetrics,
+    PopeComputeMetrics,
+)
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_template_map_fn_factory
@@ -32,24 +38,26 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 cot_weight = 1
 vrt_weight = 1
 
-eval_type = 'phrase'
-prefix = 'reg'
+eval_type = 'cot_vrt'
+prefix = 'pope_random'
+chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval4000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval59525'
 
 if prefix == 'vqa':
     test_evaluator = dict(
-        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa')
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa',chunk=chunk)
     test_dataset_args = [
-        dict(
-            type='SubSet',
-            portion=1/200,
-            do_shuffle=False,
-            seed=43,
-            cfg=test_all_dataset['vqav2_val'],
-            )
+        # dict(
+        #     type='SubSet',
+        #     portion=1/200,
+        #     do_shuffle=False,
+        #     seed=43,
+        #     cfg=test_all_dataset['vqav2_val'],
+        #     )
+        test_all_dataset['vqav2_test_8'],
     ]
-elif prefix == 'caption':
+elif prefix == 'caption_coco':
     test_evaluator = dict(
         type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
     test_dataset_args = [
@@ -62,18 +70,47 @@ elif prefix == 'caption':
             )
     ]
 
+elif prefix == 'caption_flickr':
+    test_evaluator = dict(
+    type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
+    test_dataset_args = [
+        test_all_dataset['flickr_test_without_box'],
+    ]
+
+elif prefix == 'pope_random':
+    test_evaluator = dict(
+    type=PopeComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='pope_random')
+    test_dataset_args = [
+        test_all_dataset['coco_pope_random_q_a'],
+    ]
+
+elif prefix == 'pope_popular':
+    test_evaluator = dict(
+    type=PopeComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='pope_popular')
+    test_dataset_args = [
+        test_all_dataset['coco_pope_popular_q_a'],
+    ]
+
+elif prefix == 'pope_adversarial':
+    test_evaluator = dict(
+    type=PopeComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='pope_adversarial')
+    test_dataset_args = [
+        test_all_dataset['coco_pope_adversarial_q_a'],
+    ]
+
 elif prefix == 'reg':
     test_evaluator = dict(
         type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='reg')
     test_dataset_args = [
         dict(
             type='SubSet',
-            portion=1/140,
+            portion=1,
             # portion=1/3,
             do_shuffle=False,
             seed=43,
             # cfg=test_all_dataset['reg_refcocoa_unc_testa'],
-            cfg=test_all_dataset['interact_reg']
+            # cfg=test_all_dataset['interact_reg']
+            cfg=test_all_dataset['reg_refcocog_umd_test'],
             )
     ]
 

@@ -7,7 +7,7 @@ import json
 from torch.utils.data import Dataset
 from xtuner.registry import DATASETS
 from pycocotools.mask import decode
-import  pycocotools.mask as mask_utils
+import pycocotools.mask as mask_utils
 from xtuner.utils.constants import (
     MASKS_PLACEHOLDER,
     IMAGE_PLACEHOLDER,

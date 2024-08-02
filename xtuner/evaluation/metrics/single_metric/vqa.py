@@ -20,8 +20,9 @@ class VQAComputeMetrics(BaseComputeMetrics):
     Metrics: Accuracy@1
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, chunk=None,**kwargs):
         super().__init__(*args, **kwargs)
+        self.chunk = chunk
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -50,7 +51,10 @@ class VQAComputeMetrics(BaseComputeMetrics):
             target = target.strip()
             decode_pred = decode_pred.strip()
             if self.save_dir is not None:
-                self.save_outputs(decode_pred,target,"vqa")
+                if self.chunk is not None:
+                    self.save_outputs(decode_pred,target,f"vqa_chunk{self.chunk}")
+                else:
+                    self.save_outputs(decode_pred,target,"vqa")
                 
             self.results.append((decode_pred, target))
     

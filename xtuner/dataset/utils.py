@@ -13,7 +13,7 @@ from PIL import Image
 
 from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
 from xtuner.utils import VISUAL_PROMPT_PLACEHOLDER ,VISUAL_PROMPT_INDEX
-
+import matplotlib.pyplot as plt
 import cv2
 import mmengine.fileio as fileio
 from mmengine.utils import is_str
@@ -526,6 +526,23 @@ def visualize_mask_single(image, mask, alpha=0.5, beta=1.0):
     image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
 
     return image
+
+def visualize_keypoints(image,keypoints,skeleton,index):
+    x = keypoints[:,0]
+    y = keypoints[:,1]
+    v = keypoints[:,2]
+
+    plt.figure(figsize=(10,10))
+    plt.imshow(image)
+    for sk in skeleton:
+        sk = [item-1 for item in sk]
+        if np.all(v[sk] > 0):#相互连接的两个点的可见性都是否大于0,都大于0的话就画出连线
+            plt.plot(x[sk], y[sk], linewidth=2, color='red')
+    plt.plot(x[v > 0], y[v > 0], 'o', markersize=2, markerfacecolor='red', markeredgecolor='k', markeredgewidth=2)
+    plt.axis('off')
+    plt.show()
+    plt.savefig(f"keypoint_{index}")
+
 
 def visualize_box_single(image, box, line_thickness=10):
     if isinstance(image, Image.Image):

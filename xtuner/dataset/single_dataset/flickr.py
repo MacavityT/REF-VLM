@@ -289,3 +289,60 @@ class FlickrDataset(MInstrDataset):
 
 
 
+@DATASETS.register_module()
+class FlickrCaptionDataset(MInstrDataset):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+
+    def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+
+        item = self.get_raw_item(index)
+        img_path = f"{item['image_id']}.jpg"
+        caption = item['sentence']
+
+        image = self.get_image(img_path)
+        question = self.get_template()
+
+        if self.stage == 1:
+            caption = caption.replace(PHRASE_ST_PLACEHOLDER, "").replace(PHRASE_ED_PLACEHOLDER, "")
+            caption = re.sub(r'\s+(,|\.)', r'\1', caption)
+            ret = {
+                'image': image,
+                'conversations': [
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': caption,
+                    }
+                ]
+            }
+
+        if self.stage == 2:
+            caption = caption.replace(PHRASE_ST_PLACEHOLDER, "").replace(PHRASE_ED_PLACEHOLDER, "")
+            caption = re.sub(r'\s+(,|\.)', r'\1', caption)
+            ret = {
+                'image': image,
+                'conversations': [
+                    {
+                        'from': 'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
+                    },
+                    {
+                        'from': 'human',
+                        'value': question,
+                    },
+                    {
+                        'from': 'gpt',
+                        'value': caption,
+                    }
+                ]
+            }
+            ret['map_placeholders'] = self.map_placeholders
+        return ret

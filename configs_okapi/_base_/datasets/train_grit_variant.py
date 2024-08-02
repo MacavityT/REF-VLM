@@ -23,7 +23,7 @@ train_grit_variant = dict(
         template_name=r"image_cap",
         map_placeholders=None,
         placeholders=(IMAGE_PLACEHOLDER,),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_caption',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_caption_new',
     ),
     grit_d=dict(
         **grit_train_common_cfg, 
@@ -33,7 +33,7 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_det',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_det_new',
     ),
     grit_cond_d=dict(
         **grit_train_common_cfg, 
@@ -44,7 +44,7 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det',        
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det_new',        
     ),
     grit_r=dict(
         **grit_train_common_cfg, 
@@ -52,7 +52,7 @@ train_grit_variant = dict(
         template_name=r"REC",
         map_placeholders=dict(
             output=["<boxes>"],
-        ), 
+        ),  
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec',
     ),

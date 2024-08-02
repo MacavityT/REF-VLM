@@ -5,6 +5,7 @@ from PIL import ImageFont
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
+from xtuner.utils.constants import IMAGE_PLACEHOLDER
 
 class ImageBoxState:
     def __init__(self, draw_size=512):
@@ -130,36 +131,35 @@ class SingleInferDataset(Dataset):
 
     def reset_parameters(self):
         self.conversations = []
-        self.img_path = None
+        self.image = None
         self.system = {'from':'system','value':[]}
         self.target = {}
 
 
-    def add_image(self,img_path):
-        self.img_path = {'path':img_path}
+    def add_image(self,image):
+        self.image = {'value':image}
 
     def append_message_question(self,input_text,system_value,vpt_mask):
-        
-        self.input_text = {'from': 'human', 'value': input_text}
-        if vpt_mask is not None:
-            self.input_text['boxes_seq'] = [[0]]
+        if self.image is not None:
+            self.input_text = {'from': 'human', 'value': IMAGE_PLACEHOLDER + input_text}
+        else:
+            self.input_text = {'from': 'human', 'value': input_text}
+        if vpt_mask != []:
+            self.input_text['masks_seq'] = [[0]]
             self.target['masks'] = vpt_mask
         self.conversations.append(self.input_text)
         self.conversations.append({'from': 'gpt', 'value': ''})
         self.system['value'].append(system_value)
 
-    # def append_message_answer(self,output):
-    #     assert self.conversations[-1]['value'] is None
-    #     self.conversations[-1]['value'] = output
-
     def add_one_conversation(self):
         ret = {}
-        if self.img_path is None:
+        ret['map_placeholders'] = self.map_placeholders
+        if self.image is None:
             ret['conversations'] = self.conversations
         else:
             assert len(self.system['value']) == len(self.conversations) // 2
             self.conversations.insert(0,self.system)
-            ret['image'] = self.img_path
+            ret['image'] = self.image
             if self.target != {}:
                 ret['target'] = self.target
             ret['conversations'] = self.conversations
