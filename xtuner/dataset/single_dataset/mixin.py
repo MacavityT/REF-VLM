@@ -85,7 +85,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
     def __init__(self,
                 text_path, 
                 image_folder=None,
-                image_info_folder=None, 
                 stage=1,
                 map_placeholders=None,
                 seed=None,
@@ -93,7 +92,6 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
         super().__init__(**kwargs)
         self.text_path = text_path
         self.image_folder = image_folder
-        self.image_info_folder = image_info_folder
         self.map_placeholders = map_placeholders
         self.stage = stage
         self.rng = np.random.default_rng(seed)

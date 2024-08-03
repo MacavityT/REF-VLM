@@ -14,8 +14,6 @@ grit_train_common_cfg = dict(
     text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/annotations',
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/GRIT/img',
     stage=2,
-    image_info_folder=None,
-    offline_processed_image_folder = '',
 )
 
 train_grit_variant = dict(

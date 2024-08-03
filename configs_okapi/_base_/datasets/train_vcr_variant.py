@@ -2,8 +2,6 @@ vcr_train_common_cfg = dict(
     type='VCRDataset',
     text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vcr_train.jsonl',
     image_folder=r'/data/Aaronzhu/DatasetStage1/vcr1/vcr1images',
-    image_info_folder=r'/data/Aaronzhu/DatasetStage1/Shikra/shape/vcr1_shape.jsonl',
-    offline_processed_image_folder = '',
 )
 
 train_vcr_variant = dict(
@@ -15,7 +13,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a',
     ),
     vcr_q_ra=dict(
         **vcr_train_common_cfg, 
@@ -25,7 +22,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_ra'
     ),
     vcr_qc_a=dict(
         **vcr_train_common_cfg, 
@@ -34,7 +30,6 @@ train_vcr_variant = dict(
             input=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a'
     ),
     vcr_qc_ra=dict(
         **vcr_train_common_cfg, 
@@ -44,7 +39,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_ra'
     ),
     vcr_qc_rac=dict(
         **vcr_train_common_cfg, 
@@ -54,7 +48,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA_BCoT",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_rac'
     ),
     vcr_qa_r=dict(
         **vcr_train_common_cfg, 
@@ -64,7 +57,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qa_r'
     ),
     vcr_q_a_q_r=dict(
         **vcr_train_common_cfg, 
@@ -74,7 +66,6 @@ train_vcr_variant = dict(
             output=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_q_a_q_r'
     ),
     vcr_qac_r=dict(
         **vcr_train_common_cfg, 
@@ -83,7 +74,6 @@ train_vcr_variant = dict(
             input=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qac_r'
     ),
     vcr_qc_a_qc_r=dict(
         **vcr_train_common_cfg, 
@@ -92,7 +82,6 @@ train_vcr_variant = dict(
             input=["<boxes>"],
         ),
         template_name=r"VQA",
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/offline_text_datasets/vcr_qc_a_qc_r'
     ),
 )
 

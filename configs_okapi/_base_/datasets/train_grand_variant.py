@@ -3,8 +3,6 @@ grand_train_common_cfg = dict(
     text_path=r'/data/Aaronzhu/GranD/GranD/Jsons',
     image_folder=r'/data/Aaronzhu/SA-1B/OpenDataLab___SA-1B/images',
     stage=2,
-    image_info_folder= None,
-    offline_processed_image_folder = '',
 )
 
 train_grand_variant = dict(

@@ -204,11 +204,9 @@ def target_map_fn(example):
             decode_labels.append(items if len(items) > 0 else None)
 
     result = dict()
-    if len(visual_prompts) > 0 \
-        and any(vpt is not None for vpt in visual_prompts):
+    if any(vpt is not None for vpt in visual_prompts):
         result['visual_prompts'] = visual_prompts
-    if len('decode_labels') > 0 \
-        and any(label is not None for label in decode_labels):
+    if any(label is not None for label in decode_labels):
         result['decode_labels'] = decode_labels
     return result
 

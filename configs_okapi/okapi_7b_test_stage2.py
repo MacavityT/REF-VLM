@@ -41,7 +41,6 @@ if prefix == 'vqa':
         portion=1/200,
         do_shuffle=False,
         seed=43,
-        enforce_online=True,
         cfg=test_all_dataset['vqav2_val'],
         )
 ]
@@ -54,7 +53,6 @@ elif prefix == 'caption':
             portion=1/20,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['caption'],
             )
     ]
@@ -68,7 +66,6 @@ elif prefix == 'reg':
             portion=1/140,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['interact_reg'],
             )
     ]
@@ -82,7 +79,6 @@ elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
             portion=1/20,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['rec_refcocog_umd_test'],
             )
     ]
@@ -97,7 +93,6 @@ elif prefix == 'label':
             portion=1/1000,
             do_shuffle=False,
             seed=43,
-            enforce_online=True,
             cfg=test_all_dataset['grand_d_s'],
             )
     ]

@@ -28,7 +28,6 @@ evaluation_inputs = ['请描述一下这张照片', 'Please describe this pictur
 #         portion=1/100,
 #         do_shuffle=True,
 #         seed=43,
-#         enforce_online=True,
 #         cfg=test_all_dataset['vqav2_val'],
 #             )
     
@@ -40,7 +39,6 @@ test_dataset_args = [
         portion=1/1000,
         do_shuffle=True,
         seed=43,
-        enforce_online=True,
         cfg=test_all_dataset['caption'],
             )
     
