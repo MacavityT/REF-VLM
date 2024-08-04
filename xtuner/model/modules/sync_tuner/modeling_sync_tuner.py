@@ -85,7 +85,7 @@ class SyncTunerModel(PreTrainedModel):
         n_heads = config.num_heads
         dropout = config.dropout
         d_ffn = config.d_ffn
-        d_output = config.output_dim
+        d_output = config.d_output
 
         # models
         self.in_proj = nn.Linear(d_input, d_model)
@@ -100,7 +100,9 @@ class SyncTunerModel(PreTrainedModel):
                     dropout
                 )
             )
+        self.last_norm = nn.LayerNorm(d_model)
         self.out_proj = nn.Linear(d_model, d_output)
+        self.rec_head = nn.Linear(d_model, 3)
         self.criterion = MSELoss(reduction='none')
 
         # # self.image_pool = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -146,7 +148,7 @@ class SyncTunerModel(PreTrainedModel):
         x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
         return x
     
-    def get_loss(self, logits, image, image_path):
+    def compute_loss_reconstruction(self, logits, image, image_path):
         rec_flags = []
         # for path in image_path:
             # if path == '':
@@ -167,8 +169,9 @@ class SyncTunerModel(PreTrainedModel):
                 rec_flag = np.random.uniform(0, 1) < self.config.ratio
             rec_flags.append(rec_flag)
         if not any(rec_flags):
-            idx = random.randint(0, len(rec_flags) - 1)
-            rec_flags[idx] = True
+            # idx = random.randint(0, len(rec_flags) - 1)
+            # rec_flags[idx] = True
+            return torch.tensor(0).to(logits.device).to(logits.dtype)
 
         b, c, h, w = image.shape
         mask = torch.Tensor(rec_flags).expand(c, h, w, b).permute(3, 0, 1, 2).bool() # b, c, h, w
@@ -212,13 +215,15 @@ class SyncTunerModel(PreTrainedModel):
             x = self.upsample(x)
         
         # output projection
-        last_hidden_state = self.out_proj(x)
+        last_hidden_state = self.last_norm(x)
         hidden_states.append(last_hidden_state)
+        output_logits = self.out_proj(last_hidden_state)
 
         loss = None
         if mode == 'loss':
-            loss = self.get_loss(
-                last_hidden_state,
+            rec_pred = self.rec_head(last_hidden_state)
+            loss = self.compute_loss_reconstruction(
+                rec_pred,
                 image = metas['ori_image'],
                 image_path = metas['image_path'],
             )
@@ -226,5 +231,5 @@ class SyncTunerModel(PreTrainedModel):
         return dict(
             loss = loss,
             hidden_states = hidden_states,
-            last_hidden_state = last_hidden_state
+            output_logits = output_logits
         )

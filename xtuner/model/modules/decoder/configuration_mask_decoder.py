@@ -15,9 +15,10 @@ class MaskDecoderConfig(PretrainedConfig):
         bias=True,
         **kwargs,
     ):
+        super().__init__(**kwargs)
         self.visual_hidden_size = visual_hidden_size
         self.llm_hidden_size = llm_hidden_size
         self.depth = depth
         self.hidden_act = hidden_act
         self.bias = bias
-        super().__init__(**kwargs)
+        

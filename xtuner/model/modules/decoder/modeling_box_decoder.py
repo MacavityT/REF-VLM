@@ -82,7 +82,7 @@ class BoxDecoderModel(PreTrainedModel):
         losses["loss_giou"] = loss_giou.sum() / num_boxes
         return losses
 
-    def forward(self, x, labels):
+    def forward(self, x, metas=None, mode='loss'):
         batch_size = x.shape[0]
         hidden_states = x
 
@@ -104,13 +104,16 @@ class BoxDecoderModel(PreTrainedModel):
             return_dict=True,
         )
         sequence_output = decoder_outputs[0]
-        boxes_pred_logits = self.bbox_predictor(sequence_output).sigmoid()
+        pred_boxes = self.bbox_predictor(sequence_output).sigmoid()
 
         loss, loss_dict = None, None
-        if labels is not None:
+        if mode == 'loss':
             weight_dict = {
                 "loss_bbox": self.config.bbox_loss_coefficient,
                 "loss_giou": self.config.giou_loss_coefficient}
             loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
-        return boxes_pred_logits, loss
+        return dict(
+            loss=loss,
+            pred_boxes=pred_boxes
+        )

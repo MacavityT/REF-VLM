@@ -19,6 +19,7 @@ class MoEAdapterConfig(PretrainedConfig):
         num_layers=2,
         **kwargs,
     ):
+        super().__init__(**kwargs)
         self.num_queries = num_queries
         self.d_input = d_input
         self.d_model = d_model
@@ -28,5 +29,4 @@ class MoEAdapterConfig(PretrainedConfig):
         self.d_output = d_output
         self.num_experts = num_experts
         self.top_k = top_k
-        self.num_layers = num_layers
-        super().__init__(**kwargs)
+        self.num_layers = num_layers 

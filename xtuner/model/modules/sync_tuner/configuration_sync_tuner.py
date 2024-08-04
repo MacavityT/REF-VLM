@@ -12,20 +12,20 @@ class SyncTunerConfig(PretrainedConfig):
         d_input=4096,
         d_model=4096,
         d_ffn=2048,
-        output_dim=3,
+        d_output=3,
         num_heads=8,
         dropout=0.1,
         ratio=0.5,
         **kwargs,
     ):
+        super().__init__(**kwargs)
         self.num_layers = num_layers
         self.num_queries = num_queries
         self.d_input = d_input
         self.d_model = d_model
         self.d_ffn = d_ffn
-        self.output_dim = output_dim
+        self.d_output = d_output
         self.num_heads = num_heads
         self.dropout = dropout
         self.ratio = ratio
-        super().__init__(**kwargs)
 

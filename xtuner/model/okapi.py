@@ -442,10 +442,10 @@ class OkapiModel(BaseModel):
 
     def prepare_vrt_feats(self, hidden_states, metas, mode='loss'):
         vrt_masks = metas.get('vrt_masks', None)
-        if vrt_masks is None: 
+        if vrt_masks.sum() == 0 and mode != 'loss':
             return None
+        
         vrt_hidden_states = []
-        bs = hidden_states.shape[0]
         num_queries = self.visual_sync_tuner.config.num_queries
         dim_feats = hidden_states.shape[-1]
         for feats, mask in zip(hidden_states, vrt_masks):
@@ -463,8 +463,38 @@ class OkapiModel(BaseModel):
         vrt_hidden_states = torch.stack(vrt_hidden_states)
         return vrt_hidden_states
 
-    def prepare_ref_feats(self, hidden_state, metas):
-        pass
+    def prepare_ref_feats(self, hidden_states, metas, mode='loss'):
+        ref_masks = metas.get('ref_masks', None)
+        if ref_masks.sum() == 0 and mode != 'loss':
+            return None, None
+        
+        if self.moe_adapter is not None:
+            num_queries = self.moe_adapter.config.num_queries
+        elif self.visual_decoder is not None:
+            first_decoder = tuple(self.visual_decoder.values())[0]
+            num_queries = first_decoder.config.num_queries
+        else:
+            return None, None
+
+        batch_size, _, dim_feats = hidden_states.shape
+        ref_hidden_states = torch.zeros((batch_size, num_queries, dim_feats),
+                                    dtype=hidden_states.dtype,
+                                    device=hidden_states.device)
+        ref_attention_masks = torch.zeros((batch_size, num_queries),
+                                    dtype=torch.bool,
+                                    device=hidden_states.device)
+
+        for batch_idx, (feats, mask) in enumerate(zip(hidden_states, ref_masks)):
+            ref_feats = feats[mask, :]
+            ref_feats_len = ref_feats.shape[0]
+            if ref_feats_len > 0:
+                ref_hidden_states[batch_idx, :ref_feats_len, :] = ref_feats
+                ref_attention_masks[batch_idx, :ref_feats_len] = True
+            else:
+                # prepare fake features for all mode (for locating batch features in prediction mode)
+                # ref_hidden_states and ref_attention_masks zero value has already prepared
+                ref_attention_masks[batch_idx] = True
+        return ref_hidden_states, ref_attention_masks
 
     def forward(self, data, data_samples=None, mode='loss'):
         metas = dict()
@@ -561,12 +591,6 @@ class OkapiModel(BaseModel):
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
         return generate_ids_dict
 
-    # def predict(self, data, data_samples=None):
-        
-    #     outputs = self.llm(**data)
-    #     logits_dict = [{'logits': logits} for logits in outputs.logits]
-    #     return logits_dict
-
     def compute_loss_llm(self, logits, labels):
         cot_weight = 1
         # Shift so that tokens < n predict n
@@ -617,7 +641,7 @@ class OkapiModel(BaseModel):
         return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
 
     def compute_loss(self, data, data_samples=None, metas=None):
-        labels = data.pop("labels")
+        labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
         if 'output_hidden_states' not in data.keys():
             data['output_hidden_states'] = True
         
@@ -648,14 +672,37 @@ class OkapiModel(BaseModel):
             loss_dict['rec'] = rec_outputs['loss']
             cost_dict['rec_cost'] = rec_outputs['loss']
 
+        ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
+            outputs.hidden_states[-1],
+            metas=metas,
+            mode='loss'
+        )
+
         # moe adapter
+        moe_outputs = None
         if self.moe_adapter is not None:
-            pass
+            moe_outputs = self.moe_adapter(
+                ref_hidden_states,
+                # ref_attention_masks,
+                mode='loss'
+            )
+            loss_dict['moe'] = moe_outputs['loss']
+            cost_dict['moe_cost'] = moe_outputs['loss']
 
         # decoders
         if self.visual_decoder is not None:
-            for decoder in self.visual_decoder:
-                pass
+            if moe_outputs is None:
+                decode_hidden_states = ref_hidden_states
+            else:
+                decode_hidden_states = moe_outputs['output_logits']
+            
+            for type, decoder in self.visual_decoder.items():
+                decode_outputs = decoder(
+                    decode_hidden_states,
+                    metas=metas,
+                    mode='loss'
+                )
+                loss_dict[type] = decode_outputs['loss']
 
         # loss
         loss = 0

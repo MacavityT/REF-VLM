@@ -25,6 +25,7 @@ class BoxDecoderConfig(PretrainedConfig):
         giou_loss_coefficient=2,
         **kwargs,
     ):
+        super().__init__(**kwargs)
         self.num_queries = num_queries
         self.d_model = d_model
         self.decoder_ffn_dim = decoder_ffn_dim
@@ -41,4 +42,4 @@ class BoxDecoderConfig(PretrainedConfig):
         # Loss coefficients
         self.bbox_loss_coefficient = bbox_loss_coefficient
         self.giou_loss_coefficient = giou_loss_coefficient
-        super().__init__(**kwargs)
+        

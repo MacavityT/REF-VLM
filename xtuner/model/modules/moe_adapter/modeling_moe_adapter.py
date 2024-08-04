@@ -42,7 +42,8 @@ class MoeAdapterLayer(nn.Module):
             hidden_size=d_model,
             intermediate_size=d_ffn,
             num_local_experts=num_experts,
-            num_experts_per_tok=top_k
+            num_experts_per_tok=top_k,
+            hidden_act="silu",
         )
         self.sparse_moe_ffn = MixtralSparseMoeBlock(moe_ffn_config)
 
@@ -86,7 +87,11 @@ class MoEAdapterModel(PreTrainedModel):
         top_k = config.top_k
 
         self.in_proj = nn.Linear(d_input, d_model)
-        self.positional_encoding = PositionalEncoding(d_model, dropout=0, max_len=num_queries)
+        self.positional_encoding = PositionalEncoding(
+            d_model, 
+            dropout=0, 
+            max_len=num_queries
+        )
         self.layers = nn.ModuleList()
         for _ in range(config.num_layers):
             self.layers.append(
@@ -99,6 +104,7 @@ class MoEAdapterModel(PreTrainedModel):
                     top_k
                 )
             )
+        self.last_norm = nn.LayerNorm(d_model)
         self.out_proj = nn.Linear(d_model, d_output)
         # Initialize weights and apply final processing
         self.post_init()
@@ -114,21 +120,21 @@ class MoEAdapterModel(PreTrainedModel):
         if isinstance(module, MoEAdapterConfig):
             module.gradient_checkpointing = value
 
-    def compute_loss_moe(self, router_logits):
-        # moe_loss = load_balancing_loss_func(
-        #     router_logits,
-        #     num_experts,
-        #     num_experts_per_tok,
-        #     attention_mask,
-        # )
-        # moe_loss = self.router_aux_loss_coef * moe_loss
-        return 0
+    def compute_loss_moe(self, router_logits, attention_mask=None):
+        moe_loss = load_balancing_loss_func(
+            router_logits,
+            self.config.num_experts,
+            self.config.top_k,
+            attention_mask,
+        )
+        return moe_loss
 
-    def forward(self, x):
+    def forward(self, 
+        x, 
+        attention_mask=None, 
+        mode='loss'
+    ):
         hidden_states = self.in_proj(x)
-        # prepare attention mask
-        attention_mask = None
-        
         all_hidden_states = ()
         all_router_logits = ()
         for layer in self.layers:
@@ -137,5 +143,21 @@ class MoEAdapterModel(PreTrainedModel):
             all_router_logits += (router_logits,)
 
         # add hidden states from the last decoder layer
-        all_hidden_states += (hidden_states,)
-        return all_hidden_states, all_router_logits
+        last_hidden_states = self.last_norm(hidden_states)
+        all_hidden_states += (last_hidden_states,)
+        output_logits = self.out_proj(last_hidden_states)
+
+        loss = None
+        if mode == 'loss':
+            loss = load_balancing_loss_func(
+            all_router_logits,
+            self.config.num_experts,
+            self.config.top_k,
+            attention_mask,
+        )
+        return dict(
+            loss = loss,
+            hidden_states = all_hidden_states,
+            output_logits = output_logits,
+            all_router_logits = all_router_logits
+        )
