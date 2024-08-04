@@ -200,6 +200,7 @@ class OkapiDataset(Dataset):
             try:
                 image = imfrombytes(image, flag='color', channel_order='rgb') # array
             except:
+                print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
                 image_path = ''
                 image = np.zeros((336,336,3)).astype(np.uint8)
                 # ori_width = 0

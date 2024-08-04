@@ -38,9 +38,9 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 cot_weight = 1
 vrt_weight = 1
 
-eval_type = 'cot_vrt'
-prefix = 'pope_random'
-chunk = 8
+eval_type = 'vqa'
+prefix = 'vqa'
+chunk = 7
 
 save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval59525'
 
@@ -55,7 +55,7 @@ if prefix == 'vqa':
         #     seed=43,
         #     cfg=test_all_dataset['vqav2_val'],
         #     )
-        test_all_dataset['vqav2_test_8'],
+        test_all_dataset['vqav2_test_7'],
     ]
 elif prefix == 'caption_coco':
     test_evaluator = dict(
