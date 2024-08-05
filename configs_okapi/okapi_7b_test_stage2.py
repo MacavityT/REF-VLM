@@ -39,10 +39,10 @@ cot_weight = 1
 vrt_weight = 1
 
 eval_type = 'vqa'
-prefix = 'vqa'
-chunk = 7
+prefix = 'reg'
+chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval59525'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0802/eval7000'
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -55,7 +55,7 @@ if prefix == 'vqa':
         #     seed=43,
         #     cfg=test_all_dataset['vqav2_val'],
         #     )
-        test_all_dataset['vqav2_test_7'],
+        test_all_dataset['vqav2_test_8'],
     ]
 elif prefix == 'caption_coco':
     test_evaluator = dict(
