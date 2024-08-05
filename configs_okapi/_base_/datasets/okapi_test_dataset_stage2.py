@@ -16,6 +16,7 @@ with read_base():
     from .test_flickr_variant import test_flickr_variant
     from .test_vqav2_variant import test_vqav2_variant
     from .test_pope_variant import test_pope_variant
+    from .test_point_variant import test_point_variant
 
 test_cfg = dict(type='TestLoop')
 
@@ -42,7 +43,7 @@ test_all_dataset = dict(
     **test_flickr_variant,
     **test_vqav2_variant,
     **test_pope_variant,
-    
+    **test_point_variant,
 )
 
 

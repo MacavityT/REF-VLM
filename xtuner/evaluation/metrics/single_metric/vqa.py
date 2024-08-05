@@ -52,9 +52,9 @@ class VQAComputeMetrics(BaseComputeMetrics):
             decode_pred = decode_pred.strip()
             if self.save_dir is not None:
                 if self.chunk is not None:
-                    self.save_outputs(decode_pred,target,f"vqa_chunk{self.chunk}")
+                    self.save_outputs(decode_pred,target,f"{self.prefix}_chunk{self.chunk}")
                 else:
-                    self.save_outputs(decode_pred,target,"vqa")
+                    self.save_outputs(decode_pred,target,f"{self.prefix}")
                 
             self.results.append((decode_pred, target))
     

@@ -79,9 +79,11 @@ param_scheduler = [
 train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
 
-dataset_args_sft = [
-    train_all_dataset['reg'],
-],
+dataset_args_sft = train_all_dataset['reg']
+dataset_args_sft['stage'] = 2
+dataset_args_sft = [dataset_args_sft]
+
+
 
 train_dataset = dict(
     type=OkapiDataset,

@@ -39,14 +39,14 @@ cot_weight = 1
 vrt_weight = 1
 
 eval_type = 'vqa'
-prefix = 'reg'
+prefix = 'vqa_box_pron'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0802/eval7000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval59525'
 
 if prefix == 'vqa':
     test_evaluator = dict(
-        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqa',chunk=chunk)
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqav2',chunk=chunk)
     test_dataset_args = [
         # dict(
         #     type='SubSet',
@@ -57,6 +57,50 @@ if prefix == 'vqa':
         #     )
         test_all_dataset['vqav2_test_8'],
     ]
+
+elif prefix == 'vqa_point_pron':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_oq_p_test'],
+    ]
+
+elif prefix == 'vqa_point_sup':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_sq_p_test'],
+    ]
+
+elif prefix == 'vqa_point_gen':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_gq_p_test'],
+    ]
+
+elif prefix == 'vqa_box_pron':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_oq_b_test'],
+    ]
+
+elif prefix == 'vqa_box_sup':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_sq_b_test'],
+    ]
+
+elif prefix == 'vqa_box_gen':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['point_twice_gq_b_test'],
+    ]
+
+
 elif prefix == 'caption_coco':
     test_evaluator = dict(
         type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
