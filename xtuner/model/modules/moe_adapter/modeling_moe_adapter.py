@@ -71,7 +71,8 @@ class MoeAdapterLayer(nn.Module):
 class MoEAdapterModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     config_class = MoEAdapterConfig
-    base_model_prefix = 'model'
+    base_model_prefix = 'layers'
+    _no_split_modules = ["MoeAdapterLayer"]
     supports_gradient_checkpointing = True
 
     def __init__(self, config: MoEAdapterConfig):
@@ -82,7 +83,6 @@ class MoEAdapterModel(PreTrainedModel):
         n_heads = config.n_heads
         dropout = config.dropout
         d_ffn = config.d_ffn
-        d_output = config.d_output
         num_experts = config.num_experts
         top_k = config.top_k
 
@@ -105,7 +105,6 @@ class MoEAdapterModel(PreTrainedModel):
                 )
             )
         self.last_norm = nn.LayerNorm(d_model)
-        self.out_proj = nn.Linear(d_model, d_output)
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -114,10 +113,10 @@ class MoEAdapterModel(PreTrainedModel):
         def make_inputs_require_grad(module, input, output):
             output.requires_grad_(True)
 
-        self.out_proj.register_forward_hook(make_inputs_require_grad)
+        self.in_proj.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, MoEAdapterConfig):
+        if isinstance(module, MoEAdapterModel):
             module.gradient_checkpointing = value
 
     def compute_loss_moe(self, router_logits, attention_mask=None):
@@ -135,17 +134,20 @@ class MoEAdapterModel(PreTrainedModel):
         mode='loss'
     ):
         hidden_states = self.in_proj(x)
+        hidden_states = self.positional_encoding(hidden_states)
         all_hidden_states = ()
         all_router_logits = ()
         for layer in self.layers:
             all_hidden_states += (hidden_states,)
-            hidden_states, router_logits = layer(hidden_states, attention_mask)
+            if self.gradient_checkpointing and self.training:
+                hidden_states, router_logits = checkpoint(layer, hidden_states, attention_mask)
+            else:
+                hidden_states, router_logits = layer(hidden_states, attention_mask)
             all_router_logits += (router_logits,)
 
         # add hidden states from the last decoder layer
         last_hidden_states = self.last_norm(hidden_states)
         all_hidden_states += (last_hidden_states,)
-        output_logits = self.out_proj(last_hidden_states)
 
         loss = None
         if mode == 'loss':
@@ -158,6 +160,5 @@ class MoEAdapterModel(PreTrainedModel):
         return dict(
             loss = loss,
             hidden_states = all_hidden_states,
-            output_logits = output_logits,
             all_router_logits = all_router_logits
         )

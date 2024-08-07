@@ -9,6 +9,10 @@ class BoxDecoderConfig(PretrainedConfig):
     def __init__(
         self,
         num_queries=100,
+        quries_input_dim=256,
+        encoder_input_transform='resize_concat',
+        encoder_input_index=(0, 1, 2, 3),
+        encoder_input_dim=1024,
         decoder_layers=6,
         decoder_ffn_dim=2048,
         decoder_attention_heads=8,
@@ -27,6 +31,10 @@ class BoxDecoderConfig(PretrainedConfig):
     ):
         super().__init__(**kwargs)
         self.num_queries = num_queries
+        self.quries_input_dim = quries_input_dim
+        self.encoder_input_transform = encoder_input_transform
+        self.encoder_input_index = encoder_input_index
+        self.encoder_input_dim = encoder_input_dim
         self.d_model = d_model
         self.decoder_ffn_dim = decoder_ffn_dim
         self.decoder_layers = decoder_layers

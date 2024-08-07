@@ -64,7 +64,8 @@ class SyncTunerAttentionBlcok(nn.Module):
 class SyncTunerModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     config_class = SyncTunerConfig
-    base_model_prefix = 'model'
+    base_model_prefix = 'layers'
+    _no_split_modules = ["SyncTunerAttentionBlcok"]
     supports_gradient_checkpointing = True
 
     """
@@ -85,7 +86,6 @@ class SyncTunerModel(PreTrainedModel):
         n_heads = config.num_heads
         dropout = config.dropout
         d_ffn = config.d_ffn
-        d_output = config.d_output
 
         # models
         self.in_proj = nn.Linear(d_input, d_model)
@@ -101,7 +101,6 @@ class SyncTunerModel(PreTrainedModel):
                 )
             )
         self.last_norm = nn.LayerNorm(d_model)
-        self.out_proj = nn.Linear(d_model, d_output)
         self.rec_head = nn.Linear(d_model, 3)
         self.criterion = MSELoss(reduction='none')
 
@@ -126,10 +125,10 @@ class SyncTunerModel(PreTrainedModel):
         def make_inputs_require_grad(module, input, output):
             output.requires_grad_(True)
 
-        self.out_proj.register_forward_hook(make_inputs_require_grad)
+        self.in_proj.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, SyncTunerConfig):
+        if isinstance(module, SyncTunerModel):
             module.gradient_checkpointing = value
     
     def upsample(self, x):
@@ -142,7 +141,7 @@ class SyncTunerModel(PreTrainedModel):
         x = F.interpolate(
             x, 
             size=(target_size, target_size),
-            mode="bicubic",
+            mode="bilinear",
             align_corners=False
         )
         x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
@@ -184,7 +183,7 @@ class SyncTunerModel(PreTrainedModel):
             logits = F.interpolate(
                 logits,
                 size=image.shape[2:],
-                mode="bicubic",
+                mode="bilinear",
                 align_corners=False
             )
 
@@ -205,19 +204,22 @@ class SyncTunerModel(PreTrainedModel):
         x = self.in_proj(x)
         hidden_states = [x]
 
-        x = self.positional_encoding(x)
-        for layer in self.layers:
-            if self.gradient_checkpointing and self.training:
-                x = checkpoint(layer, x)
-            else:
-                x = layer(x)
-            hidden_states.append(x)
-            x = self.upsample(x)
-        
-        # output projection
-        last_hidden_state = self.last_norm(x)
-        hidden_states.append(last_hidden_state)
-        output_logits = self.out_proj(last_hidden_state)
+        if mode == 'loss' or self.config.use_in_pred:
+            x = self.positional_encoding(x)
+            for layer in self.layers:
+                if self.gradient_checkpointing and self.training:
+                    x = checkpoint(layer, x)
+                else:
+                    x = layer(x)
+                hidden_states.append(x)
+                x = self.upsample(x)
+            
+            # Just applied layernorm after last upsample
+            # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
+            # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
+            # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
+            last_hidden_state = self.last_norm(x)
+            hidden_states.append(last_hidden_state)
 
         loss = None
         if mode == 'loss':
@@ -231,5 +233,4 @@ class SyncTunerModel(PreTrainedModel):
         return dict(
             loss = loss,
             hidden_states = hidden_states,
-            output_logits = output_logits
         )

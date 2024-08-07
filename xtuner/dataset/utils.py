@@ -404,17 +404,6 @@ def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
 
-
-def de_norm_box_xyxy(box, w, h):
-    x1, y1, x2, y2 = box
-    x1 = x1 * w
-    x2 = x2 * w
-    y1 = y1 * h
-    y2 = y2 * h
-    box = x1, y1, x2, y2
-    return box
-
-
 def box_xywh_to_xyxy(box, w=None, h=None):
     x, y, bw, bh = box
     x2 = x + bw
@@ -426,6 +415,28 @@ def box_xywh_to_xyxy(box, w=None, h=None):
     box = x, y, x2, y2
     return box
 
+def box_xyxy_to_xywh(box):
+    x1, y1, x2, y2 = box
+    bw = x2 - x1
+    bh = y2 - y1
+    x_center = (x1 + x2) / 2
+    y_center = (y1 + y2) / 2
+    box = x_center, y_center, bw, bh
+    return box
+
+def de_norm_box_xyxy(box, w, h):
+    x1, y1, x2, y2 = box
+    x1 = x1 * w
+    x2 = x2 * w
+    y1 = y1 * h
+    y2 = y2 * h
+    box = x1, y1, x2, y2
+    return box
+
+def de_norm_box_xywh(box, w, h):
+    box = box_xywh_to_xyxy(box, w, h)
+    box = de_norm_box_xyxy(box, w, h)
+    return box
 
 def norm_box_xyxy(box, w, h):
     x1, y1, x2, y2 = box
@@ -440,6 +451,10 @@ def norm_box_xyxy(box, w, h):
     normalized_box = (round(norm_x1, 3), round(norm_y1, 3), round(norm_x2, 3), round(norm_y2, 3))
     return normalized_box
 
+def norm_box_xywh(box, w, h):
+    box = box_xywh_to_xyxy(box, w, h)
+    normalized_box = norm_box_xyxy(box, w, h)
+    return normalized_box
 
 def norm_point_xyxy(point, w, h):
     x, y = point
@@ -447,7 +462,6 @@ def norm_point_xyxy(point, w, h):
     norm_y = max(0.0, min(y / h, 1.0))
     point = norm_x, norm_y
     return point
-
 
 def bbox2mask(box, width, height):
     mask = np.zeros((height, width))

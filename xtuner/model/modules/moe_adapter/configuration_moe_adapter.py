@@ -13,7 +13,6 @@ class MoEAdapterConfig(PretrainedConfig):
         n_heads=8,
         dropout=0,
         d_ffn=1024,
-        d_output=1024,
         num_experts=8,
         top_k=2,
         num_layers=2,
@@ -26,7 +25,6 @@ class MoEAdapterConfig(PretrainedConfig):
         self.n_heads = n_heads
         self.dropout = dropout
         self.d_ffn = d_ffn
-        self.d_output = d_output
         self.num_experts = num_experts
         self.top_k = top_k
         self.num_layers = num_layers 

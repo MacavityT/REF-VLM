@@ -137,7 +137,7 @@ class OkapiModel(BaseModel):
             else:
                 self.moe_adapter = None
 
-            self.visual_decoder = dict()
+            self.visual_decoder = nn.ModuleDict()
             if visual_decoder is not None:
                 assert isinstance(visual_decoder, dict)
                 for decoder_type, decoder_config in visual_decoder.items():
@@ -181,6 +181,8 @@ class OkapiModel(BaseModel):
                     self.visual_decoder[decoder_type] = \
                         DECODER_MODEL_CLASS[decoder_type](decoder_config).to(
                             self.visual_encoder.dtype)
+        if len(self.visual_decoder) == 0:
+            self.visual_decoder = None
 
         if self.freeze_llm:
             self.llm.requires_grad_(False)
@@ -217,7 +219,10 @@ class OkapiModel(BaseModel):
                 self.visual_sync_tuner.enable_input_require_grads()
             if self.moe_adapter is not None:
                 self.moe_adapter.enable_input_require_grads()
-
+            if self.visual_decoder is not None:
+                for type in self.visual_decoder.keys():
+                    self.visual_decoder[type].enable_input_require_grads()
+            
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
 
@@ -282,6 +287,11 @@ class OkapiModel(BaseModel):
             self.vpt_encoder.gradient_checkpointing_enable()
         if self.visual_sync_tuner is not None:
             self.visual_sync_tuner.gradient_checkpointing_enable()
+        if self.moe_adapter is not None:
+            self.moe_adapter.gradient_checkpointing_enable()
+        if self.visual_decoder is not None:
+            for type in self.visual_decoder.keys():
+                self.visual_decoder[type].gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -294,10 +304,16 @@ class OkapiModel(BaseModel):
             self.vpt_encoder.gradient_checkpointing_disable()
         if self.visual_sync_tuner is not None:
             self.visual_sync_tuner.gradient_checkpointing_disable()
+        if self.moe_adapter is not None:
+            self.moe_adapter.gradient_checkpointing_disable()
+        if self.visual_decoder is not None:
+            for type in self.visual_decoder.keys():
+                self.visual_decoder[type].gradient_checkpointing_disable()
 
     def init_weights(self):
         pass
 
+    #taiyan TODO:  check correctness
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         to_return = OrderedDict()
@@ -327,7 +343,18 @@ class OkapiModel(BaseModel):
         to_return.update(
             {k: v
              for k, v in state_dict.items() if 'vpt_encoder.' in k})
-        #TODO: sync tuner, moe adapter and decoders
+        # Step 5. Visual SyncTuner
+        to_return.update(
+            {k: v
+             for k, v in state_dict.items() if 'sync_tuner.' in k})
+        # Step 6. MoEAdapter
+        to_return.update(
+            {k: v
+             for k, v in state_dict.items() if 'moe_adapter.' in k})
+        # Step 7. Visual Decoders
+        to_return.update(
+            {k: v
+             for k, v in state_dict.items() if '_decoder.' in k})
         return to_return
 
     @staticmethod
@@ -514,6 +541,7 @@ class OkapiModel(BaseModel):
                 data['pixel_values'].to(self.visual_encoder.dtype),
                 output_hidden_states=True)
             selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
+            metas['visual_hidden_states'] = selected_feats
 
             if self.vpt_encoder is None:
                 pixel_values = self.projector(selected_feats)
@@ -691,22 +719,34 @@ class OkapiModel(BaseModel):
 
         # decoders
         if self.visual_decoder is not None:
+            if rec_outputs is None:
+                visual_hidden_states = [metas['visual_hidden_states']]
+            else:
+                # pyramid outputs
+                visual_hidden_states = rec_outputs['hidden_states']
+
             if moe_outputs is None:
                 decode_hidden_states = ref_hidden_states
             else:
-                decode_hidden_states = moe_outputs['output_logits']
+                # last layer output
+                decode_hidden_states = moe_outputs['hidden_states'][-1]
             
             for type, decoder in self.visual_decoder.items():
                 decode_outputs = decoder(
+                    visual_hidden_states,
                     decode_hidden_states,
+                    visual_mask=None,
+                    ref_mask=ref_attention_masks,
                     metas=metas,
                     mode='loss'
                 )
                 loss_dict[type] = decode_outputs['loss']
+                cost_dict[f'{type}_cost'] = decode_outputs['loss']
 
         # loss
         loss = 0
         for key, value in loss_dict.items():
+            if value == 0: continue
             coefficient = self.loss_coefficient[key]
             loss += coefficient * value
         

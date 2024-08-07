@@ -35,6 +35,7 @@ from .utils import (
     norm_box_xyxy, 
     norm_point_xyxy,
     de_norm_box_xyxy,
+    box_xyxy_to_xywh,
     visualize_mask,
     visualize_box,
     visualize_point
@@ -222,12 +223,14 @@ class OkapiDataset(Dataset):
             if vpt_one_turn is None: continue
             for vpt in vpt_one_turn:
                 if vpt['type'] == 'box':
+                    assert (vpt['value'][2:] >= vpt['value'][:2]).all(), \
+                        f"boxes label must be in [x1, y1, x2, y2] (corner) format, but got {vpt['value']}"
                     box = de_norm_box_xyxy(vpt['value'], w=ori_width, h=ori_height)
                     mask = bbox2mask(box, width=ori_height, height=ori_height)
                 elif vpt['type'] == 'point':
                     assert vpt['value'].size == 4 or vpt['value'].size == 2
                     if vpt['value'].size == 4:
-                        assert all(vpt[2:4] < 0)
+                        assert all(vpt['value'][2:] < 0)
                     elif vpt['value'].size == 2:
                         new_vpt = np.ones(4) * IGNORE_INDEX
                         new_vpt[:2] = vpt['value']
@@ -239,12 +242,45 @@ class OkapiDataset(Dataset):
                 elif vpt['type'] == 'mask':
                     # scribble or mask
                     mask = vpt['value']
+                else:
+                    raise ValueError(f"Unsupport vpt type: {vpt['type']}")
                 transformed_mask = mask_transform(mask, self.image_processor)
                 converted_vpt.append(transformed_mask)
 
                 if (len(converted_vpt)) == max_num: 
                     return converted_vpt
         return converted_vpt
+
+    def decode_labels_process(self, decode_labels):
+        converted_labels = dict()
+        for label_one_turn in decode_labels:
+            if label_one_turn is None: continue
+            for label in label_one_turn:
+                if label['type'] == 'box':
+                    assert (label['value'][2:] >= label['value'][:2]).all(), \
+                        f"boxes label must be in [x1, y1, x2, y2] (corner) format, but got {label['value']}"
+                    unit_label = box_xyxy_to_xywh(label['value'])
+                elif label['type'] == 'point':
+                    assert label['value'].size == 4 or label['value'].size == 2
+                    if label['value'].size == 4:
+                        assert all(label['value'][2:] < 0)
+                        unit_label = label['value']
+                        unit_label[2:] = 0
+                    elif label['value'].size == 2:
+                        unit_label = np.zeros(4)
+                        unit_label[:2] = label['value']
+                    else:
+                        raise ValueError("Points target value error!")
+                elif label['type'] == 'mask':
+                    unit_label = label['value']
+                else:
+                    raise ValueError(f"Unsupport label type: {label['type']}")
+                
+                if label['type'] not in converted_labels.keys():
+                    converted_labels[label['type']] = [unit_label]
+                else:
+                    converted_labels[label['type']].append(unit_label)
+        return converted_labels
 
     def __getitem__(self, index):
         data_dict = self.data[index]
@@ -300,13 +336,21 @@ class OkapiDataset(Dataset):
                     data_dict['visual_prompts'],
                     ori_width=data_dict['ori_width'],
                     ori_height=data_dict['ori_height'],
-                    max_num = max_num
+                    max_num = max_num # input content might be cut off
                 )
                 data_dict['visual_prompts'] = visual_prompts
             elif max_num == 0:
-                data_dict.pop('visual_prompts',None)
+                data_dict.pop('visual_prompts', None)
             else:
                 raise f"max num:{max_num} is lower than 0"
+
+        if data_dict.get('decode_labels', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'decode labels set, but no image input.'
+            decode_labels = self.decode_labels_process(
+                data_dict['decode_labels']
+            )
+            data_dict['decode_labels'] = decode_labels
 
         # #region debug
         # ori_path = 'vis_origin.jpg'
