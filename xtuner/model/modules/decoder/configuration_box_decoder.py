@@ -22,9 +22,6 @@ class BoxDecoderConfig(PretrainedConfig):
         dropout=0.1,
         attention_dropout=0.0,
         activation_dropout=0.0,
-        init_std=0.02,
-        init_xavier_std=1.0,
-        position_embedding_type="sine",
         bbox_loss_coefficient=5,
         giou_loss_coefficient=2,
         **kwargs,
@@ -43,10 +40,7 @@ class BoxDecoderConfig(PretrainedConfig):
         self.attention_dropout = attention_dropout
         self.activation_dropout = activation_dropout
         self.activation_function = activation_function
-        self.init_std = init_std
-        self.init_xavier_std = init_xavier_std
         self.decoder_layerdrop = decoder_layerdrop
-        self.position_embedding_type = position_embedding_type
         # Loss coefficients
         self.bbox_loss_coefficient = bbox_loss_coefficient
         self.giou_loss_coefficient = giou_loss_coefficient

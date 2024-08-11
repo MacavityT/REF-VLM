@@ -17,7 +17,6 @@ from transformers.image_transforms import center_to_corners_format
 
 class BoxDecoderModel(DecoderModel):
     config_class = BoxDecoderConfig
-    _no_split_modules = [r"DetrDecoderLayer"]
 
     def __init__(self, config: BoxDecoderConfig):
         super().__init__(config)
@@ -40,8 +39,6 @@ class BoxDecoderModel(DecoderModel):
             dropout=config.dropout,
             attention_dropout=config.attention_dropout,
             activation_dropout=config.activation_dropout,
-            init_std=config.init_std,
-            init_xavier_std=config.init_xavier_std,
         )
         self.decoder = DetrDecoder(decoder_config)
         self.predictor = DetrMLPPredictionHead(
@@ -52,21 +49,6 @@ class BoxDecoderModel(DecoderModel):
         )
         # Initialize weights and apply final processing
         self.post_init()
-
-    def enable_input_require_grads(self):
-        def make_inputs_require_grad(module, input, output):
-            output.requires_grad_(True)
-        self.in_proj_visual_feats.register_forward_hook(make_inputs_require_grad)
-        self.in_proj_queries.register_forward_hook(make_inputs_require_grad)
-
-    def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, PreTrainedModel):
-            # DetrDecoder raise bugs in forward(), when gradient_checkpointing=True, it inputs error params
-            # Because it doesn't use true param name
-            if isinstance(module, DetrDecoder):
-                module.gradient_checkpointing = False
-            else:
-                module.gradient_checkpointing = value
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices, num_boxes):
@@ -118,8 +100,6 @@ class BoxDecoderModel(DecoderModel):
             visual_hidden_states, 
             visual_mask
         )
-        visual_position_embedding = visual_position_embedding.to(visual_hidden_states.dtype)
-        visual_flatten_mask = visual_flatten_mask.to(torch.bool)
 
         # prepare learnable queries
         batch_size = ref_hidden_states.shape[0]
@@ -141,40 +121,22 @@ class BoxDecoderModel(DecoderModel):
         )
         sequence_output = decoder_outputs[0]
         pred_boxes = self.predictor(sequence_output).sigmoid()
+        pred_boxes = pred_boxes[ref_mask, :]
 
         loss = None
         if mode == 'loss':
-            decode_labels = metas.get('decode_labels', None)
-            target_boxes =[]
-            for labels in decode_labels:
-                if labels is None: 
-                    target_boxes.append([])
-                else:
-                    box_labels = labels.get('box', [])
-                    target_boxes.append(box_labels)
-
-            # get used box labels in batch data (sequence might be cutoff and remove some labels)
-            pred_boxes_trim = pred_boxes[ref_mask, :]
-            target_boxes_trim = []
-            for batch_idx, mask in enumerate(ref_mask):
-                ref_num = mask.sum()
-                if ref_num == 0: continue
-                assert len(target_boxes[batch_idx]) >= ref_num
-                target = torch.tensor(target_boxes[batch_idx][:ref_num])
-                target_boxes_trim.append(target)
-            target_boxes_trim = torch.cat(
-                target_boxes_trim).to(pred_boxes.device).to(pred_boxes.dtype)
-            
-            if ref_mask.sum() > 0:
-                loss_dict = self.compute_loss_box(pred_boxes_trim, target_boxes_trim)
+            target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
+            if ref_mask.sum() > 0 and target_boxes is not None:
+                target_boxes = torch.stack(
+                    target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)
+                loss_dict = self.compute_loss_box(pred_boxes, target_boxes)
                 weight_dict = {
                     "loss_bbox": self.config.bbox_loss_coefficient,
                     "loss_giou": self.config.giou_loss_coefficient}
                 loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
             else:
-                loss = torch.tensor(0).to(visual_hidden_states.device).to(visual_hidden_states.dtype)
-        else:
-            pred_boxes = pred_boxes[ref_mask, :]
+                loss = torch.tensor(0).to(pred_boxes.device).to(pred_boxes.dtype)
+
         return dict(
             loss=loss,
             preds=pred_boxes

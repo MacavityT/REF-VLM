@@ -38,14 +38,13 @@ class DecoderPositionEmbedding(nn.Module):
             raise ValueError("input hidden states with wrong shape.")  
 
         if mask is None:
-            mask = torch.zeros((b, h, w), device=x.device, dtype=torch.bool)
+            mask = torch.ones((b, h, w), device=x.device, dtype=torch.bool)
         if mask.shape[-2:] != x.shape[-2:]:
             mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
-            mask = (mask > 0).to(torch.bool).to(mask.device)
+            mask = (mask > 0).to(torch.bool).to(x.device)
 
-        not_mask = (~mask).to(x.dtype)
-        y_embed = not_mask.cumsum(1)
-        x_embed = not_mask.cumsum(2)
+        y_embed = mask.cumsum(1)
+        x_embed = mask.cumsum(2)
         if self.normalize:
             eps = 1e-6
             y_embed = y_embed / (y_embed[:, -1:, :] + eps) * self.scale
@@ -61,14 +60,14 @@ class DecoderPositionEmbedding(nn.Module):
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
 
         # flatten
-        pos = pos.permute(0, 2, 3, 1).view(b, -1, c) # b, target_length, c
+        pos = pos.permute(0, 2, 3, 1).view(b, -1, c).to(x.dtype) # b, target_length, c
         mask = mask.flatten(1)
         return pos, mask
 
 class DecoderModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     base_model_prefix = 'layers'
-    supports_gradient_checkpointing = True
+    supports_gradient_checkpointing = False
 
     def __init__(self, config: PretrainedConfig):
         super().__init__(config)
@@ -165,3 +164,30 @@ class DecoderModel(PreTrainedModel):
             inputs = inputs[self.in_index]
 
         return inputs
+
+    def get_unit_labels(self, metas, ref_mask, type):
+        decode_labels = metas.get('decode_labels', None)
+        if decode_labels is None:
+            return None
+        
+        target_labels =[]
+        for labels in decode_labels:
+            if labels is None: 
+                target_labels.append([])
+            else:
+                unit_labels = labels.get(type, [])
+                target_labels.append(unit_labels)
+        
+        label_num = sum([len(items) for items in target_labels])
+        if label_num == 0:
+            return None
+
+        # get used labels in batch data (sequence might be cutoff and remove some labels)
+        target_labels_trim = []
+        for batch_idx, mask in enumerate(ref_mask):
+            ref_num = mask.sum()
+            if ref_num == 0: continue
+            assert len(target_labels[batch_idx]) >= ref_num
+            target_labels_trim.extend(target_labels[batch_idx][:ref_num])
+        target_labels_trim = [torch.tensor(label) for label in target_labels_trim]
+        return target_labels_trim

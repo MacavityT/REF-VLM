@@ -219,9 +219,6 @@ class OkapiModel(BaseModel):
                 self.visual_sync_tuner.enable_input_require_grads()
             if self.moe_adapter is not None:
                 self.moe_adapter.enable_input_require_grads()
-            if self.visual_decoder is not None:
-                for type in self.visual_decoder.keys():
-                    self.visual_decoder[type].enable_input_require_grads()
             
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
@@ -289,9 +286,6 @@ class OkapiModel(BaseModel):
             self.visual_sync_tuner.gradient_checkpointing_enable()
         if self.moe_adapter is not None:
             self.moe_adapter.gradient_checkpointing_enable()
-        if self.visual_decoder is not None:
-            for type in self.visual_decoder.keys():
-                self.visual_decoder[type].gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -306,9 +300,6 @@ class OkapiModel(BaseModel):
             self.visual_sync_tuner.gradient_checkpointing_disable()
         if self.moe_adapter is not None:
             self.moe_adapter.gradient_checkpointing_disable()
-        if self.visual_decoder is not None:
-            for type in self.visual_decoder.keys():
-                self.visual_decoder[type].gradient_checkpointing_disable()
 
     def init_weights(self):
         pass
@@ -354,7 +345,7 @@ class OkapiModel(BaseModel):
         # Step 7. Visual Decoders
         to_return.update(
             {k: v
-             for k, v in state_dict.items() if '_decoder.' in k})
+             for k, v in state_dict.items() if 'visual_decoder.' in k})
         return to_return
 
     @staticmethod

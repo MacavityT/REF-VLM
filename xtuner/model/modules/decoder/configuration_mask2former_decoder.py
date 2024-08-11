@@ -16,15 +16,12 @@ class MaskDecoderConfig(PretrainedConfig):
         decoder_layers=10,
         decoder_ffn_dim=2048,
         decoder_attention_heads=8,
-        decoder_layerdrop=0.0,
         pre_norm=False,
         activation_function="relu",
         d_model=256,
         dropout=0.0,
-        attention_dropout=0.0,
-        activation_dropout=0.0,
         encoder_layers=6, 
-        fpn_feature_size=256,
+        feature_size=256,
         mask_feature_size=256,
         feature_strides=[4, 8, 16, 32],
         common_stride=4,
@@ -42,18 +39,16 @@ class MaskDecoderConfig(PretrainedConfig):
         self.decoder_layers = decoder_layers
         self.decoder_ffn_dim = decoder_ffn_dim
         self.decoder_attention_heads = decoder_attention_heads
-        self.decoder_layerdrop = decoder_layerdrop
         self.pre_norm = pre_norm
         self.activation_function = activation_function
         self.d_model = d_model
         self.dropout = dropout
-        self.attention_dropout = attention_dropout
-        self.activation_dropout = activation_dropout
         self.encoder_layers = encoder_layers
-        self.fpn_feature_size = fpn_feature_size
+        self.feature_size = feature_size
         self.mask_feature_size = mask_feature_size
         self.feature_strides = feature_strides
         self.common_stride = common_stride
         self.encoder_feedforward_dim = encoder_feedforward_dim
         self.mask_loss_coefficient = mask_loss_coefficient
         self.dice_loss_coefficient = dice_loss_coefficient
+        
