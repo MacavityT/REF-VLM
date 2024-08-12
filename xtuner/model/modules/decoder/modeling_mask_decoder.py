@@ -192,7 +192,7 @@ class MaskDecoderModel(DecoderModel):
                     "loss_dice": self.config.dice_loss_coefficient}
                 loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
             else:
-                loss = torch.tensor(0.0, requires_grad=False).to(pred_masks.device).to(pred_masks.dtype)
+                loss = pred_masks.sum() * 0.0
         else:
             pred_masks = torch.sigmoid(masks_queries_logits)
 

@@ -143,7 +143,7 @@ class BoxDecoderModel(DecoderModel):
                     "loss_giou": self.config.giou_loss_coefficient}
                 loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
             else:
-                loss = torch.tensor(0.0, requires_grad=False).to(pred_boxes.device).to(pred_boxes.dtype)
+                loss = pred_boxes.sum() * 0.0
 
         return dict(
             loss=loss,
