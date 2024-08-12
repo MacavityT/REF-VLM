@@ -109,6 +109,7 @@ class LLAVAGrounding(MInstrDataset):
             system = {
                 'from':'system',
                 'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(item['conversations'])//2)],
+                # 'value': [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(item['conversations'])//2)],
                 }
             
 

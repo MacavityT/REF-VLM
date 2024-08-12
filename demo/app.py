@@ -1,66 +1,77 @@
-from typing import List
+from typing import List,Union
 import gradio as gr
 from gradio.themes.utils import colors, fonts, sizes
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 import argparse
 import cv2
+import re
 import os
+import copy
 import time
 import random
-from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER
+from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
+from xtuner.utils.constants import MASKS_PLACEHOLDER
+from xtuner.dataset import OkapiDataset
+from xtuner.dataset.collate_fns import okapi_collate_fn
 from inference import OkapiInference
+from utils import SingleInferDataset
+from mmengine.config import Config, DictAction
+from xtuner.registry import BUILDER
+from xtuner.configs import cfgs_name_path
 
-SYS_TEMPLATE_OKAPI = {
-    'VQA': 'Task Command:\n- task name: vqa\n- answer element: sentence\n- unit: None',
-    'Detection': 'Task Command:\n- task name: detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
-    'Segmentation': 'Task Command:\n- task name: segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
-    'Grounding Detection': 'Task Command:\n- task name: grounding_detection\n- answer element: phrase, unit\n- unit: <Unit>box</Unit>\n',
-    'Grounding Segmentation': 'Task Command:\n- task name: grounding_segmentation\n- answer element: phrase, unit\n- unit: <Unit>mask</Unit>\n',
-    'Gcg Detection': 'Task Command:\n- task name: gcg_detection\n- answer element: phrase, sentence, unit\n- unit: <Unit>box</Unit>\n',
-    'Gcg Segmentation': 'Task Command:\n- task name: gcg_segmentation\n- answer element: phrase, sentence, unit\n- unit: <Unit>mask</Unit>\n',
+
+SYS_VALUE_OKAPI = {
+    'VQA': {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}},
+    'Detection':{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']},
+    'Segmentation':{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
+    'Grounding Detection':{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']},
+    'Grounding Segmentation': {'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
+    'Gcg Detection': {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']},
+    'Gcg Segmentation': {'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']},
 }
-
-TORCH_DTYPE_MAP = dict(
-    fp16=torch.float16, bf16=torch.bfloat16, fp32=torch.float32, auto='auto')
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
     parser.add_argument(
-        '--adapter', default=None, help='adapter name or path')
-    parser.add_argument(
-        '--okapi', default=None, help='okapi name or path')
-    parser.add_argument(
-        '--config', default=None,help='config file name or path.')
-    parser.add_argument(
-        '--llm', default=None, help='llm path')
-    parser.add_argument(
-        '--visual-encoder', default=None, help='visual encoder name or path')
-    parser.add_argument(
-        '--vpt-encoder', default=None, help='vpt encoder name or path')
-    parser.add_argument(
-        '--projector', default=None, help='projector name or path')
-    parser.add_argument(
-        '--visual-select-layer', default=-2, help='visual select layer')
-    parser.add_argument(
-        '--load-model-from-pth', default=False, help='directly load pth pretrained model')
-    parser.add_argument(
-         '--checkpoint', default=None,type=str, help='model checkpoint path')
-    parser.add_argument(
-        '--torch-dtype',
-        default='fp32',
-        choices=TORCH_DTYPE_MAP.keys(),
-        help='Override the default `torch.dtype` and load the model under '
-        'a specific `dtype`.')
+        '--config', help='config file name or path.')
     parser.add_argument(
         '--seed',
         type=int,
         default=0,
         help='Random seed for reproducible text generation')
+    parser.add_argument(
+        '--cfg-options',
+        nargs='+',
+        action=DictAction,
+        help='override some settings in the used config, the key-value pair '
+        'in xxx=yyy format will be merged into config file. If the value to '
+        'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
+        'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
+        'Note that the quotation marks are necessary and that no white space '
+        'is allowed.')
     
     args = parser.parse_args()
     return args
+
+
+def post_process_generate_ids(tokenizer, ids: torch.Tensor):
+    ids = copy.deepcopy(ids)  # do not modify origin preds and targets
+    if ids[ids < 0].cpu().numpy().tolist() != []:
+        ids[ids < 0] = tokenizer.pad_token_id
+    return ids
+
+def decode_generate_ids(tokenizer, ids: torch.Tensor,skip_special_tokens=True) -> Union[List[str], str]:
+    assert ids.ndim in [1, 2]
+    only_one_sentence = ids.ndim == 1
+    if only_one_sentence:
+        ids = ids.unsqueeze(0)
+    ids = post_process_generate_ids(tokenizer,ids)
+    res = tokenizer.batch_decode(ids, skip_special_tokens=skip_special_tokens, clean_up_tokenization_spaces=True)
+    if only_one_sentence:
+        return res[0]
+    return res
 
 class ImageSketcher(gr.Image):
     """
@@ -143,89 +154,103 @@ def img_select_box(input_image: dict, prompt_image_list: list):
     return prompt_image_list
 
 
-# def print_like_dislike(x: gr.LikeData):
-#     print(x.index, x.value, x.liked)
-
-
 # import debugpy
 # debugpy.connect(('127.0.0.1', 5577))
 
 args = parse_args()
 torch.manual_seed(args.seed)
-inference_model = OkapiInference(config=args.config,torch_dtype=args.torch_dtype)
 
-def model_predict(prompt_text,n_turn,history,image,prompt_image,temperature,top_p,top_k):
-    output,history,prompt_image,n_turn = inference_model(prompt_text,n_turn,history,
-                                                         image,prompt_image,
-                                                         temperature,top_p,top_k)
-    return output,history,prompt_image,n_turn 
+# directly load model from config file
+if not os.path.isfile(args.config):
+    try:
+        config = cfgs_name_path[args.config]
+    except KeyError:
+        raise FileNotFoundError(f'Config arg is not None but cannot find {args.config}')
+else:
+    config = args.config
+cfg = Config.fromfile(config)
+if args.cfg_options is not None:
+    cfg.merge_from_dict(args.config_options)
+
+model = BUILDER.build(cfg.model)
+tokenizer = model.tokenizer
+model.cuda().eval()
+
 
 def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_list, point_mask=None):
 
     if radio == "":
         return "", chatbot, state, prompt_image_list,radio
 
-    system_template = PROMPT_TEMPLATE['okapi']
-    system_task_text = SYS_TEMPLATE_OKAPI[radio]
-    if chatbot == []:
-        system_text = system_template['SYSTEM_PREFIX'] + system_template['SYSTEM'].format(system=system_task_text)
-    else:
-        system_text = system_template['SYSTEM'].format(system=system_task_text)
-    chatbot = chatbot + [[input_text, None]]
-    if input_image is not None and state['history'].count(DEFAULT_IMAGE_TOKEN) == 0:
-        input_text = DEFAULT_IMAGE_TOKEN + '\n' + input_text
-    state['prompt_input'] = system_text + system_template['INSTRUCTION'].format(input=input_text)
+    system_value = SYS_VALUE_OKAPI[radio]
+    input_text_chatbot = input_text
+    pattern = r"<masks>"
+    input_text_chatbot = re.sub(pattern, r"**\<masks\>**", input_text_chatbot)
+
+    chatbot = chatbot + [[input_text_chatbot, None]]
+    cur_prompt_image_list = []
 
     if isinstance(input_image,dict):
         if 'boxes' in input_image.keys():
-            if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
+            if input_text.count(MASKS_PLACEHOLDER) == 1:
                 if len(input_image['boxes']) > 1:
                     gr.Warning("Multiple boxes will appear in the image; only the last box plotted will be selected.")
-                prompt_image_list = img_select_box(input_image,prompt_image_list)
-                state['previous_box_length'] += 1
+                cur_prompt_image_list = img_select_box(input_image,cur_prompt_image_list)
             else:
-                gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+                gr.Warning(f"Number of {MASKS_PLACEHOLDER} is {input_text.count(MASKS_PLACEHOLDER)} \
                            not equal to 1, we do not record the box that you plot!")
         elif 'mask' in input_image.keys():
-            if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
+            if input_text.count(MASKS_PLACEHOLDER) == 1:
                 mask = (input_image['mask'][:,:,0] / 255.).astype(np.uint8)
-                prompt_image_list.append(mask)
-                state['previous_mask_length'] += 1
+                cur_prompt_image_list.append(mask)
             else:
-                gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+                gr.Warning(f"Number of {MASKS_PLACEHOLDER} is {input_text.count(MASKS_PLACEHOLDER)} \
                             not equal to 1, we do not record the scribble that you plot!")
     
     if point_mask is not None and isinstance(point_mask['point'],np.ndarray):
         assert not isinstance(input_image,dict)
-        if input_text.count(VISUAL_PROMPT_PLACEHOLDER) == 1:
-            prompt_image_list.append(point_mask['point'])
-            state['previous_point_length'] += 1
+        if input_text.count(MASKS_PLACEHOLDER) == 1:
+            cur_prompt_image_list.append(point_mask['point'])
         else:
-            gr.Warning(f"Number of {VISUAL_PROMPT_PLACEHOLDER} is {input_text.count(VISUAL_PROMPT_PLACEHOLDER)} \
+            gr.Warning(f"Number of {MASKS_PLACEHOLDER} is {input_text.count(MASKS_PLACEHOLDER)} \
                            not equal to 1, we do not record the point that you plot!")
-        
+
+    if input_image is not None:
+        if isinstance(input_image,np.ndarray):
+            state['input_data'].add_image(input_image)
+        elif isinstance(input_image,dict):
+            state['input_data'].add_image(input_image['image'])
+    state['input_data'].append_message_question(input_text,system_value,cur_prompt_image_list)
+    state['input_data'].add_one_conversation()
+    state['input_data_okapi'].add_dataset(state['input_data'])
+    state['dataloader'] = DataLoader(batch_size=1,num_workers=0,dataset=state['input_data_okapi'],collate_fn=okapi_collate_fn)
+
 
     return "", chatbot, state, prompt_image_list,radio
 
 
-def submit_step2(chatbot,input_image, state,prompt_image_list,radio,temperature,top_p,top_k):
+def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k):
 
     if radio == "":
         raise gr.Error("You must set a valid task first!")
     
     if chatbot[-1][0] == "":
         raise gr.Error("Please enter prompt sentences in the chatbox!")
-    n_turn = len(chatbot)
-    output,history,prompt_image_list,n_turn = model_predict(prompt_text=state['prompt_input'],
-                                                            n_turn=n_turn,
-                                                            history=state['history'],
-                                                            image=input_image,
-                                                            prompt_image=prompt_image_list,
-                                                            temperature=temperature,
-                                                            top_p=top_p,
-                                                            top_k=top_k)
-    state['history'] = history
+    
+    model.gen_config.temperature = temperature
+    model.gen_config.top_p = top_p
+    model.gen_config.top_k = top_k
+    for idx, data_batch in enumerate(state['dataloader']):
+        for key in data_batch['data'].keys():
+            if isinstance(data_batch['data'][key],torch.Tensor):
+                data_batch['data'][key] = data_batch['data'][key].cuda()
+        output = model(**data_batch,mode='predict')
+
     print("prompt length: ", len(prompt_image_list))
+    input_str = decode_generate_ids(tokenizer,data_batch['data']['input_ids'],skip_special_tokens=False)
+    print(f'input:{input_str}')
+
+    output = decode_generate_ids(tokenizer,output[0]['generate_ids'],skip_special_tokens=False)
     output = output.replace("<","\<").replace(">","\>")
     bot_message = output
     print(output)
@@ -239,11 +264,12 @@ def submit_step2(chatbot,input_image, state,prompt_image_list,radio,temperature,
     return chatbot
 
 def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state):
-    return None,None,{'point':None},[],[],{'prompt_input':None,
-                                        'history':'',
-                                        'previous_box_length':0,
-                                        'previous_mask_length':0,
-                                        'previous_point_length':0}
+    return None,None,{'point':None},[],[],{
+                                        'previous_system':None,
+                                        'input_data':SingleInferDataset(),
+                                        'input_data_okapi':BUILDER.build(cfg.infer_dataset),
+                                        'dataloader': None,
+                                        'prompt_input':None}
 theme = gr.themes.Default()
 
 # title_markdown = ("""
@@ -264,6 +290,8 @@ theme = gr.themes.Default()
 #   </p>
 # </p>
 # """)
+
+
 
 title_markdown = ("""
 <p align="center">
@@ -296,10 +324,10 @@ with gr.Blocks(
     selected_points = gr.State(value=None)
     point_mask = gr.State(value={'point':None})
     prompt_image_list = gr.State(value=[])
-    task_state = gr.State(value={'prompt_input':None,'history':'',
-                                 'previous_box_length':0,
-                                 'previous_mask_length':0,
-                                 'previous_point_length':0})
+    task_state = gr.State(value={'previous_system':None,
+                                 'input_data':SingleInferDataset(),
+                                 'input_data_okapi':BUILDER.build(cfg.infer_dataset),
+                                 'dataloader': None})
     example_list_image = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
         [os.path.join(os.path.dirname(__file__), "assets/fishing.jpg")],
@@ -311,6 +339,7 @@ with gr.Blocks(
 
     example_list_1 = [
          ["VQA","Describe the main features of the image."],
+         ["VQA","Please describe the image in more details."],
          ["VQA","Where is the dog?"],
          ["Detection","Detect objects in this image."],
          ["Segmentation","segment objects in this image."],
@@ -321,21 +350,21 @@ with gr.Blocks(
     ]
 
     example_list_2 = [
-         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
-         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
-         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
+         ["VQA","Describe in detail how the area <masks> is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of <masks> in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region <masks> in the image?"],
     ]
 
     example_list_3 = [
-         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
-         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
-         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
+         ["VQA","Describe in detail how the area <masks> is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of <masks> in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region <masks> in the image?"],
     ]
 
     example_list_4 = [
-         ["VQA","Describe in detail how the area [VPT] is represented in the image"],
-         ["Grounding Detection", "Please detect the object using the guidance of [VPT] in the image and describe the bounding box you create."],
-         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region [VPT] in the image?"],
+         ["VQA","Describe in detail how the area <masks> is represented in the image"],
+         ["Grounding Detection", "Please detect the object using the guidance of <masks> in the image and describe the bounding box you create."],
+         ["Grounding Segmentation", "Can you produce a detailed mask for the area indicated by the region <masks> in the image?"],
     ]
 
 
@@ -450,7 +479,7 @@ with gr.Blocks(
             with gr.TabItem("Scribble"):
                 with gr.Row():
                     with gr.Column():
-                        input_img_4 = ImageSketcher(type="numpy",tool="sketch", brush_radius=2,
+                        input_img_4 = ImageSketcher(type="numpy",tool="sketch", brush_radius=5,
                                                 source="upload", label="Input Image", height=550)
                         radio_4 = gr.Dropdown(label="Task", choices=["VQA","Grounding Detection", 
                                                                     "Grounding Segmentation"],
@@ -481,7 +510,6 @@ with gr.Blocks(
             with gr.Row():
                 with gr.Column():
                     chatbot = gr.Chatbot(height=600)
-                    # chatbot.like(print_like_dislike, None, None)
                     output_mask = gr.Image(label="Output image", height=300, interactive=False)             
                     clear_button = gr.Button("🗑 Clear Button")
                     gr.Markdown(descrip_chatbot)
@@ -564,28 +592,28 @@ with gr.Blocks(
                         [input_text_1,input_img_1,chatbot,radio_1,task_state,prompt_image_list],
                         [input_text_1,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_1,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_2.click(submit_step1,
                         [input_text_2,input_img_2, chatbot,radio_2,task_state,prompt_image_list,point_mask],
                         [input_text_2,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_2,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_3.click(submit_step1,
                         [input_text_3,input_img_3,chatbot,radio_3,task_state,prompt_image_list],
                         [input_text_3,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_3,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
     submit_button_4.click(submit_step1,
                         [input_text_4,input_img_4,chatbot,radio_4,task_state,prompt_image_list],
                         [input_text_4,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,input_img_4,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider],
                         [chatbot]
                         )
 
@@ -650,10 +678,6 @@ with gr.Blocks(
         ],
     )
 
-
-
-
-
 demo.queue().launch(
-    debug=True,server_port=7990,
+    debug=True,server_port=6229,
 )

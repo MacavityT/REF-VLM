@@ -19,4 +19,54 @@ test_vqav2_variant = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/v2_OpenEnded_mscoco_test2015_questions.jsonl',
         has_annotation=False,
     ),
+    vqav2_test_0=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_0.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_1=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_1.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_2=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_2.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_3=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_3.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_4=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_4.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_5=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_5.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_6=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_6.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_7=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_7.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_8=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_8.jsonl',
+        has_annotation=False,
+    ),
+    vqav2_test_9=dict(
+        **vqav2_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/vqav2_chunk/v2_OpenEnded_mscoco_test2015_questions_9.jsonl',
+        has_annotation=False,
+    ),
 )

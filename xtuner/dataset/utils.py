@@ -13,7 +13,7 @@ from PIL import Image
 
 from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
 from xtuner.utils import VISUAL_PROMPT_PLACEHOLDER ,VISUAL_PROMPT_INDEX
-
+import matplotlib.pyplot as plt
 import cv2
 import mmengine.fileio as fileio
 from mmengine.utils import is_str
@@ -486,28 +486,76 @@ def visualize_mask(image, masks, alpha=0.5, beta=1.0):
         masks = [masks]
 
     for mask in masks:
-        # 创建一个彩色mask
         assert mask.shape == image.shape[:-1]
         mask = mask * 255
         mask = mask.astype(np.uint8)
         random_color = [random.randint(0, 255) for _ in range(3)]
         colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
-        for i in range(3):  # 遍历B, G, R通道
+        for i in range(3):
             colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
 
-        # 创建一个alpha通道的mask，值为半透明度
         alpha_channel = np.ones_like(mask) * int(alpha * 255)
-
-        # 创建带alpha通道的mask
         colored_mask = cv2.merge([colored_mask, alpha_channel])
 
-        # 将image转换为带alpha通道的图像
-        if image.shape[2] == 3:  # 如果原图像没有alpha通道，添加一个全透明的alpha通道
+        if image.shape[2] == 3:
             b, g, r = cv2.split(image)
-            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255  # 全不透明
+            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255
             image = cv2.merge([b, g, r, alpha_channel])
     
         image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
+
+    return image
+
+
+def visualize_mask_single(image, mask, alpha=0.5, beta=1.0):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+
+    assert mask.shape == image.shape[:-1]
+    mask = mask * 255
+    mask = mask.astype(np.uint8)
+    random_color = [random.randint(0, 255) for _ in range(3)]
+    colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+    for i in range(3):
+        colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
+
+    alpha_channel = np.ones_like(mask) * int(alpha * 255)
+    colored_mask = cv2.merge([colored_mask, alpha_channel])
+
+    if image.shape[2] == 3:
+        b, g, r = cv2.split(image)
+        alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255
+        image = cv2.merge([b, g, r, alpha_channel])
+
+    image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
+
+    return image
+
+def visualize_keypoints(image,keypoints,skeleton,index):
+    x = keypoints[:,0]
+    y = keypoints[:,1]
+    v = keypoints[:,2]
+
+    plt.figure(figsize=(10,10))
+    plt.imshow(image)
+    for sk in skeleton:
+        sk = [item-1 for item in sk]
+        if np.all(v[sk] > 0): # if two joint points' visualization > 0, draw line
+            plt.plot(x[sk], y[sk], linewidth=2, color='red')
+    plt.plot(x[v > 0], y[v > 0], 'o', markersize=2, markerfacecolor='red', markeredgecolor='k', markeredgewidth=2)
+    plt.axis('off')
+    plt.show()
+    plt.savefig(f"keypoint_{index}")
+
+
+def visualize_box_single(image, box, line_thickness=10):
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    x1, y1, x2, y2 = box
+    left_top = tuple((int(x1), int(y1)))
+    right_bottom = tuple((int(x2), int(y2)))
+    line_color = tuple(random.randint(0, 255) for _ in range(3)) 
+    cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
 
     return image
 
@@ -528,7 +576,27 @@ def visualize_box(image, boxes, line_thickness=2):
     
     for box in boxes:
         x1, y1, x2, y2 = box
-        left_top = tuple(x1, y1)
-        right_bottom = tuple(x2, y2)
+        left_top = tuple((x1, y1))
+        right_bottom = tuple((x2, y2))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
+
+def convert_bbox(bbox):
+    """
+    Convert bounding box from (x, y, w, h) to (xmin, xmax, ymin, ymax).
+
+    Parameters:
+    x (int or float): The x-coordinate of the center.
+    y (int or float): The y-coordinate of the center.
+    w (int or float): The width of the bounding box.
+    h (int or float): The height of the bounding box.
+
+    Returns:
+    tuple: A tuple containing (xmin, xmax, ymin, ymax).
+    """
+    x, y, w, h = bbox
+    xmin = x
+    xmax = x + w
+    ymin = y
+    ymax = y + h
+    return (xmin, ymin, xmax, ymax)

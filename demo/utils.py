@@ -3,7 +3,9 @@ import numpy as np
 from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import Image
-
+import torch
+from torch.utils.data import Dataset
+from xtuner.utils.constants import IMAGE_PLACEHOLDER
 
 class ImageBoxState:
     def __init__(self, draw_size=512):
@@ -113,3 +115,62 @@ def bbox_draw(sketch_pad: dict, state: dict):
     ibs.update_mask(mask)
     out_draw = ibs.draw_boxes()
     return out_draw, state
+
+MAP_PLACEHOLDER = {
+    'vqa'
+}
+
+class SingleInferDataset(Dataset):
+    def __init__(self):
+        self.rets = []
+        self.map_placeholders = dict(
+            input=["<boxes>","<masks>"],
+            output=["<boxes>","<masks>"],
+        )
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.conversations = []
+        self.image = None
+        self.system = {'from':'system','value':[]}
+        self.target = {}
+
+
+    def add_image(self,image):
+        self.image = {'value':image}
+
+    def append_message_question(self,input_text,system_value,vpt_mask):
+        if self.image is not None:
+            self.input_text = {'from': 'human', 'value': IMAGE_PLACEHOLDER + input_text}
+        else:
+            self.input_text = {'from': 'human', 'value': input_text}
+        if vpt_mask != []:
+            self.input_text['masks_seq'] = [[0]]
+            self.target['masks'] = vpt_mask
+        self.conversations.append(self.input_text)
+        self.conversations.append({'from': 'gpt', 'value': ''})
+        self.system['value'].append(system_value)
+
+    def add_one_conversation(self):
+        ret = {}
+        ret['map_placeholders'] = self.map_placeholders
+        if self.image is None:
+            ret['conversations'] = self.conversations
+        else:
+            assert len(self.system['value']) == len(self.conversations) // 2
+            self.conversations.insert(0,self.system)
+            ret['image'] = self.image
+            if self.target != {}:
+                ret['target'] = self.target
+            ret['conversations'] = self.conversations
+            
+        self.rets = [ret]
+        self.reset_parameters()
+
+    def __len__(self):
+        return 1
+    
+    def __getitem__(self, index):
+        assert self.rets != []
+        return self.rets[index]
+        

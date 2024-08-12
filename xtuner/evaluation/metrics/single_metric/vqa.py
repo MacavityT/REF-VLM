@@ -4,6 +4,7 @@ import json
 import sys
 import torch
 import logging
+import ast
 from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
@@ -20,8 +21,9 @@ class VQAComputeMetrics(BaseComputeMetrics):
     Metrics: Accuracy@1
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, chunk=None,**kwargs):
         super().__init__(*args, **kwargs)
+        self.chunk = chunk
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -50,7 +52,10 @@ class VQAComputeMetrics(BaseComputeMetrics):
             target = target.strip()
             decode_pred = decode_pred.strip()
             if self.save_dir is not None:
-                self.save_outputs(decode_pred,target,"vqa")
+                if self.chunk is not None:
+                    self.save_outputs(decode_pred,target,f"{self.prefix}_chunk{self.chunk}")
+                else:
+                    self.save_outputs(decode_pred,target,f"{self.prefix}")
                 
             self.results.append((decode_pred, target))
     
@@ -60,7 +65,11 @@ class VQAComputeMetrics(BaseComputeMetrics):
         targets = []
         for i,(pred, target) in enumerate(results):
             pred = self.extract_ans(pred)
-            target = self.extract_ans(target)
+            if self.prefix == 'okvqa':
+                target = self.extract_answer(target)
+            else:
+                target = self.extract_ans(target)
+
             preds.append(pred)
             targets.append(target)
 
@@ -79,12 +88,18 @@ class VQAComputeMetrics(BaseComputeMetrics):
 
         true = 0
         for pred, target in zip(preds,targets):  # ppl vqa 
-            if len(target.split(" ")) == 1:
-                if target in pred.split(" "):
+
+            if self.prefix == 'okvqa':
+                if pred in target:
                     true += 1
+            
             else:
-                if target == pred:
-                    true += 1
+                if len(target.split(" ")) == 1:
+                    if target in pred.split(" "):
+                        true += 1
+                else:
+                    if target == pred:
+                        true += 1
 
         acc = float(true) / float(len(preds))
         return acc
@@ -105,3 +120,17 @@ class VQAComputeMetrics(BaseComputeMetrics):
             except Exception as e:
                 print_log(f"Warning: extract_ans for {string} but get exception: {e}")
                 return None
+
+    def extract_answer(self, string: str):
+        """
+        extract prediction strings from model output
+        Args:
+            string (str): "['pine', 'pine', 'pine', 'pine', 'shingles', 'shingles', 'wood', 'wood', 'cedar', 'cedar']"
+
+        Return:
+            list: ['pine', 'pine', 'pine', 'pine', 'shingles', 'shingles', 'wood', 'wood', 'cedar', 'cedar']
+        """
+        
+        list_obj = ast.literal_eval(string)
+
+        return list_obj

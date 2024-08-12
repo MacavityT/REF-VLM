@@ -129,6 +129,13 @@ def main():
         model.vpt_encoder.save_pretrained(
             vpt_encoder_path, max_shard_size=args.max_shard_size)
         
+    if hasattr(model, 'visual_sync_tuner'):
+        if model.visual_sync_tuner is not None:
+            visual_sync_tuner_path = osp.join(args.save_dir, 'visual_sync_tuner')
+            print(f'Saving visual_sync_tuner to {visual_sync_tuner_path}')
+            model.visual_sync_tuner.save_pretrained(
+                visual_sync_tuner_path, max_shard_size=args.max_shard_size)
+            
     #taiyan TODO: 完成decoder保存流程
     # if hasattr(model, 'decoder'):
     #     decoder_path = osp.join(args.save_dir, 'decoder')

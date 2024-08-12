@@ -17,6 +17,8 @@ with read_base():
     from .train_cityscapes_variant import train_cityscapes_variant
     from .train_llavag_variant import train_llavag_variant
     from .train_png_variant import train_png_variant
+    from .train_cocokeypoint_variant import train_cocokeypoints_variant
+    from .train_reg_variant import train_reg_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -97,7 +99,40 @@ train_all_dataset = dict(
         ),
         offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
     ),
-    
+    kitti=dict(
+        type='KITTIDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/KITTI/train',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/KITTI',
+        template_name=r'Depth',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<depth>"],
+        ),
+        offline_processed_text_folder='',
+    ),
+    nyu=dict(
+        type='NYUDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/NYU/nyu/depth',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/NYU/nyu/depth',
+        template_name=r'Depth',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<depth>"],
+        ),
+        offline_processed_text_folder='',
+    ),
+    hrwsi=dict(
+        type='HRWSIDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/HRWSI/HR-WSI/train/gts',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/HRWSI/HR-WSI/train/imgs',
+        template_name=r'Depth',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<depth>"],
+        ),
+        offline_processed_text_folder='',
+    ),
+    **train_reg_variant,
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,
@@ -114,4 +149,5 @@ train_all_dataset = dict(
     **train_cityscapes_variant,
     **train_llavag_variant,
     **train_png_variant,
+    **train_cocokeypoints_variant,
 )

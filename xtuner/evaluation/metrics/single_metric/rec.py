@@ -15,10 +15,40 @@ class RECComputeMetrics(BaseComputeMetrics):
 
         self.box_formatter = self.preprocessor
 
+    def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
+        """Process one batch of data samples and predictions. The processed
+        results should be stored in ``self.results``, which will be used to
+        compute the metrics when all batches have been processed.
+
+        Args:
+            data_batch (Any): A batch of data from the dataloader.
+            data_samples (Sequence[dict]): A batch of outputs from
+                the model.  
+            {'generate_ids': generate ids}
+        """
+        
+        for sample, gt in zip(data_samples,data_batch['data']['labels']):
+            # TODO: change the process
+            decode_pred = sample
+            target = gt
+                
+            self.results.append((decode_pred, target))
+
+    
+    def compute_metrics(self, results: list) -> dict:
+
+        preds = []
+        targets = []
+        for i, (pred, target) in enumerate(results):
+            preds.append(pred)
+            targets.append(target)
+        
+        metrics = self.calculate_metric(preds,targets)
+        
+        return metrics
+
 
     def calculate_metric(self, preds: Sequence[str], targets: Sequence[str]) -> Dict[str, Any]:
-        failed = 0
-        target_failed = 0
 
         pred_boxes = preds
         target_boxes = targets
@@ -39,8 +69,6 @@ class RECComputeMetrics(BaseComputeMetrics):
 
         return {
             'accuracy': 1.0 * correct / len(targets),
-            'target_failed': target_failed,
-            'failed': failed,
             'iou': iou,
             'warning': warn_message,
         }

@@ -29,13 +29,17 @@ def insert_phrases(input_str, indices, place_holder):
         "start":PHRASE_ST_PLACEHOLDER_STAGE2,
         "end":PHRASE_ED_PLACEHOLDER_STAGE2,
     }
+    new_seq = []
     for index, phrase, seq in sorted(indices, reverse=True):
         if phrase == 'end':
             output = phrase_map[phrase] + place_holder * len(seq)
+            new_seq.append(seq)
         else:
             output = phrase_map[phrase]
         input_str = input_str[:index] + output + input_str[index:]
-    return input_str
+    
+    new_seq = new_seq[::-1]
+    return input_str, new_seq
 
 def sort_objects(objects,filter=True,filter_num=10):
     for object in objects:
@@ -85,8 +89,9 @@ def resize_box(box,width,height,ratio=0.3):
 @DATASETS.register_module()
 class GranDDataset(MInstrDataset):
 
-    def __init__(self, *args, version,use_floating_objects=True,max_conv_length=None,**kwargs):
+    def __init__(self, *args, version,use_floating_objects=True,max_conv_length=None,ratio=0.3,**kwargs):
         super().__init__(*args, **kwargs)
+        self.ratio = ratio
         self.version = version
         self.use_floating_objects = use_floating_objects
         self.length = max_conv_length
@@ -192,8 +197,10 @@ class GranDDataset(MInstrDataset):
             return lst
 
         target = item['target']
-        boxes = target['boxes']
-        masks = target['masks']
+        if 'boxes' in target.keys():
+            boxes = target['boxes']
+        if 'masks' in target.keys():
+            masks = target['masks']
         conversations = item['conversations']
         select_conversations = []
 
@@ -274,8 +281,10 @@ class GranDDataset(MInstrDataset):
             assert conversations[0]['from'] == 'human'
             if conversations[0]['value'].count(IMAGE_PLACEHOLDER) == 0:
                 conversations[0]['value'] = IMAGE_PLACEHOLDER + conversations[0]['value']
-        item['target']['boxes'] = selected_boxes
-        item['target']['masks'] = selected_masks 
+        if 'boxes' in target.keys():
+            item['target']['boxes'] = selected_boxes
+        if 'masks' in target.keys():
+            item['target']['masks'] = selected_masks 
         item['conversations'] = select_conversations
 
         return remove_idx
@@ -320,7 +329,7 @@ class GranDDataset(MInstrDataset):
                                                                     'element':['sentence'],
                                                                     'use_unit':False}} \
                                                             for _ in range(len(conversations))]})
-        all_conversations.append(self.concat_conversations(conversations))
+        all_conversations.extend(self.concat_conversations(conversations))
         ret['conversations'] = all_conversations
 
         return ret
@@ -390,42 +399,51 @@ class GranDDataset(MInstrDataset):
 
         return ret
 
-    def grounding_detection_segmentation(self,task,ret,objects,floating_objects,template_name=None,random_select=False,length=None):
+    def grounding_detection_segmentation(self,task,ret,objects,ratio,template_name=None,random_select=False,length=None):
 
-        if self.use_floating_objects:
-            objects = objects + floating_objects
-        
+        if task == 'detection':
+            type = 'boxes'
+            unit_task = {'task_name':'grounding_detection','element':['phrase'],'use_unit':True}
+            unit= ['box']
+            seq_name = 'boxes_seq'
+            place_holder = BOXES_PLACEHOLDER
+        elif task == 'segmentation':
+            unit_task = {'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True}
+            unit= ['mask']
+            type = 'masks'
+            seq_name = 'masks_seq'
+            place_holder = MASKS_PLACEHOLDER
+        else:
+            raise "Please select valid template: DET or SEG!"
+
+        valid_objects = []
+        for i,object in enumerate(objects):
+            cls_name = object['attributes']
+            if cls_name is None or cls_name == []:
+                continue
+            else:
+                valid_objects.append(object)
+
+        if random_select:
+            if length > len(valid_objects):
+                length = len(valid_objects)
+            select_numbers = random.sample(range(len(valid_objects)),length)
+        else:
+            select_numbers = random.sample(range(len(valid_objects)),len(valid_objects))
         boxes_or_masks = []
         cls_names = []
         conversations = []
-        
-        for i,object in enumerate(objects):
-            cls_name = ', '.join(object['labels'])
-            cls_name = cls_name.replace('_',' ')
+        for i,num in enumerate(select_numbers):
+            select_object = valid_objects[num]
+            cls_name = select_object['attributes'][0]
             if task == 'detection':
-                boxes_or_masks.append(object['bbox'])
-                type = 'boxes'
-                unit_task = {'task_name':'grounding_detection','element':['phrase'],'use_unit':True}
-                unit= ['box']
-                seq_name = 'boxes_seq'
-                place_holder = BOXES_PLACEHOLDER
+                # box = resize_box(select_object['bbox'],width=ret['image']['width'],
+                #              height=ret['image']['height'],ratio=ratio)
+                boxes_or_masks.append(select_object['bbox'])
             elif task == 'segmentation':
-                boxes_or_masks.append(decode(object['segmentation']))
-                unit_task = {'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True}
-                unit= ['mask']
-                type = 'masks'
-                seq_name = 'masks_seq'
-                place_holder = MASKS_PLACEHOLDER
-            else:
-                raise "Please select valid template: DET or SEG!"
-            
-            if object['attributes'] is not None:
-                attributes = ', '.join(object['attributes'])
-                rand_prob = random.uniform(0,1)
-                if rand_prob >= 0.5:
-                    cls_name = attributes
-
-
+                mask = resize_mask(decode(select_object['segmentation']),width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+                boxes_or_masks.append(mask)
             if cls_name in cls_names:
                 previous_seq = cls_names.index(cls_name)
                 conversations[previous_seq][1]['value'] += place_holder  # add one <boxes> in the conversation
@@ -450,17 +468,22 @@ class GranDDataset(MInstrDataset):
 
                 conversations.append(single_conversation)
 
-        if random_select:
-            conversations = self.random_select(conversations,length)
-        
+        # ret['image']['width'] = int(ret['image']['width']*ratio)
+        # ret['image']['height'] = int(ret['image']['height']*ratio)    
         all_conversations = []
-        all_conversations.append({'from':'system','value':[{'task':unit_task,'unit':unit} for _ in range(len(conversations))]})
-        all_conversations.append(self.concat_conversations(conversations))
+        if task == 'detection':
+            all_conversations.append({'from':'system','value':[{'task':{'task_name':'grounding_detection',
+                                                                        'element':['phrase'],'use_unit':True},'unit':['box']} 
+                                                               for _ in range(len(conversations))]})
+        elif task == 'segmentation':
+            all_conversations.append({'from':'system','value':[{'task':{'task_name':'grounding_segmentation',
+                                                                        'element':['phrase'],'use_unit':True},'unit':['mask']} 
+                                                               for _ in range(len(conversations))]})
+        all_conversations.extend(self.concat_conversations(conversations))
         ret['target'] = {type:boxes_or_masks}
         ret['conversations'] = all_conversations
 
         return ret
-    
 
     def rec(self,task,ret,objects,floating_objects,captions,template_name=None,random_select=False,length=None):
 
@@ -522,98 +545,76 @@ class GranDDataset(MInstrDataset):
 
         all_conversations = []
         all_conversations.append({'from':'system','value':[{'task':unit_task,'unit':unit} for _ in range(len(conversations))]})
-        all_conversations.append(self.concat_conversations(conversations))
+        all_conversations.extend(self.concat_conversations(conversations))
         ret['target'] = {type:boxes_or_masks}
         ret['conversations'] = all_conversations
 
         return ret
     
 
-    def reg(self,task,ret,objects,floating_objects,captions,template_name=None,random_select=False,length=None):
-
-        if self.use_floating_objects:
-            objects = objects + floating_objects
+    def reg(self,task,ret,objects,ratio,template_name=None,length=None):
+        objects = delete_objects(objects,filter_num=10)
         if task == 'detection':
             unit_task = {'task_name':'vqa','element':['sentence'],'use_unit':False}
+            # unit_task = {'task_name':'referring vqa','element':['sentence'],'use_unit':False}
             type = 'boxes'
             seq_name = 'boxes_seq'
             place_holder = BOXES_PLACEHOLDER
         elif task == 'segmentation':
             unit_task = {'task_name':'vqa','element':['sentence'],'use_unit':False}
+            # unit_task = {'task_name':'referring vqa','element':['sentence'],'use_unit':False}
             type = 'masks'
             seq_name = 'masks_seq'
             place_holder = MASKS_PLACEHOLDER
         else:
             raise "Please select valid template: REG or REG_SEG!"
-        
+        if length == None:
+            length = 6
+        if len(objects) > length:
+            objects = random.sample(objects,length)
+
         boxes_or_masks = []
+        all_conversations = []
         for i,object in enumerate(objects):
+            attributes = object['attributes']
+            if attributes is None or attributes == []:
+                continue
+
             if task == 'detection':
                 boxes_or_masks.append(object['bbox'])
             elif task == 'segmentation':
-                boxes_or_masks.append(decode(object['segmentation']))
+                mask = resize_mask(object['segmentation'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+                boxes_or_masks.append(mask)
             else:
-                raise "Please select valid template: REC or RES!"
+                raise "Please select valid template: REC or RES!"            
 
-        conversations = []
-        selected_target = []
-        for j,caption in enumerate(captions):
-            for detail in caption['details']:
-                phrase = detail['phrase']
-                if 'ids' in detail.keys():
-                    seq = detail['ids']
-                else:
-                    seq = detail['id']
-                if not isinstance(self.template_name,List):
-                    question = self.get_template()
-                else:
-                    assert template_name is not None
-                    question = self.get_template_from_dict(template_name)
+            # construct conversations
+            if not isinstance(self.template_name,List):
+                question = self.get_template()
+            else:
+                assert template_name is not None
+                question = self.get_template_from_dict(template_name)
+            if task == 'detection':
+                question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
+            elif task == 'segmentation':
+                question = question
+            if i != 0:
+                question = question.replace(IMAGE_PLACEHOLDER,'')
+            seq_id = len(boxes_or_masks) - 1
+            all_conversations.append({'from': 'human','value': question,seq_name:[[seq_id]]})
+            all_conversations.append({'from': 'gpt', 'value': attributes[0]})        
 
-                if task == 'detection':
-                    question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
-                elif task == 'segmentation':
-                    question = question
-                if j != 0:
-                    question = question.replace(IMAGE_PLACEHOLDER,'')
-                single_conversation_dense = []
-                single_conversation_short = []
-                if isinstance(seq,List):
-                    for id in seq:
-                        try:
-                            selected_target.append(boxes_or_masks[id])
-                        except:
-                            continue
-                        seq_id = len(selected_target) - 1
-                        conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
-                        conversation_gpt = {'from': 'gpt', 'value': phrase}
-                        single_conversation_dense += [conversation_human,conversation_gpt]
-                else:
-                    try:
-                        selected_target.append(boxes_or_masks[seq])
-                    except:
-                        continue
-                    seq_id = len(selected_target) - 1
-                    conversation_human = {'from': 'human','value': question,seq_name:[[seq_id]]}
-                    conversation_gpt = {'from': 'gpt', 'value': phrase}
-                    single_conversation_short = [conversation_human,conversation_gpt]
-                
-                single_conversation = single_conversation_dense + single_conversation_short
-                conversations.append(single_conversation)                
+        system = {'from':'system','value':[{'task':unit_task} for _ in range(len(all_conversations)//2)]}
+        all_conversations.insert(0,system)
 
-        if random_select:
-            conversations = self.random_select(conversations,length)
-
-        all_conversations = []
-        all_conversations.append({'from':'system','value':[{'task':unit_task} for _ in range(len(conversations))]})
-        all_conversations.extend(self.concat_conversations(conversations))
-        ret['target'] = {type:selected_target}
+        ret['target'] = {type:boxes_or_masks}
         ret['conversations'] = all_conversations
 
 
         return ret
     
-    def caption_detection_segmentation(self,task,ret,objects,floating_objects,captions,
+    def caption_detection_segmentation(self,task,ret,objects,floating_objects,captions,ratio,
                                        template_name=None,random_select=False,length=None):
         if self.use_floating_objects:
             objects = objects + floating_objects
@@ -632,61 +633,100 @@ class GranDDataset(MInstrDataset):
         else:
             raise "Please select valid template: flickr30k or flickr30k_SEG!"
         
-        boxes_or_masks = []
+        object_dict_map = {}
+        id_map = {}
         for i,object in enumerate(objects):
-            if task == 'detection':
-                boxes_or_masks.append(object['bbox'])
-            elif task == 'segmentation':
-                boxes_or_masks.append(decode(object['segmentation']))
-            else:
-                raise "Please select valid template: flickr30k or flickr30k_SEG!"
+            id_map[f"id_{object['id']}"] = i
+            object_dict_map[i] = object
+
             
         conversations = []
+        boxes_or_masks = []
+        count = 0
         for j,caption in enumerate(captions):
+            # generate caption + detection conversation
             caption_expr = caption['caption']
-            seqs = []
             if not isinstance(self.template_name,List):
-                question = self.get_template()
+                question_gcg = self.get_template()
             else:
                 assert template_name is not None
-                question = self.get_template_from_dict(template_name)
-            if caption['is_dense']:
-                question += ' '
-                question += random.choice(self.detailed_template)   
+                question_gcg = self.get_template_from_dict(template_name)            
 
+            seq_cap_det_seg = []
+            if caption['is_dense']:
+                question_gcg = self.dense_question(question_gcg)
+
+            if j != 0:
+                question_gcg = question_gcg.replace(IMAGE_PLACEHOLDER,'')
+
+            all_indices = []
             for detail in caption['details']:
                 phrase = detail['phrase']
+                token_positive = detail['tokens_positive']
+                if token_positive is None:
+                    continue
                 if 'ids' in detail.keys():
-                    seq = detail['ids']
+                    reform_ids = []
+                    for id in detail['ids']:
+                        reform_ids.append(id_map[f"id_{id}"])
+                    detail['ids'] = reform_ids
+                    reg_seq = detail['ids']
+                    new_seq = []
+                    for new_id in reg_seq:
+                        current_obj = object_dict_map[new_id]
+                        if task == 'detection':
+                            boxes_or_masks.append(current_obj['bbox'])
+                        elif task == 'segmentation':
+                            boxes_or_masks.append(decode(current_obj['segmentation']))
+                        else:
+                            raise "Please select valid template: flickr30k or flickr30k_SEG!"
+                        new_seq.append(count)
+                        count += 1
+
                 else:
-                    seq = detail['id']
+                    detail['id'] = id_map[f"id_{detail['id']}"]
+                    reg_seq = detail['id']
+                    current_obj = object_dict_map[reg_seq]
+                    if task == 'detection':
+                        boxes_or_masks.append(current_obj['bbox'])
+                    elif task == 'segmentation':
+                        mask = resize_mask(decode(current_obj['segmentation']),width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+                        boxes_or_masks.append(mask)
+                    else:
+                        raise "Please select valid template: flickr30k or flickr30k_SEG!"
+                    new_seq = count
+                    count += 1
 
-       
-                if j != 0:
-                    question = question.replace(IMAGE_PLACEHOLDER,'')
-
-                if isinstance(seq,List):
-                    place_holders = len(seq) * place_holder
+                # generate caption + detection conversation
+                if isinstance(new_seq,List):
+                    seq_cap_det_seg.append(new_seq)
                 else:
-                    place_holders = place_holder
-                caption_expr = caption_expr.replace(phrase,PHRASE_ST_PLACEHOLDER_STAGE2 + phrase + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holders)  
-                seqs.append(seq)
+                    new_seq = [new_seq]
+                    seq_cap_det_seg.append(new_seq)
 
+                all_indices.append((token_positive[0],"start",-1))
+                all_indices.append((token_positive[1],"end",new_seq))
+
+            caption_expr, result_seq = insert_phrases(caption_expr,all_indices,place_holder)
+
+            conversations.append([{'from': 'human','value': question_gcg},
+                                  {'from': 'gpt', 'value': caption_expr, seq_name: result_seq}])
             
-            conversation_human = {'from': 'human','value': question}
-            conversation_gpt = {'from': 'gpt', 'value': caption_expr, seq_name: seqs}
 
-            single_conversation = [conversation_human,conversation_gpt]
-            conversations.append(single_conversation)
 
-        if random_select:
-            conversations = self.random_select(conversations,length)
-
-        all_conversations = []
-        all_conversations.append({'from':'system','value':[{'task':unit_task,'unit':unit} for _ in range(len(conversations))]})
-        all_conversations.append(self.concat_conversations(conversations))
+        all_conversations = self.concat_conversations(conversations)
         ret['target'] = {type:boxes_or_masks}
         ret['conversations'] = all_conversations
+
+        if task == 'detection':
+            ret['conversations'].insert(0,{'from':'system','value':[{'task':{'task_name':'gcg_detection',
+                                                                        'element':['phrase','sentence'],'use_unit':True},'unit':['box']} 
+                                                               for _ in range(len(ret['conversations'])//2)]})
+        elif task == 'segmentation':
+            ret['conversations'].insert(0,{'from':'system','value':[{'task':{'task_name':'gcg_segmentation',
+                                                                        'element':['phrase','sentence'],'use_unit':True},'unit':['mask']} 
+                                                               for _ in range(len(ret['conversations'])//2)]})        
 
         return ret
     
@@ -777,8 +817,21 @@ class GranDDataset(MInstrDataset):
                 seq_cond_seg = [i]
                 question_cond_det = self.get_template_from_dict('Cond_DET')
                 cls_name_cond = cls_name
-                if object['attributes'] is not None:
-                    attributes = ', '.join(object['attributes'])
+                if object['attributes'] is not None and object['attributes'] != []:
+                    attributes = object['attributes'][0]
+
+                    # generate reg detection & segmentation conversations
+                    question_reg_det = self.get_template_from_dict('REG')
+                    question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
+                    question_reg_seg = self.get_template_from_dict('REG_SEG')
+                    single_conversation_det = [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[i]]},
+                                                     {'from': 'gpt', 'value': attributes}]
+                    single_conversation_seg = [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[i]]},
+                                                     {'from': 'gpt', 'value': attributes}]
+
+                    det_dict['conversations']['reg_conversations'].append(single_conversation_det)
+                    seg_dict['conversations']['reg_conversations'].append(single_conversation_seg)
+
                     rand_prob = random.uniform(0,1)
                     if rand_prob >= 0.8:
                         cls_name_cond = attributes
@@ -824,7 +877,7 @@ class GranDDataset(MInstrDataset):
             if caption['is_dense']:
                 question_cap_det = self.dense_question(question_cap_det)
                 question_cap_seg = self.dense_question(question_cap_seg)
-                cation_cap = self.dense_question(question_cap)
+                question_cap = self.dense_question(question_cap)
 
             all_indices = []
             # place_holders_det = ''
@@ -872,30 +925,6 @@ class GranDDataset(MInstrDataset):
                 det_dict['conversations']['rec_conversations'].append(single_conversation_rec_det)
                 seg_dict['conversations']['rec_conversations'].append(single_conversation_rec_seg)
 
-
-                # generate reg detection & segmentation conversations
-                question_reg_det = self.get_template_from_dict('REG')
-                question_reg_det = question_reg_det.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
-                question_reg_seg = self.get_template_from_dict('REG_SEG')
-                question_reg_seg = question_reg_seg
-                single_conversation_dense_det = []
-                single_conversation_dense_seg = []
-                single_conversation_short_det = []
-                single_conversation_short_seg = []
-                if isinstance(reg_seq,List):
-                    for id in reg_seq:
-                        single_conversation_dense_det += [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[id]]},
-                                                          {'from': 'gpt', 'value': phrase}]
-                        single_conversation_dense_seg += [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[id]]},
-                                                          {'from': 'gpt', 'value': phrase}]
-                else:
-                    single_conversation_short_det = [{'from': 'human','value': question_reg_det,det_dict['seq_name']:[[reg_seq]]},
-                                                     {'from': 'gpt', 'value': phrase}]
-                    single_conversation_short_seg = [{'from': 'human','value': question_reg_seg,seg_dict['seq_name']:[[reg_seq]]},
-                                                     {'from': 'gpt', 'value': phrase}]
-                
-                det_dict['conversations']['reg_conversations'].append(single_conversation_dense_det + single_conversation_short_det)
-                seg_dict['conversations']['reg_conversations'].append(single_conversation_dense_seg + single_conversation_short_seg)
 
                 # generate caption + detection conversation
                 if isinstance(reg_seq,List):
@@ -949,13 +978,15 @@ class GranDDataset(MInstrDataset):
         # system_value_det['conversations_det'] = [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]
         system_value_det['ground_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['ground_conversations'])//2)]
         system_value_det['rec_conversations'] = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['rec_conversations'])//2)]
-        system_value_det['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations'])//2)]
+        # system_value_det['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations'])//2)]
+        system_value_det['reg_conversations'] = [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(det_dict['conversations']['reg_conversations'])//2)]
         system_value_det['cap_det_conversations'] = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']} for _ in range(len(det_dict['conversations']['cap_det_conversations'])//2)]
 
         # system_value_seg['conversations_seg'] = [{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]
         system_value_seg['ground_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['ground_conversations'])//2)]
         system_value_seg['rec_conversations'] = [{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['rec_conversations'])//2)]
-        system_value_seg['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations'])//2)]
+        # system_value_seg['reg_conversations'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations'])//2)]
+        system_value_seg['reg_conversations'] = [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(seg_dict['conversations']['reg_conversations'])//2)]
         system_value_seg['cap_seg_conversations'] = [{'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']} for _ in range(len(seg_dict['conversations']['cap_seg_conversations'])//2)]
 
         system_value_cap = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(cap_conversations)//2)]
@@ -1119,12 +1150,12 @@ class GranDDataset(MInstrDataset):
         
         elif self.version == 'cond_d':
             task = 'detection'
-            ret = self.grounding_detection_segmentation(task,ret,objects,floating_objects,random_select=False)
+            ret = self.grounding_detection_segmentation(task,ret,objects,ratio,random_select=True,length=self.length)
             return ret  
 
         elif self.version == 'cond_s':
             task = 'segmentation'
-            ret = self.grounding_detection_segmentation(task,ret,objects,floating_objects,random_select=False)
+            ret = self.grounding_detection_segmentation(task,ret,objects,ratio,random_select=True,length=self.length)
             return ret  
         
         elif self.version == 'r_det':
@@ -1139,22 +1170,22 @@ class GranDDataset(MInstrDataset):
         
         elif self.version == 're_det':
             task = 'detection'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
+            ret = self.reg(task,ret,objects,ratio,length=self.length)
             return ret  
 
         elif self.version == 're_seg':
             task = 'segmentation'
-            ret = self.reg(task,ret,objects,floating_objects,captions,random_select=True,length=self.length)
+            ret = self.reg(task,ret,objects,ratio,length=self.length)
             return ret
         
         elif self.version == 'c_d':
             task = 'detection'
-            ret = self.caption_detection_segmentation(task,ret,objects,floating_objects,captions,random_select=False)
+            ret = self.caption_detection_segmentation(task,ret,objects,floating_objects,captions,ratio,random_select=False)
             return ret  
         
         elif self.version == 'c_s':
             task = 'segmentation'
-            ret = self.caption_detection_segmentation(task,ret,objects,floating_objects,captions,random_select=False)
+            ret = self.caption_detection_segmentation(task,ret,objects,floating_objects,captions,ratio,random_select=False)
             return ret  
         
         elif self.version == 'd_s':
@@ -1189,10 +1220,10 @@ class GranDDataset(MInstrDataset):
             shape = annotations['floating_objects'][0]['segmentation']['size']
         image_path_abs = os.path.join(self.image_folder,img_path)
         ret = {}
-        ratio = 0.3
+        
         ret['image'] = {'path': image_path_abs,'width':int(shape[1]),'height':int(shape[0])}
 
-        ret = self.make_conversations(ret,annotations,ratio=ratio)
+        ret = self.make_conversations(ret,annotations,ratio=self.ratio)
         ret['map_placeholders'] = self.map_placeholders
 
         return ret

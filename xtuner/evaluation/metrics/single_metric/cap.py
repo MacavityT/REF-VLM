@@ -48,7 +48,7 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             target = target.replace('</s>','').strip()
             decode_pred = decode_pred.replace('</s>','').strip()
             if self.save_dir is not None:
-                self.save_outputs(decode_pred,target,"caption")
+                self.save_outputs(decode_pred,target,f"{self.prefix}")
                 
             self.results.append((decode_pred, target))
 

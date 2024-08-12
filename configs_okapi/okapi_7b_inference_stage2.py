@@ -16,9 +16,17 @@ with read_base():
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
 
+max_length = 2048 - 576 
+cutoff_len = 2048
+visual_hidden_size = 1024 # visual_encoder.config.hidden_size
+vrt_length = 256
+vpt_num_patches = 9
+vpt_patch_size = 8 # sqrt(576/9)=8
+ref_length = 1
+cot_weight = 1
+vrt_weight = 1
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0719_iter59525'
 
-cutoff_len = 4096
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0629_iter1500'
 
 
 projector = dict(
@@ -33,16 +41,59 @@ vpt_encoder = dict(
     trust_remote_code=True,
 )
 
-model = dict(
-    type=OkapiModel,
-    freeze_llm=True,
+infer_dataset = dict(
+    type=OkapiDataset,
+    dataset=dataset_args,
+    image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    freeze_visual_encoder=True,
-    cutoff_len=cutoff_len,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=model_dir,
-        trust_remote_code=True),
-    projector=projector,
-    vpt_encoder=vpt_encoder,
-    visual_encoder=clip_patch14_336['visual_encoder'])
+    dataset_map_fn=dict(
+        function=okapi_map_fn_stage2,
+        args = dict(
+            vrt_len=vrt_length, 
+            ref_len=ref_length
+        )
+    ),
+    template_map_fn=dict(
+        type=okapi_template_map_fn_factory, template=prompt_template),
+    max_length=max_length,
+    pad_image_to_square=True,
+    mode='inference')
+
+
+
+if os.path.exists(os.path.join(model_dir,'visual_sync_tuner')):
+    visual_sync_tuner = dict(
+        type=AutoModel.from_pretrained,
+        pretrained_model_name_or_path=os.path.join(model_dir,'visual_sync_tuner'),
+        trust_remote_code=True,
+    )
+
+    model = dict(
+        type=OkapiModel,
+        freeze_llm=True,
+        tokenizer=tokenizer,
+        freeze_visual_encoder=True,
+        cutoff_len=cutoff_len,
+        llm=dict(
+            type=AutoModelForCausalLM.from_pretrained,
+            pretrained_model_name_or_path=model_dir,
+            trust_remote_code=True),
+        visual_encoder=clip_patch14_336['visual_encoder'],
+        projector=projector,
+        vpt_encoder=vpt_encoder,
+        visual_sync_tuner=visual_sync_tuner)
+
+else:
+    model = dict(
+        type=OkapiModel,
+        freeze_llm=True,
+        tokenizer=tokenizer,
+        freeze_visual_encoder=True,
+        cutoff_len=cutoff_len,
+        llm=dict(
+            type=AutoModelForCausalLM.from_pretrained,
+            pretrained_model_name_or_path=model_dir,
+            trust_remote_code=True),
+        visual_encoder=clip_patch14_336['visual_encoder'],
+        projector=projector,
+        vpt_encoder=vpt_encoder)

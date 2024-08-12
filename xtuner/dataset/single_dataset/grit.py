@@ -310,6 +310,7 @@ class GRITDataset(MInstrDataset):
         if random_select:
             conversations = self.random_select(conversations,length)
         ret['values'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations))]
+        # ret['values'] = [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations))]
         conversations = flatten(conversations)
         ret['conversations'] = conversations
 
@@ -382,9 +383,16 @@ class GRITDataset(MInstrDataset):
         return ret
 
     def __len__(self):
-        return len(self.text_path_file)
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder):
+            return len(self.text_data)
+        else:
+            return len(self.text_path_file)
     
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         text_file = self.text_path_file[index]
         annotations = self.get_file_data(os.path.join(self.text_path,text_file))
         img_path = annotations['key'] + '.jpg'
@@ -398,93 +406,37 @@ class GRITDataset(MInstrDataset):
         ret['map_placeholders'] = self.map_placeholders
 
         if self.version == 'c':  # caption task
-            # question = self.get_template('caption')
-            question = self.get_template()
-            ret = {
-                'conversations': [
-                    {
-                        'from': 'human',
-                        'value': question,
-                    },
-                    {
-                        'from': 'gpt',
-                        'value': caption,
-                    }
-                ]
-            }
-        
-        elif self.version == 'd':  # detection task
+            ret = self.get_caption(ret,caption)
+            ret['conversations'].insert(0,{'from':'system','value':ret['values']})
+            del ret['values']
 
-            question = self.get_template()
-            noun_chunks = annotations['noun_chunks']
+        elif self.version == 'd':  # detection task
             boxes = []
-            cls_names = []
-            box_seq = []
-            caption = ''
             for i,noun_chunk in enumerate(noun_chunks):
                 cls_name = annotations['caption'][int(noun_chunk[0]):int(noun_chunk[1])]
-                box = noun_chunk[2:-1]
+                box = list(de_norm_box_xyxy(noun_chunk[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 assert len(box) == 4
                 boxes.append(box)
-                
-                if cls_name in cls_names:  # some class may have two or more boxes
-                    previous_seq = cls_names.index(cls_name)
-                    box_seq[previous_seq].append(i)
-                    caption = caption.replace(f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}",f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER}")
-                else:
-                    seq = [i]
-                    cls_names.append(cls_name)
-                    box_seq.append(seq)
-                    caption = caption + PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER + ', '
-            
-
-            ret = {
-                'target': {'boxes':boxes},
-                'conversations': [
-                    {
-                        'from': 'human',
-                        'value': question,
-                    },
-                    {
-                        'from': 'gpt',
-                        'value': caption,
-                        'boxes_seq': box_seq
-                    }
-                ]
-            }
+            ret['target'] = {'boxes':boxes}
+            ret = self.get_detection(ret,noun_chunks,caption)
+            ret['conversations'].insert(0,{'from':'system','value':ret['values']})
+            del ret['values']
 
         elif self.version == 'cond_d':  # conditional detection task
             '''multi-turn conversation'''
-            noun_chunks = annotations['noun_chunks']
             boxes = []
-            cls_names = []
-            conversations = []
-            
             for i,noun_chunk in enumerate(noun_chunks):
-                question = self.get_template()
                 cls_name = annotations['caption'][int(noun_chunk[0]):int(noun_chunk[1])]
-                box = noun_chunk[2:-1]
+                box = list(de_norm_box_xyxy(noun_chunk[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 assert len(box) == 4
                 boxes.append(box)
-
-                if cls_name in cls_names:
-                    previous_seq = cls_names.index(cls_name)
-                    conversations[previous_seq*2+1]['value'] += BOXES_PLACEHOLDER  # add one <boxes> in the conversation
-                    conversations[previous_seq*2+1]['boxes_seq'][0].append(i)
-
-                else:
-                    question = question.replace(CLASS_PLACEHOLDER,cls_name)
-                    box_seq = [i]
-                    conversation_human = {'from': 'human','value': question}
-                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'boxes_seq': [box_seq]}
-
-                    cls_names.append(cls_name)
-                    conversations.append(conversation_human)
-                    conversations.append(conversation_gpt)
-            ret = {
-                'target': {'boxes':boxes},
-                'conversations': conversations
-            }
+            ret['target'] = {'boxes':boxes}
+            ret = self.get_cond_detection(ret,noun_chunks,caption,random_select=True,length=self.length)
+            for i,conversation in enumerate(ret['conversations']):
+                if i != 0 and conversation['from'] == 'human':
+                    conversation['value'] = conversation['value'].replace(IMAGE_PLACEHOLDER,'')
+            ret['conversations'].insert(0,{'from':'system','value':ret['values']})
+            del ret['values']
 
         elif self.version == 'r':  # referring expression task
             '''multi-turn conversation'''
@@ -494,8 +446,10 @@ class GRITDataset(MInstrDataset):
             conversations = []
             for i,ref_exp in enumerate(ref_exps):
                 question = self.get_template()
+                if i != 0:
+                    question = question.replace(IMAGE_PLACEHOLDER,'')
                 expr_name = annotations['caption'][int(ref_exp[0]):int(ref_exp[1])]
-                box = ref_exp[2:-1]
+                box = list(de_norm_box_xyxy(ref_exp[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 assert len(box) == 4
                 boxes.append(box)
 
@@ -506,18 +460,19 @@ class GRITDataset(MInstrDataset):
 
                 else:
                     question = question.replace(EXPR_PLACEHOLDER,expr_name)
-                    box_seq = [i]
                     conversation_human = {'from': 'human','value': question}
-                    conversation_gpt = {'from': 'gpt', 'value': BOXES_PLACEHOLDER,'boxes_seq': [box_seq]}
+                    value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+                    boxes_seq = [[i]]
+                    conversation_gpt = {'from': 'gpt', 'value': value,'boxes_seq':boxes_seq}
 
                     expr_names.append(expr_name)
                     conversations.append(conversation_human)
                     conversations.append(conversation_gpt)
+            value = [{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']} for _ in range(len(conversations)//2)]
 
-            ret = {
-                'target': {'boxes':boxes},
-                'conversations': conversations
-            }
+            ret['target'] = {'boxes':boxes}
+            ret['conversations'] = conversations
+            ret['conversations'].insert(0,{'from':'system','value': value})
         
         elif self.version == 'g':
             '''multi-turn conversation'''
@@ -527,9 +482,12 @@ class GRITDataset(MInstrDataset):
             conversations = []
             for i,ref_exp in enumerate(ref_exps):
                 question = self.get_template()
+                if i != 0:
+                    question = question.replace(IMAGE_PLACEHOLDER,'')
                 expr_name = annotations['caption'][int(ref_exp[0]):int(ref_exp[1])]
                 box = ref_exp[2:-1]
                 assert len(box) == 4
+                box = list(de_norm_box_xyxy(ref_exp[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 boxes.append(box)
 
                 question = question.replace(OBJS_PLACEHOLDER,BOXES_PLACEHOLDER)
@@ -539,48 +497,25 @@ class GRITDataset(MInstrDataset):
                 conversations.append(conversation_human)
                 conversations.append(conversation_gpt)
 
-            ret = {
-                'target': {'boxes':boxes},
-                'conversations': conversations
-            }
+            value = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations)//2)]
+            # value = [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations)//2)]
+            ret['target'] = {'boxes':boxes}
+            ret['conversations'] = conversations
+            ret['conversations'].insert(0,{'from':'system','value': value})
 
                 
 
         elif self.version == 'c_d': # caption + detection task
-            question = self.get_template()
-            noun_chunks = annotations['noun_chunks']
-            caption = annotations['caption']
             boxes = []
-            cls_names = []
-            box_seq = []
             for i,noun_chunk in enumerate(noun_chunks):
                 cls_name = annotations['caption'][int(noun_chunk[0]):int(noun_chunk[1])]
-                box = noun_chunk[2:-1]
+                box = list(de_norm_box_xyxy(noun_chunk[2:-1],w=ret['image']['width'],h=ret['image']['height']))
                 assert len(box) == 4
                 boxes.append(box)
-                if cls_name in cls_names:  # some class may have two or more boxes
-                    previous_seq = cls_names.index(cls_name)
-                    box_seq[previous_seq].append(i)
-                else:
-                    caption = caption.replace(cls_name,PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER)
-                    seq = [i]
-                    box_seq.append(seq)
-                    cls_names.append(cls_name)
-            
-            ret = {
-                'target': {'boxes': boxes},  # 'seg' /
-                'conversations': [
-                    {
-                        'from': 'human',
-                        'value': question,
-                    },
-                    {
-                        'from': 'gpt',
-                        'value': caption,
-                        'boxes_seq': box_seq,
-                    }
-                ]
-            }
+            ret['target'] = {'boxes':boxes}
+            ret = self.get_caption_detection(ret,noun_chunks,caption)
+            ret['conversations'].insert(0,{'from':'system','value':ret['values']})
+            del ret['values']
 
 
         elif self.version == 'combine':   # combine all previous tasks

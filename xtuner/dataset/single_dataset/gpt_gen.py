@@ -56,7 +56,10 @@ class GPT4Gen(MInstrDataset):
                 boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in raw['answer_boxes_seq']]
                 final_answer = final_answer.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
             answer_boxes_seq = raw['answer_boxes_seq']
+            # if query_boxes_seq == []:
             values = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
+            # else:
+                # values = [{'task':{'task_name':'referring gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
         else:
             assert False
 

@@ -13,7 +13,7 @@ train_grand_variant = dict(
         template_name=r"image_cap",
         map_placeholders=None,
         placeholders=('<image>',),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_caption',
     ),
     grand_d=dict(
         **grand_train_common_cfg, 
@@ -40,28 +40,29 @@ train_grand_variant = dict(
     grand_cond_d=dict(
         **grand_train_common_cfg, 
         version='cond_d', 
-        use_floating_objects=True,
+        max_conv_length=6,
         template_name=r"Cond_DET",
         map_placeholders=dict(
             output=["<boxes>"],
         ),     
         placeholders=('<image>','<cls>'),
-        offline_processed_text_folder='',        
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_det',        
     ),
     grand_cond_s=dict(
         **grand_train_common_cfg,
         version='cond_s', 
-        use_floating_objects=True,
+        max_conv_length=6,
         template_name=r"Cond_SEG",
         map_placeholders=dict(
             output=["<masks>"],
         ), 
         placeholders=('<image>','<cls>'),
-        offline_processed_text_folder='',        
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_seg',        
     ),
     grand_r_det=dict(
         **grand_train_common_cfg, 
         version='r_det', 
+        max_conv_length=6,
         use_floating_objects=True,
         template_name=r"REC",
         map_placeholders=dict(
@@ -91,7 +92,8 @@ train_grand_variant = dict(
             input=["<boxes>"],
         ),     
         placeholders=('<image>','<objs>'),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_re_det_noref',
+        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_re_det',
     ),
     grand_re_seg=dict(
         **grand_train_common_cfg, 
@@ -103,7 +105,8 @@ train_grand_variant = dict(
             input=["<masks>"],
         ), 
         placeholders=('<image>',"<masks>"),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_re_seg_noref',
+        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_re_seg',
     ),
 
     grand_c_d=dict(
@@ -115,7 +118,7 @@ train_grand_variant = dict(
             output=["<boxes>"],
         ),     
         placeholders=('<image>',),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_det',
     ),
     grand_c_s=dict(
         **grand_train_common_cfg, 
@@ -126,7 +129,7 @@ train_grand_variant = dict(
             output=["<masks>"],
         ),     
         placeholders=('<image>',),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg',
     ),
     grand_d_s=dict(
         **grand_train_common_cfg, 
@@ -137,7 +140,7 @@ train_grand_variant = dict(
             output=["<boxes>","<masks>"],
         ),     
         placeholders=[('<image>',),('<image>',)],
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_det_seg',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_det_seg',
     ),
     grand_mix = dict(
         **grand_train_common_cfg, 
@@ -155,6 +158,7 @@ train_grand_variant = dict(
                       ('<image>','<expr>'),('<image>','<expr>'),
                       ('<image>','<objs>'),('<image>',"<masks>"),
                       ('<image>',),('<image>',)],
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_mix_new',
+        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/grand_mix_offline',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_ref_mix',
     )
 )

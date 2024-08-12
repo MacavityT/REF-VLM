@@ -1,6 +1,7 @@
 import re
 from mmengine.registry.root import METRICS
 from typing import Dict, Any, Union, Sequence,List
+from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from ..okapi_metric import BaseComputeMetrics
 
 ANS_EXTRACT_PAT = re.compile(r'(?:(?:(?:(?:(?:So t)|(?:T)|(?:t))he answer is)|(?:Answer:)) (.+))')
@@ -27,14 +28,19 @@ class PopeComputeMetrics(BaseComputeMetrics):
         for sample, gt in zip(
             data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
-            decode_pred = self.decode_generate_ids(ids=generate_ids)
+            decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
             gt = gt[gt != -100]  # filter pad tokens (notes: better to use formal parameters)
-            target = self.decode_generate_ids(ids=gt)
-
+            target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
+            if self.stage == 2:
+                decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred, flags=re.DOTALL)
+                target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target, flags=re.DOTALL)
+            target = target.replace('</s>','').strip()
+            decode_pred = decode_pred.replace('</s>','').strip()
+            
             if self.save_dir is not None:
-                self.save_outputs(decode_pred,target,"pope")
+                self.save_outputs(decode_pred,target,f"{self.prefix}")
 
-            self.results.append(( decode_pred, target))
+            self.results.append((decode_pred, target))
 
 
     def compute_metrics(self, results: list) -> dict:
@@ -71,7 +77,7 @@ class PopeComputeMetrics(BaseComputeMetrics):
         }
 
         
-        self._print_results(metrics)
+        # self._print_results(metrics)
         
         return metrics
 

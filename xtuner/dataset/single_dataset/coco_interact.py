@@ -9,7 +9,10 @@ from xtuner.registry import DATASETS
 import cv2
 import random
 import numpy as np
-
+import jsonlines
+import pickle
+from tqdm import tqdm
+from xtuner.dataset.utils import convert_bbox, visualize_box_single
 from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
     MASKS_PLACEHOLDER,
@@ -219,6 +222,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+    
                 
                 elif self.strategy == 'full':
                     for k in range(0,len(interact)-2):
@@ -230,6 +234,7 @@ class COCOInteract(MInstrDataset):
                                 ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+                        
 
             if self.version == 'r':
                 answer =  category_name
@@ -256,7 +261,15 @@ class COCOInteract(MInstrDataset):
                         all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])  
              
             elif self.version == 'd':
-                gt_boxes.append(annotation['bbox'])
+                bbox = annotation['bbox']
+                bbox = convert_bbox(bbox)
+
+                # image_pil = Image.open(image['path']).convert('RGB')
+                # vis_box = visualize_box_single(image_pil,bbox)
+                # save_path = f'vis_box_{i}.jpg'
+                # cv2.imwrite(save_path, vis_box)
+
+                gt_boxes.append(bbox)
                 if self.strategy == 'random':
                     question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
                     random_num = random.randint(1,len(interact_list)-1)
@@ -269,6 +282,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                   
 
                 elif self.strategy == 'full':
                     for m in range(1,len(interact)-1):
@@ -357,7 +371,7 @@ class COCOInteractSingle(MInstrDataset):
             'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
             'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
         ]
-        self.process_data()
+        self.save_data()
 
         self.question = 'Please generate a distinguishing description for the region <masks> in the image<image>.'
       
@@ -374,7 +388,7 @@ class COCOInteractSingle(MInstrDataset):
         mask = maskUtils.decode(rle)
         return mask
     
-    def process_data(self):
+    def save_data(self):
 
         self.all_items = []
         for item in self.text_data:
@@ -390,7 +404,7 @@ class COCOInteractSingle(MInstrDataset):
             selected_mask = []
             for i,annotation in enumerate(annotations): 
                 mask = self.annToMask(annotation['segmentation'], height, width)
-                box = annotation['bbox']
+                box = convert_bbox(annotation['bbox'])
                 category_name = self.coco_class_name[self.coco_class_ids.index(annotation['category_id'])]
                 kernel = np.ones((10,10),np.uint8)
                 point_mask = decode(annotation['point_visual_prompt_mask'])
@@ -410,7 +424,9 @@ class COCOInteractSingle(MInstrDataset):
                             'image':image,
                             'category_name':category_name,
                         }
+
                         self.all_items.append(single_item)
+
 
                 elif self.version == 'd':
                     interact_list = interact_list[1:]

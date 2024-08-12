@@ -18,7 +18,7 @@ host5_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $5}')
 host6_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $6}')
 host7_addr=$(echo $VC_TASK1_HOSTS | awk -F, '{print $7}')
 
-work_dir="/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0628"
+work_dir="/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0715"
 checkpoint="/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0607/iter_7000.pth"
 local_host=$(hostname)
 node=7

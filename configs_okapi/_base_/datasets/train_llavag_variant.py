@@ -13,7 +13,8 @@ train_llavag_variant = dict(
         text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-grounding/llava_instruct_150k_visual_prompt.json',
         anno_path=r'/data/Aaronzhu/DatasetStage2and3/llava-grounding/coco/annotations/instances_train2014_filter.json',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/llava-grounding/offline_reg'     
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/llava-grounding/offline_reg'
+        # offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/llava-grounding/offline_ref_reg'         
     ),
     llavag_gcg=dict(
         **llavag_train_common_cfg,

@@ -1,7 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import re
 import numpy as np
+import copy
 from typing import List, Dict, Any, Tuple, Union
+from xtuner.model.utils import save_wrong_data
 from xtuner.utils.constants import (
     DEFAULT_IMAGE_TOKEN,
     BOXES_PLACEHOLDER,
@@ -97,8 +99,10 @@ def get_cot_elements(output, output_placeholders):
                     re.finditer(re.escape(PHRASE_ED_PLACEHOLDER_STAGE2), output)]
     st_indices = [idx + len(PHRASE_ST_PLACEHOLDER_STAGE2) \
                     for idx in st_indices]
-    assert len(st_indices) == len(ed_indices)
-
+    try:
+        assert len(st_indices) == len(ed_indices)
+    except:
+        save_wrong_data('wrong_cot',output)
     # get start and end placeholder pairs
     pairs = []
     contents = []
@@ -123,7 +127,10 @@ def get_cot_elements(output, output_placeholders):
     
     # last piece of content
     if cached_index > 0: contents.append(output[cached_index:])
-    assert len(contents) == len(pairs)
+    try:
+        assert len(contents) == len(pairs)
+    except:
+        save_wrong_data('wrong_cot_length',output)
     # get phrase names
     p_names = []        
     p_placeholders = [PHRASE_ST_PLACEHOLDER_STAGE2, PHRASE_ED_PLACEHOLDER_STAGE2]
@@ -141,7 +148,12 @@ def get_cot_elements(output, output_placeholders):
     for content in contents:
         counts = [content.count(placeholder) for placeholder in output_placeholders]
         idx_nonzero = [idx for idx, num in enumerate(counts) if num != 0]
-        assert len(idx_nonzero) == 1
+        try:
+            assert len(idx_nonzero) == 1
+        except:
+            save_wrong_data('wrong_cot_counts',output)
+            idx_nonzero = [0]
+            
         idx_placeholder = idx_nonzero[0]
         u_names.append(output_placeholders[idx_placeholder]) 
         u_counts.append(counts[idx_placeholder])
@@ -231,7 +243,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
         messages = messages[1:]
         assert 0.5 * len(messages) == len(systems['value'])
 
-        for info in systems['value']:
+        for i, info in enumerate(systems['value']):
             task_name = f"- task name: {info['task']['task_name']}\n"
             if info['task']['use_unit']:
                 info['task']['element'].append('unit')

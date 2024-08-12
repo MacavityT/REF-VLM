@@ -52,7 +52,7 @@ class OfflineDataset(Dataset):
                 datas = pickle.load(f)
             except:
                 print(f"{pkl_path} is wrong!")
-                path = "/data/Aaronzhu/DatasetStage2and3/COCO_interactive/offline_box/10.pkl"
+                path = "/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline/0.pkl"
                 with open(path,"rb") as f1:
                     datas = pickle.load(f1)
                     f1.close()
