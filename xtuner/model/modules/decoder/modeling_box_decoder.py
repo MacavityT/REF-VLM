@@ -121,6 +121,14 @@ class BoxDecoderModel(DecoderModel):
         )
         sequence_output = decoder_outputs[0]
         pred_boxes = self.predictor(sequence_output).sigmoid()
+
+        decode_units = metas.get('decode_units', None)
+        if decode_units is not None:
+            batch_remove_mask = [unit != 'box' for unit in decode_units]  
+            # ref_mask[batch_remove_mask, :] = False # remove batch which task not box deocde
+            condition = torch.zeros_like(ref_mask).to(torch.bool)
+            condition[batch_remove_mask, :] = True 
+            ref_mask = ref_mask.masked_fill(condition, False)
         pred_boxes = pred_boxes[ref_mask, :]
 
         loss = None
@@ -135,7 +143,7 @@ class BoxDecoderModel(DecoderModel):
                     "loss_giou": self.config.giou_loss_coefficient}
                 loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
             else:
-                loss = torch.tensor(0).to(pred_boxes.device).to(pred_boxes.dtype)
+                loss = torch.tensor(0.0, requires_grad=False).to(pred_boxes.device).to(pred_boxes.dtype)
 
         return dict(
             loss=loss,

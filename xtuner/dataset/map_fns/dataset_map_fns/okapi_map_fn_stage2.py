@@ -158,8 +158,18 @@ def target_map_fn(example):
     if not map_placeholders:
         return dict()
 
+    decode_units = []
     if messages[0]['from'] == 'system':
+        systems = messages[0]
         messages = messages[1:]
+        assert 0.5 * len(messages) == len(systems['value'])
+        for info in systems['value']:
+            if info['task']['use_unit']:
+                assert len(info['unit']) == 1
+                unit = info['unit'][0]
+            else:
+                unit = None
+            decode_units.append(unit)
 
     visual_prompts = []
     decode_labels = []
@@ -204,6 +214,8 @@ def target_map_fn(example):
             decode_labels.append(items if len(items) > 0 else None)
 
     result = dict()
+    if any(unit is not None for unit in decode_units):
+        result['decode_units'] = decode_units
     if any(vpt is not None for vpt in visual_prompts):
         result['visual_prompts'] = visual_prompts
     if any(label is not None for label in decode_labels):

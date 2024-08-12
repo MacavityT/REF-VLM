@@ -312,7 +312,7 @@ class OkapiDataset(Dataset):
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
                 )
-            # 'visual_prompts', 'decode_labels', 'conversation'
+            # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
             data_dict.update(self.dataset_map_fn(data_dict))
             data_dict.update(self.template_map_fn(data_dict))
             # 'input_ids', 'labels'
@@ -326,6 +326,14 @@ class OkapiDataset(Dataset):
                     visual_prompts=data_dict.get('visual_prompts', None)
                 )
             )
+
+        if data_dict.get('decode_units', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'decode units set, but no image input.'
+            first_unit = data_dict['decode_units'][0]
+            assert all(unit == first_unit \
+                for unit in data_dict['decode_units'])
+            data_dict['decode_units'] = first_unit
 
         if data_dict.get('visual_prompts', None) is not None:
             assert data_dict.get('image', None) is not None, \

@@ -170,6 +170,14 @@ class MaskDecoderModel(DecoderModel):
         sequence_output = decoder_outputs[0]
         mask_embeddings = self.mask_embedder(sequence_output)
         masks_queries_logits = torch.einsum("bqc, bchw -> bqhw", mask_embeddings, pixel_embeddings)
+        
+        decode_units = metas.get('decode_units', None)
+        if decode_units is not None:
+            batch_remove_mask = [unit != 'mask' for unit in decode_units]  
+            # ref_mask[batch_remove_mask, :] = False # remove batch which task not mask deocde
+            condition = torch.zeros_like(ref_mask).to(torch.bool)
+            condition[batch_remove_mask, :] = True 
+            ref_mask = ref_mask.masked_fill(condition, False)
         pred_masks = masks_queries_logits[ref_mask, :]
 
         loss = None
@@ -184,7 +192,7 @@ class MaskDecoderModel(DecoderModel):
                     "loss_dice": self.config.dice_loss_coefficient}
                 loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
             else:
-                loss = torch.tensor(0).to(pred_masks.device).to(pred_masks.dtype)
+                loss = torch.tensor(0.0, requires_grad=False).to(pred_masks.device).to(pred_masks.dtype)
         else:
             pred_masks = torch.sigmoid(masks_queries_logits)
 

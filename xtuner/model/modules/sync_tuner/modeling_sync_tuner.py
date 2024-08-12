@@ -170,7 +170,7 @@ class SyncTunerModel(PreTrainedModel):
         if not any(rec_flags):
             # idx = random.randint(0, len(rec_flags) - 1)
             # rec_flags[idx] = True
-            return torch.tensor(0).to(logits.device).to(logits.dtype)
+            return torch.tensor(0.0, requires_grad=False).to(logits.device).to(logits.dtype)
 
         b, c, h, w = image.shape
         mask = torch.Tensor(rec_flags).expand(c, h, w, b).permute(3, 0, 1, 2).bool() # b, c, h, w

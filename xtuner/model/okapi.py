@@ -519,7 +519,7 @@ class OkapiModel(BaseModel):
         meta_keys = [
             'ori_image', 'image_path',
             'ori_height', 'ori_width',
-            'decode_labels'
+            'decode_labels', 'decode_units'
         ]
         if 'pixel_values' in data:
             for key in meta_keys:
@@ -737,7 +737,6 @@ class OkapiModel(BaseModel):
         # loss
         loss = 0
         for key, value in loss_dict.items():
-            if value == 0: continue
             coefficient = self.loss_coefficient[key]
             loss += coefficient * value
         
