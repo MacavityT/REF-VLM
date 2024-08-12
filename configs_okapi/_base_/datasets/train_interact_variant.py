@@ -29,7 +29,7 @@ train_interact_variant = dict(
             input=["<masks>"],
             output=["<boxes>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/box_offline_new' 
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/offline_box' 
     ),
     interact_reg=dict(
         **interact_train_common_cfg,

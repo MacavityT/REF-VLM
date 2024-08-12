@@ -12,6 +12,7 @@ import numpy as np
 import jsonlines
 import pickle
 from tqdm import tqdm
+from xtuner.dataset.utils import convert_bbox, visualize_box_single
 from xtuner.utils.constants import (
     BOXES_PLACEHOLDER, 
     MASKS_PLACEHOLDER,
@@ -221,7 +222,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
-                    # all_system_values.append([{'task':{'task_name':'referring grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+    
                 
                 elif self.strategy == 'full':
                     for k in range(0,len(interact)-2):
@@ -233,7 +234,7 @@ class COCOInteract(MInstrDataset):
                                 ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
-                        # all_system_values.append([{'task':{'task_name':'referring grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}])
+                        
 
             if self.version == 'r':
                 answer =  category_name
@@ -247,7 +248,6 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])
-                    # all_system_values.append([{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}])
 
                 elif self.strategy == 'full':
                     for j,interact in enumerate(interact_list):
@@ -259,10 +259,17 @@ class COCOInteract(MInstrDataset):
                         ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}])  
-                        # all_system_values.append([{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}])
              
             elif self.version == 'd':
-                gt_boxes.append(annotation['bbox'])
+                bbox = annotation['bbox']
+                bbox = convert_bbox(bbox)
+
+                # image_pil = Image.open(image['path']).convert('RGB')
+                # vis_box = visualize_box_single(image_pil,bbox)
+                # save_path = f'vis_box_{i}.jpg'
+                # cv2.imwrite(save_path, vis_box)
+
+                gt_boxes.append(bbox)
                 if self.strategy == 'random':
                     question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
                     random_num = random.randint(1,len(interact_list)-1)
@@ -275,7 +282,7 @@ class COCOInteract(MInstrDataset):
                     ]
                     all_conversations.append(single_conversation)
                     all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
-                    # all_system_values.append([{'task':{'task_name':'referring grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
+                   
 
                 elif self.strategy == 'full':
                     for m in range(1,len(interact)-1):
@@ -289,7 +296,6 @@ class COCOInteract(MInstrDataset):
                         ]
                         all_conversations.append(single_conversation)
                         all_system_values.append([{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
-                        # all_system_values.append([{'task':{'task_name':'referring grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}])
     
 
         #random shuffle
@@ -398,7 +404,7 @@ class COCOInteractSingle(MInstrDataset):
             selected_mask = []
             for i,annotation in enumerate(annotations): 
                 mask = self.annToMask(annotation['segmentation'], height, width)
-                box = annotation['bbox']
+                box = convert_bbox(annotation['bbox'])
                 category_name = self.coco_class_name[self.coco_class_ids.index(annotation['category_id'])]
                 kernel = np.ones((10,10),np.uint8)
                 point_mask = decode(annotation['point_visual_prompt_mask'])
@@ -469,7 +475,6 @@ class COCOInteractSingle(MInstrDataset):
             answer = category_name
             single_conversation = [
                 {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
-                # {'from':'system','value':[{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}]},
                 {'from':'human','value':question,'masks_seq':[[0]]},
                 {'from':'gpt','value':answer}
             ]

@@ -576,3 +576,23 @@ def visualize_box(image, boxes, line_thickness=2):
         right_bottom = tuple((x2, y2))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
+
+def convert_bbox(bbox):
+    """
+    Convert bounding box from (x, y, w, h) to (xmin, xmax, ymin, ymax).
+
+    Parameters:
+    x (int or float): The x-coordinate of the center.
+    y (int or float): The y-coordinate of the center.
+    w (int or float): The width of the bounding box.
+    h (int or float): The height of the bounding box.
+
+    Returns:
+    tuple: A tuple containing (xmin, xmax, ymin, ymax).
+    """
+    x, y, w, h = bbox
+    xmin = x
+    xmax = x + w
+    ymin = y
+    ymax = y + h
+    return (xmin, ymin, xmax, ymax)
