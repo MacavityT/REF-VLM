@@ -38,7 +38,7 @@ class PopeComputeMetrics(BaseComputeMetrics):
             decode_pred = decode_pred.replace('</s>','').strip()
             
             if self.save_dir is not None:
-                self.save_outputs(decode_pred,target,"pope")
+                self.save_outputs(decode_pred,target,f"{self.prefix}")
 
             self.results.append((decode_pred, target))
 

@@ -28,7 +28,7 @@ with read_base():
 max_length = 2048 - 576 # use cutoff lens instead  4096 
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 15  # per_device
+batch_size = 2  # per_device
 dataloader_num_workers = 4
 vrt_length = 256
 vpt_num_patches = 9
@@ -39,7 +39,7 @@ cot_weight = 1
 vrt_weight = 1
 accumulative_counts = 1
 
-max_epochs = 2
+max_epochs = 1
 lr = 2e-5  # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0
@@ -58,29 +58,48 @@ optim_wrapper = dict(
 
 # learning policy
 # More information: https://github.com/open-mmlab/mmengine/blob/main/docs/en/tutorials/param_scheduler.md  # noqa: E501
+# param_scheduler = [
+#     dict(
+#         type=LinearLR,
+#         start_factor=1e-5,
+#         by_epoch=True,
+#         begin=0,
+#         end=warmup_ratio * max_epochs,
+#         convert_to_iter_based=True),
+#     dict(
+#         type=CosineAnnealingLR,
+#         eta_min=0.0,
+#         by_epoch=True,
+#         begin=warmup_ratio * max_epochs,
+#         end=max_epochs,
+#         convert_to_iter_based=True)
+# ]
+
 param_scheduler = [
     dict(
         type=LinearLR,
         start_factor=1e-5,
         by_epoch=True,
         begin=0,
-        end=warmup_ratio * max_epochs,
-        convert_to_iter_based=True),
-    dict(
-        type=CosineAnnealingLR,
-        eta_min=0.0,
-        by_epoch=True,
-        begin=warmup_ratio * max_epochs,
         end=max_epochs,
-        convert_to_iter_based=True)
+        convert_to_iter_based=True),
 ]
+
 
 # train, val, test setting
 train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
+dataset_args_sft = dict(
+    type='SubSet',
+    portion=1/80,
+    do_shuffle=True,
+    seed=42,
+    cfg=train_all_dataset['reg_refcocog_train_mask'],
+)
+dataset_args_sft['cfg'].setdefault('stage',2)
 
-dataset_args_sft = train_all_dataset['reg']
-dataset_args_sft['stage'] = 2
+# dataset_args_sft = train_all_dataset['reg_refcocog_train_mask']
+# dataset_args_sft['stage'] = 2
 dataset_args_sft = [dataset_args_sft]
 
 

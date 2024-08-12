@@ -38,11 +38,18 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 cot_weight = 1
 vrt_weight = 1
 
-eval_type = 'vqa'
-prefix = 'vqa_box_pron'
+eval_type = 'reg'
+prefix = 'pope_random'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0718/eval59525'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0807mask/eval63'
+
+if prefix == 'okvqa':
+    test_evaluator = dict(
+        type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['okvqa'],
+    ]
 
 if prefix == 'vqa':
     test_evaluator = dict(
@@ -103,7 +110,7 @@ elif prefix == 'vqa_box_gen':
 
 elif prefix == 'caption_coco':
     test_evaluator = dict(
-        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
     test_dataset_args = [
         dict(
             type='SubSet',
@@ -116,7 +123,7 @@ elif prefix == 'caption_coco':
 
 elif prefix == 'caption_flickr':
     test_evaluator = dict(
-    type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='caption')
+    type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
     test_dataset_args = [
         test_all_dataset['flickr_test_without_box'],
     ]
@@ -142,9 +149,9 @@ elif prefix == 'pope_adversarial':
         test_all_dataset['coco_pope_adversarial_q_a'],
     ]
 
-elif prefix == 'reg':
+elif prefix == 'reg_box':
     test_evaluator = dict(
-        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='reg')
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
     test_dataset_args = [
         dict(
             type='SubSet',
@@ -154,8 +161,16 @@ elif prefix == 'reg':
             seed=43,
             # cfg=test_all_dataset['reg_refcocoa_unc_testa'],
             # cfg=test_all_dataset['interact_reg']
-            cfg=test_all_dataset['reg_refcocog_umd_test'],
+            cfg=test_all_dataset['reg_refcocog_umd_test_box'],
             )
+    ]
+
+
+elif prefix == 'reg_mask':
+    test_evaluator = dict(
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        test_all_dataset['reg_refcocog_umd_test_mask'],
     ]
 
 elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):

@@ -18,6 +18,7 @@ with read_base():
     from .train_llavag_variant import train_llavag_variant
     from .train_png_variant import train_png_variant
     from .train_cocokeypoint_variant import train_cocokeypoints_variant
+    from .train_reg_variant import train_reg_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -137,7 +138,7 @@ train_all_dataset = dict(
         ),
         offline_processed_text_folder='',
     ),
-
+    **train_reg_variant,
     **train_gqa_variant,
     **train_clevr_variant,
     **train_point_variant,

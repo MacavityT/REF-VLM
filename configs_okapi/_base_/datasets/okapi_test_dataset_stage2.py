@@ -27,14 +27,23 @@ test_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/val2017',
         template_name=r'image_cap',
     ),
-    reg=dict(
+    reg_box=dict(
         type='REGDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_refcocog_umd_test.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_name=r'REG',
+        version='box',
+        placeholders=('<image>','<objs>'),
         map_placeholders=dict(
             input=["<boxes>"],
         )        
+    ),
+    okvqa=dict(
+        type='OKVQADataset',
+        image_folder='/data/Aaronzhu/DatasetStage1/MSCOCO/2014/val',
+        text_path='/data/Aaronzhu/DatasetStage1/OKVQA/okvqa_test.jsonl',
+        has_annotation=False,
+        template_name=r"VQA",
     ),
     **test_rec_variant,
     **train_grand_variant,

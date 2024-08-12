@@ -27,3 +27,4 @@ from .kitti import KITTIDataset
 from .nyu import NYUDataset
 from .hrwsi import HRWSIDataset
 from .coco_keypoints import COCOKeypointsDataset,COCOKeypointsRECDataset
+from .okvqa import OKVQADataset
