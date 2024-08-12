@@ -15,20 +15,45 @@ from pycocoevalcap.eval import COCOEvalCap
 from transformers import AutoTokenizer, AutoModel
 from sklearn.metrics.pairwise import cosine_similarity
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
-from xtuner.utils.constants import IGNORE_INDEX
 
+
+from xtuner.utils.constants import IGNORE_INDEX
+from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
 from .utils.process import SEGDETProcessor
 from ..okapi_metric import BaseComputeMetrics
 
 
 
+def get_caption_text(text):
+    pattern = r"<Task>.*?</Task>"
+    cleaned_text = re.sub(pattern, "", text, flags=re.DOTALL)
+    cleaned_text = re.sub(r"\n+", "", cleaned_text)
+    cleaned_text = re.sub(r"<\/?Phrase>", "", cleaned_text)
+    cleaned_text = re.sub(r"\(<Unit>(box|mask)<\/Unit>\[\d+\]<REF>\)", "", cleaned_text)
+    cleaned_text.strip()
+    return cleaned_text
+
+
+def get_matches_from_cot(text):
+    pattern = r"Name:\s*(.+?)\s*Unit:\s*<Unit>(box|mask)</Unit>\s*Num:\s*(\d+)"
+    matches = re.findall(pattern, text)
+    return matches
+
+def get_matches_from_text(text):
+    p_names, u_names, u_counts  = get_cot_elements(text,['<REF>'])
+
+    matches = []
+    for phrase, num in zip(p_names,u_counts):
+        matches.append((phrase,num))
+    return matches
 
 @METRICS.register_module()
 class GCGComputeMetrics(BaseComputeMetrics):
-    def __init__(self, *args, type, **kwargs):
+    def __init__(self, *args, type, mask, **kwargs):
         super().__init__(*args, **kwargs)
         self.processor = SEGDETProcessor(task=self.prefix)
         self.type = type
+        self.mask = mask   # output bbox or masks
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -53,21 +78,34 @@ class GCGComputeMetrics(BaseComputeMetrics):
             target = target.replace('</s>','').strip()
             decode_pred = decode_pred.replace('</s>','').strip()
 
-            pattern = r"Name:\s*(.+?)\s*Unit:\s*<Unit>mask</Unit>\s*Num:\s*(\d+)"
-            matches_pred = re.findall(pattern, decode_pred)
-            matches_target = re.findall(pattern, target)
+
+            matches_pred = get_matches_from_text(decode_pred)
+            matches_target = get_matches_from_text(target)
+
+
+            # get caption text
+            pred_caption = get_caption_text(decode_pred)
+            target_caption = get_caption_text(target)
 
             image_path = gt['image_path']
             image_name = os.path.basename(image_path)
             image_id = image_name.split('.')[0]
 
             # TODO: change the format ,add caption
-            pred_masks = sample['masks']   # torch.Tensor
-            gt_masks = gt['masks']
+            if self.mask:
+                pred_masks = sample['masks'].cpu().numpy()   # torch.Tensor
+                gt_masks = gt['masks'].cpu().numpy()
+                decode_pred['pred_masks'] = pred_masks
+                target['gt_masks'] = gt_masks
+            else:
+                pred_boxes = sample['boxes'].cpu().numpy()   # torch.Tensor
+                gt_boxes = gt['boxes'].cpu().numpy()
+                decode_pred['pred_boxes'] = pred_boxes
+                target['gt_boxes'] = gt_boxes
 
-            pred_mask_length = sum([int(pred[1]) for pred in matches_pred])
-            assert len(pred_masks) == pred_mask_length,  \
-                f"pred mask num: {len(pred_masks)} does not equal to llm's output num: {pred_mask_length}"
+            pred_box_mask_length = sum([int(pred[1]) for pred in matches_pred])
+            assert len(pred_masks) == pred_box_mask_length,  \
+                f"pred mask num: {len(pred_masks)} does not equal to llm's output num: {pred_box_mask_length}"
             
             dt_labels = []
             for i in len(matches_pred):
@@ -84,10 +122,8 @@ class GCGComputeMetrics(BaseComputeMetrics):
                     gt_labels.append(cur_gt_label)
 
             decode_pred['dt_labels'] = dt_labels
-            decode_pred['pred_masks'] = pred_masks
             decode_pred['caption'] = pred_caption
             target['gt_labels'] = gt_labels
-            target['gt_masks'] = gt_masks
             target['caption'] = target_caption
                       
             if self.type == 'class':
@@ -109,30 +145,37 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 scores, ids = text_sims.max(1)
                 pred_class_names = [gt_labels[index] for index in ids]
 
-                for i, mask in enumerate(pred_masks):
-                    score = scores[i]
-                    class_name = pred_class_names[i]
-                    rle_mask = mask_utils.encode(mask)
-                    coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
-                                           "segmentation": rle_mask, "score": score})
+                if self.mask:
+                    for i, mask in enumerate(pred_masks):
+                        score = scores[i]
+                        class_name = pred_class_names[i]
+                        rle_mask = mask_utils.encode(mask)
+                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
+                                            "segmentation": rle_mask, "score": score})
+                else:
+                    for i, box in enumerate(pred_boxes):
+                        score = scores[i]
+                        class_name = pred_class_names[i]
+                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
+                                            "bbox": box, "score": score})                    
                 decode_pred['scores'] = scores
                 decode_pred['pred_classes'] = pred_class_names
 
             elif self.type == 'whole':
-                for i, mask in enumerate(pred_masks):
-                    rle_mask = mask_utils.encode(mask)
-                    coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
-        
+                if self.mask:
+                    for i, mask in enumerate(pred_masks):
+                        rle_mask = mask_utils.encode(mask)
+                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
+                else:
+                    for i, box in enumerate(pred_boxes):
+                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "bbox": box, "score": 1.0})
         # Save gcg_coco_predictions
         with open(f"{self.prefix}_{self.type}.json", 'w') as f:
             json.dump(coco_pred_file, f)
-
             
         self.results.append((decode_pred, target))
 
 
-
-    
     def compute_metrics(self, results: list) -> dict:
 
         preds = []
@@ -141,7 +184,7 @@ class GCGComputeMetrics(BaseComputeMetrics):
             preds.append(pred)
             targets.append(target)
         
-        miou = self.processor.evaluate_mask_miou(preds,targets,self.type)
+        miou = self.processor.evaluate_box_mask_miou(preds,targets,self.type,self.mask)
         recall = self.processor.evaluate_recall_with_mapping(preds,targets)
         
         preds_labels = {i: [{"caption": x}] for i, x in enumerate(preds['caption'])}

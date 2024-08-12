@@ -17,6 +17,7 @@ from detectron2.evaluation import (
     DatasetEvaluators,
     SemSegEvaluator,
 )
+from torchvision.ops import box_iou
 from .instance_evaluation import InstanceSegEvaluator
 from .register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic
 from .register_cityscapes_panoptic import register_all_cityscapes_panoptic
@@ -323,7 +324,7 @@ class SEGDETProcessor:
 
         return cosine_similarity([emb1], [emb2])[0, 0]
 
-    def compute_iou(self, mask1, mask2):
+    def compute_mask_iou(self, mask1, mask2):
         intersection = np.logical_and(mask1, mask2)
         union = np.logical_or(mask1, mask2)
         iou = np.sum(intersection) / np.sum(union)
@@ -336,12 +337,15 @@ class SEGDETProcessor:
                 iou_matrix[i, j] = self.compute_iou(pred_mask, gt_mask)
         return iou_matrix
     
-    def compute_miou(self, dt_labels, gt_labels, pred_masks, gt_masks, type):
+    def compute_miou(self, dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks, type):
         # Computing mIoU between predicted masks and ground truth masks
-        iou_matrix = np.zeros((len(pred_masks), len(gt_masks)))
-        for i, pred_mask in enumerate(pred_masks):
-            for j, gt_mask in enumerate(gt_masks):
-                iou_matrix[i, j] = self.compute_iou(pred_mask, gt_mask)
+        iou_matrix = np.zeros((len(pred_boxes_masks), len(gt_boxes_masks)))
+        if pred_boxes_masks.shape[1] == 4:
+            iou_matrix = box_iou(torch.tensor(pred_boxes_masks)*1000, torch.tensor(gt_boxes_masks)*1000).cpu().numpy()
+        else:
+            for i, pred_box_mask in enumerate(pred_boxes_masks):
+                for j, gt_box_mask in enumerate(gt_boxes_masks):
+                    iou_matrix[i, j] = self.compute_mask_iou(pred_box_mask, gt_box_mask)
 
         paired_iou = []
         if type == 'whole':
@@ -403,20 +407,25 @@ class SEGDETProcessor:
         
 
 
-    def evaluate_mask_miou(self,preds,targets,type):
+    def evaluate_box_mask_miou(self,preds,targets,type,mask):
         # Load predictions
 
         mious = []
         for preds_per_image, targets_per_image in zip(preds,targets):
 
-            pred_masks_per_image = preds_per_image['pred_masks']
-            gt_masks_per_image = targets_per_image['gt_mask']
+
+            if mask:
+                pred_box_masks_per_image = preds_per_image['pred_masks']
+                gt_box_masks_per_image = targets_per_image['gt_mask']
+            else:
+                pred_box_masks_per_image = preds_per_image['pred_boxes']
+                gt_box_masks_per_image = targets_per_image['gt_boxes']                
 
             gt_labels = targets_per_image['gt_labels']
             pred_labels = preds_per_image['dt_labels']
 
             output = self.compute_miou(pred_labels, gt_labels, 
-                                        preds_per_image, targets_per_image,type)
+                                        pred_box_masks_per_image, gt_box_masks_per_image,type)
 
             if type == 'whole':
                 mious.append(output)
@@ -431,7 +440,7 @@ class SEGDETProcessor:
         return mean_miou, output
     
     
-    def find_best_matches(self, dt_labels, gt_labels, pred_masks, gt_masks):
+    def find_best_matches(self, dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks):
 
         '''
         gt_labels = [[cls_name1,cls_name2],cls_names]
@@ -440,7 +449,10 @@ class SEGDETProcessor:
 
         best_matches = []
         # Compute pair - wise IoU
-        ious = self.compute_iou_matrix(pred_masks,gt_masks)
+        if pred_boxes_masks.shape[1] == 4:
+            ious = box_iou(torch.tensor(pred_boxes_masks)*1000, torch.tensor(gt_boxes_masks)*1000).cpu().numpy()
+        else:
+            ious = self.compute_iou_matrix(pred_boxes_masks,gt_boxes_masks)
 
         text_sims = np.zeros((len(dt_labels), len(gt_labels)))
 
@@ -474,12 +486,15 @@ class SEGDETProcessor:
 
         return best_matches  # List of index pairs [(gt_idx, dt_idx), ...]
     
-    def find_global_matches(self,dt_labels, gt_labels, pred_masks, gt_masks,topk=5):
+    def find_global_matches(self,dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks,topk=5):
         # find best matches compared to global classes
 
         best_matches = []
         # Compute pair - wise IoU
-        ious = self.compute_iou_matrix(pred_masks,gt_masks)
+        if pred_boxes_masks.shape[1] == 4:
+            ious = box_iou(torch.tensor(pred_boxes_masks)*1000, torch.tensor(gt_boxes_masks)*1000).cpu().numpy()
+        else:
+            ious = self.compute_iou_matrix(pred_boxes_masks,gt_boxes_masks)
 
         text_sims = np.zeros((len(dt_labels), len(self.test_class_names)))
 
@@ -517,15 +532,19 @@ class SEGDETProcessor:
         return best_matches
 
     
-    def evaluate_recall_with_mapping(self, preds, targets, global_softmax=False):
+    def evaluate_recall_with_mapping(self, preds, targets, mask,global_softmax=False):
 
         true_positives = 0
         actual_positives = 0
 
         for preds_per_image, targets_per_image in zip(preds,targets):
             try:
-                pred_masks_per_image = preds_per_image['pred_masks']
-                gt_masks_per_image = targets_per_image['gt_mask']
+                if mask:
+                    pred_box_masks_per_image = preds_per_image['pred_masks']
+                    gt_box_masks_per_image = targets_per_image['gt_mask']
+                else:
+                    pred_box_masks_per_image = preds_per_image['pred_boxes']
+                    gt_box_masks_per_image = targets_per_image['gt_boxes']       
 
                 gt_labels = targets_per_image['gt_labels']
                 pred_labels = preds_per_image['dt_labels']
@@ -534,11 +553,11 @@ class SEGDETProcessor:
 
                 # Find best matching pairs
                 if global_softmax:
-                    best_matches = self.find_global_matches(pred_labels,gt_labels,pred_masks_per_image,
-                                                            gt_masks_per_image)
+                    best_matches = self.find_global_matches(pred_labels,gt_labels,pred_box_masks_per_image,
+                                                            gt_box_masks_per_image)
                 else:
-                    best_matches = self.find_best_matches(pred_labels,gt_labels,pred_masks_per_image,
-                                                            gt_masks_per_image)
+                    best_matches = self.find_best_matches(pred_labels,gt_labels,pred_box_masks_per_image,
+                                                            gt_box_masks_per_image)
 
                 true_positives += len(best_matches)
             except Exception as e:
