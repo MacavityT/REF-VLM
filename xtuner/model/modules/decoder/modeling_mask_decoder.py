@@ -174,7 +174,7 @@ class MaskDecoderModel(DecoderModel):
         decode_units = metas.get('decode_units', None)
         if decode_units is not None:
             batch_remove_mask = [unit != 'mask' for unit in decode_units]  
-            # ref_mask[batch_remove_mask, :] = False # remove batch which task not mask deocde
+            # remove batch which task not mask deocde
             condition = torch.zeros_like(ref_mask).to(torch.bool)
             condition[batch_remove_mask, :] = True 
             ref_mask = ref_mask.masked_fill(condition, False)
