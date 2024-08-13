@@ -14,7 +14,6 @@ from mmengine.model import BaseModel
 from mmengine.logging import print_log
 from peft import get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
-from transformers.models.mixtral.modeling_mixtral import load_balancing_loss_func
 
 from xtuner.registry import BUILDER
 from xtuner.utils import IGNORE_INDEX
@@ -151,7 +150,6 @@ class OkapiModel(BaseModel):
         dispatch_modules(self.llm)
 
         if self.projector is None:
-            print('init projector!')
             projector_config = ProjectorConfig(
                 visual_hidden_size=self.visual_encoder.config.hidden_size,
                 llm_hidden_size=self.llm.config.hidden_size,
@@ -165,7 +163,6 @@ class OkapiModel(BaseModel):
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.visual_encoder.dtype)
         if self.visual_sync_tuner is None and visual_sync_tuner is not None:
-            print('init visual_sync_tuner!')
             sync_tuner_config = SyncTunerConfig(**visual_sync_tuner)
             assert sync_tuner_config.num_queries > 0, 'vrt length error!'
             self.visual_sync_tuner = SyncTunerModel(sync_tuner_config).to(
