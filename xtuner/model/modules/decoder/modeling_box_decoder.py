@@ -133,7 +133,11 @@ class BoxDecoderModel(DecoderModel):
 
         loss = None
         if mode == 'loss':
-            target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
+            try:
+                target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
+            except:
+                from xtuner.model.utils import save_wrong_data
+                save_wrong_data(f"wrong_ref",metas)
             if ref_mask.sum() > 0 and target_boxes is not None:
                 target_boxes = torch.stack(
                     target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)
