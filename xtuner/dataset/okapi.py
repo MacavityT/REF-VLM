@@ -79,6 +79,9 @@ class OkapiDataset(Dataset):
             self.dataset = self.build_dataset(dataset)
             print_log("Okapi Datasets Build Success.")
             self.data = TorchConcatDataset(self.dataset)
+        else:
+            print_log("Mode = inference, Okapi Datasets is empty ...")
+            self.data = []
 
 
         if isinstance(dataset_map_fn, str):

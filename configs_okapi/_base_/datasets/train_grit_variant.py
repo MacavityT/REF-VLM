@@ -10,7 +10,7 @@ from xtuner.utils.constants import (
 
 
 grit_train_common_cfg = dict(
-    type='GRITDataset',
+    # type='GRITDataset',
     text_path=r'/data/Aaronzhu/DatasetStage2and3/GRIT/annotations',
     image_folder=r'/data/Aaronzhu/DatasetStage2and3/GRIT/img',
     stage=2,
@@ -19,6 +19,7 @@ grit_train_common_cfg = dict(
 train_grit_variant = dict(
     grit_c=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='c', 
         template_name=r"image_cap",
         map_placeholders=None,
@@ -27,6 +28,7 @@ train_grit_variant = dict(
     ),
     grit_d=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='d', 
         template_name=r"DET",
         map_placeholders=dict(
@@ -37,6 +39,7 @@ train_grit_variant = dict(
     ),
     grit_cond_d=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='cond_d', 
         template_name=r"Cond_DET",
         max_conv_length=5,
@@ -48,27 +51,29 @@ train_grit_variant = dict(
     ),
     grit_r=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='r', 
         template_name=r"REC",
         map_placeholders=dict(
             output=["<boxes>"],
         ),  
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec_new',
     ),
     grit_g=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='g', 
         template_name=r"REG",
         map_placeholders=dict(
             input=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,OBJS_PLACEHOLDER),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_reg_noref',
-        # offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_reg',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_reg_new',
     ),
     grit_c_d=dict(
         **grit_train_common_cfg, 
+        type='GRITOfflineDataset',
         version='c_d', 
         template_name=r"flickr30k",
         map_placeholders=dict(

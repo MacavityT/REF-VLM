@@ -187,7 +187,11 @@ class DecoderModel(PreTrainedModel):
         for batch_idx, mask in enumerate(ref_mask):
             ref_num = mask.sum()
             if ref_num == 0: continue
-            assert len(target_labels[batch_idx]) >= ref_num
+            try:
+                assert len(target_labels[batch_idx]) >= ref_num
+            except:
+                from xtuner.model.utils import save_wrong_data
+                save_wrong_data(f"wrong_ref",metas)
             target_labels_trim.extend(target_labels[batch_idx][:ref_num])
         target_labels_trim = [torch.tensor(label) for label in target_labels_trim]
         return target_labels_trim
