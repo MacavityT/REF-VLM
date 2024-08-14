@@ -692,11 +692,13 @@ class OkapiModel(BaseModel):
             loss_dict['rec'] = rec_outputs['loss']
             cost_dict['rec_cost'] = rec_outputs['loss']
 
-        ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-            outputs.hidden_states[-1],
-            metas=metas,
-            mode='loss'
-        )
+        ref_used_module = [self.moe_adapter, self.visual_decoder]
+        if any(module is not None for module in ref_used_module):
+            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
+                outputs.hidden_states[-1],
+                metas=metas,
+                mode='loss'
+            )
 
         # moe adapter
         moe_outputs = None

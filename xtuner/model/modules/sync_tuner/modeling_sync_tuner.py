@@ -168,8 +168,6 @@ class SyncTunerModel(PreTrainedModel):
                 rec_flag = np.random.uniform(0, 1) < self.config.ratio
             rec_flags.append(rec_flag)
         if not any(rec_flags):
-            # idx = random.randint(0, len(rec_flags) - 1)
-            # rec_flags[idx] = True
             return logits.sum() * 0.0
 
         b, c, h, w = image.shape
