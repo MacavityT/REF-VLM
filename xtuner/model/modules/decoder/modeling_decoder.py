@@ -66,7 +66,7 @@ class DecoderPositionEmbedding(nn.Module):
 
 class DecoderModel(PreTrainedModel):
     _auto_class = 'AutoModel'
-    base_model_prefix = 'layers'
+    base_model_prefix = 'model'
     supports_gradient_checkpointing = False
 
     def __init__(self, config: PretrainedConfig):

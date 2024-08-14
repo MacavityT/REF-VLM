@@ -4,19 +4,14 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 from transformers import PreTrainedModel
 from transformers.activations import ACT2FN
 from .configuration_vpt_encoder import VPTEncoderConfig
 
-class VPTEncoderModel(PreTrainedModel):
-    _auto_class = 'AutoModel'
-    config_class = VPTEncoderConfig
-    base_model_prefix = 'model'
-    supports_gradient_checkpointing = True
-
+class VPTEncoder(nn.Module):
     def __init__(self, config: VPTEncoderConfig) -> None:
-        super().__init__(config)
-        self.gradient_checkpointing = False
+        super(VPTEncoder, self).__init__()
         self.config = config
 
         if config.strategy == 'embedding':
@@ -43,7 +38,7 @@ class VPTEncoderModel(PreTrainedModel):
                         config.llm_hidden_size,
                         config.llm_hidden_size,
                         bias=config.bias))
-            self.model = nn.Sequential(*modules)
+            self.projector = nn.Sequential(*modules)
 
         num_patches = config.num_patches
         if config.use_mask_token:
@@ -53,20 +48,6 @@ class VPTEncoderModel(PreTrainedModel):
 
         self.position_embedding = nn.Embedding(num_patches, config.visual_hidden_size)
         self.register_buffer("position_ids", torch.arange(num_patches).expand((1, -1)), persistent=False)
-
-    def enable_input_require_grads(self):
-        def make_inputs_require_grad(module, input, output):
-            output.requires_grad_(True)
-        
-        if self.config.strategy == 'embedding':
-            self.patch_embedding.register_forward_hook(make_inputs_require_grad)
-        self.position_embedding.register_forward_hook(make_inputs_require_grad)
-        if self.config.use_projector:
-            self.model.register_forward_hook(make_inputs_require_grad)
-
-    def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, VPTEncoderModel):
-            module.gradient_checkpointing = value
 
     def pad_regions(self, regions, dtype, device):
         region_count = []
@@ -98,7 +79,6 @@ class VPTEncoderModel(PreTrainedModel):
                 tensor_regions[batch_idx, region_index, ...] = region
         tensor_regions = tensor_regions.to(device)
         return tensor_regions, region_count
-
 
     def mask_patch_feats(self, x, mask):
 
@@ -144,13 +124,6 @@ class VPTEncoderModel(PreTrainedModel):
         mask_token = mask_token.permute(0, 1, 3, 2) # [b, q, 1, c]
         return mask_token
 
-    def project(self, x):
-        if self.gradient_checkpointing and self.training:
-            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
-        else:
-            layer_outputs = self.model(x)
-        return layer_outputs
-
     def forward(self, x, regions, return_dict=True):
         """
         To extract the region feartures based on the region mask.
@@ -175,7 +148,7 @@ class VPTEncoderModel(PreTrainedModel):
         
         vpt_feats = vpt_feats + self.position_embedding(self.position_ids)
         if self.config.use_projector:
-            vpt_feats = self.project(vpt_feats)
+            vpt_feats = self.projector(x)
 
         if return_dict:
             result = dict(
@@ -185,3 +158,37 @@ class VPTEncoderModel(PreTrainedModel):
         else:
             result = (vpt_feats, vpt_count)
         return result
+
+class VPTEncoderModel(PreTrainedModel):
+    _auto_class = 'AutoModel'
+    config_class = VPTEncoderConfig
+    base_model_prefix = 'model'
+    supports_gradient_checkpointing = True
+
+    def __init__(self, config: VPTEncoderConfig) -> None:
+        super().__init__(config)
+        self.gradient_checkpointing = False
+        self.config = config
+        self.model = VPTEncoder(config)
+
+    def enable_input_require_grads(self):
+        def make_inputs_require_grad(module, input, output):
+            if isinstance(output, dict):
+                for key in output.keys():
+                    if isinstance(output[key], torch.Tensor):
+                        output[key].requires_grad_(True)
+            else:
+                output.requires_grad_(True)
+        
+        self.model.register_forward_hook(make_inputs_require_grad)
+
+    def _set_gradient_checkpointing(self, module, value=False):
+        if isinstance(module, VPTEncoderModel):
+            module.gradient_checkpointing = value
+
+    def forward(self, x, regions, return_dict=True):
+        if self.gradient_checkpointing and self.training:
+            outputs = checkpoint(self.model, x, regions, return_dict)
+        else:
+            outputs = self.model(x, regions, return_dict)
+        return outputs

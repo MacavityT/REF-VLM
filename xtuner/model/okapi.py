@@ -484,20 +484,29 @@ class OkapiModel(BaseModel):
         ref_masks = metas.get('ref_masks', None)
         if ref_masks.sum() == 0 and mode != 'loss':
             return None, None
-        
-        if self.moe_adapter is not None:
-            num_queries = self.moe_adapter.config.num_queries
-        elif self.visual_decoder is not None:
-            first_decoder = tuple(self.visual_decoder.values())[0]
-            num_queries = first_decoder.config.num_queries
-        else:
-            return None, None
 
+        moe_num_queries = 0
+        if self.moe_adapter is not None:
+            moe_num_queries = self.moe_adapter.config.num_queries
+
+        max_decoder_num_queries = 0
+        if self.visual_decoder is not None:
+            decoder_num_queries = []
+            for decoder in self.visual_decoder.values():
+                decoder_num_queries.append(decoder.config.num_queries)
+            max_decoder_num_queries = max(decoder_num_queries)
+            if moe_num_queries != 0:
+                assert max_decoder_num_queries <= moe_num_queries
+
+        max_num_queries = max(moe_num_queries, max_decoder_num_queries)
+        if max_num_queries == 0:
+            return None, None
+        
         batch_size, _, dim_feats = hidden_states.shape
-        ref_hidden_states = torch.zeros((batch_size, num_queries, dim_feats),
+        ref_hidden_states = torch.zeros((batch_size, max_num_queries, dim_feats),
                                     dtype=hidden_states.dtype,
                                     device=hidden_states.device)
-        ref_attention_masks = torch.zeros((batch_size, num_queries),
+        ref_attention_masks = torch.zeros((batch_size, max_num_queries),
                                     dtype=torch.bool,
                                     device=hidden_states.device)
 
