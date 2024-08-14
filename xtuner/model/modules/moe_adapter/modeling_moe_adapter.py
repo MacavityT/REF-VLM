@@ -71,8 +71,7 @@ class MoeAdapterLayer(nn.Module):
 class MoEAdapterModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     config_class = MoEAdapterConfig
-    base_model_prefix = 'layers'
-    _no_split_modules = ["MoeAdapterLayer"]
+    base_model_prefix = 'model'
     supports_gradient_checkpointing = True
 
     def __init__(self, config: MoEAdapterConfig):

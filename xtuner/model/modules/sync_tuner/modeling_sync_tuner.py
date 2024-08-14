@@ -61,23 +61,9 @@ class SyncTunerAttentionBlcok(nn.Module):
         x = residual + self.dropout(ffn_output)
         return x
 
-class SyncTunerModel(PreTrainedModel):
-    _auto_class = 'AutoModel'
-    config_class = SyncTunerConfig
-    base_model_prefix = 'layers'
-    _no_split_modules = ["SyncTunerAttentionBlcok"]
-    supports_gradient_checkpointing = True
-
-    """
-    A 2D perceiver-resampler network with one cross attention layers by
-        (grid_size**2) learnable queries and 2d sincos pos_emb
-    Outputs:
-        A tensor with the shape of (grid_size**2, embed_dim)
-    """
-
+class SyncTunerFPNModel(nn.Module):
     def __init__(self, config: SyncTunerConfig):
-        super().__init__(config)
-        self.gradient_checkpointing = False
+        super(SyncTunerFPNModel, self).__init__()
         self.config = config
 
         num_queries = config.num_queries
@@ -86,7 +72,6 @@ class SyncTunerModel(PreTrainedModel):
         n_heads = config.num_heads
         dropout = config.dropout
         d_ffn = config.d_ffn
-
         # models
         self.in_proj = nn.Linear(d_input, d_model)
         self.positional_encoding = PositionalEncoding(d_model, dropout=0, max_len=num_queries)
@@ -102,8 +87,72 @@ class SyncTunerModel(PreTrainedModel):
             )
         self.last_norm = nn.LayerNorm(d_model)
         self.rec_head = nn.Linear(d_model, 3)
-        self.criterion = MSELoss(reduction='none')
+    
+    def upsample(self, x):
+        # upsample with factor '2'
+        b, l, c = x.shape
+        grid_size = int(math.sqrt(l))
+        target_size = grid_size * 2
+        x = x.view(b, grid_size, grid_size, c)
+        x = x.permute(0, 3, 1, 2) # b, c, h, w
+        x = F.interpolate(
+            x, 
+            size=(target_size, target_size),
+            mode="bilinear",
+            align_corners=False
+        )
+        x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
+        return x
+    
+    def forward(self, x, mode='loss'):
+        # Add position embedding
+        x = self.in_proj(x)
+        hidden_states = [x]
 
+        if mode == 'loss' or self.config.use_in_pred:
+            x = self.positional_encoding(x)
+            for layer in self.layers:
+                x = layer(x)
+                hidden_states.append(x)
+                x = self.upsample(x)
+            
+            # Just applied layernorm after last upsample
+            # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
+            # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
+            # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
+            last_hidden_state = self.last_norm(x)
+            hidden_states.append(last_hidden_state)
+
+        rec_pred = None
+        if mode == 'loss':
+            rec_pred = self.rec_head(last_hidden_state)
+
+        return dict(
+            pred_images = rec_pred,
+            hidden_states = hidden_states,
+        )
+
+
+class SyncTunerModel(PreTrainedModel):
+    _auto_class = 'AutoModel'
+    config_class = SyncTunerConfig
+    base_model_prefix = 'model'
+    supports_gradient_checkpointing = True
+
+    """
+    A 2D perceiver-resampler network with one cross attention layers by
+        (grid_size**2) learnable queries and 2d sincos pos_emb
+    Outputs:
+        A tensor with the shape of (grid_size**2, embed_dim)
+    """
+
+    def __init__(self, config: SyncTunerConfig):
+        super().__init__(config)
+        self.gradient_checkpointing = False
+        self.config = config
+
+        self.model = SyncTunerFPNModel(config)
+        self.criterion = MSELoss(reduction='none')
         # # self.image_pool = redis.StrictRedis(host='localhost', port=6379, db=0)
         # if image_pool is not None:
         #     with jsonlines.open(image_pool, 'r') as f:
@@ -121,31 +170,20 @@ class SyncTunerModel(PreTrainedModel):
         # )
 
     def enable_input_require_grads(self):
-
+        
         def make_inputs_require_grad(module, input, output):
-            output.requires_grad_(True)
-
-        self.in_proj.register_forward_hook(make_inputs_require_grad)
+            if isinstance(output, dict):
+                for key in output.keys():
+                    if isinstance(output[key], torch.Tensor):
+                        output[key].requires_grad_(True)
+            else:
+                output.requires_grad_(True)
+        
+        self.model.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
         if isinstance(module, SyncTunerModel):
             module.gradient_checkpointing = value
-    
-    def upsample(self, x):
-        # upsample with factor '2'
-        b, l, c = x.shape
-        grid_size = int(math.sqrt(l))
-        target_size = grid_size * 2
-        x = x.view(b, grid_size, grid_size, c)
-        x = x.permute(0, 3, 1, 2) # b, c, h, w
-        x = F.interpolate(
-            x, 
-            size=(target_size, target_size),
-            mode="bilinear",
-            align_corners=False
-        )
-        x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
-        return x
     
     def compute_loss_reconstruction(self, logits, image, image_path):
         rec_flags = []
@@ -197,37 +235,29 @@ class SyncTunerModel(PreTrainedModel):
         loss_rec = self.criterion(logits, target)
         return loss_rec.mean()
 
-    def forward(self, x, metas, mode='loss'):
-        # Add position embedding
-        x = self.in_proj(x)
-        hidden_states = [x]
+    def forward(self, x):
+        if self.gradient_checkpointing and self.training:
+            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
+        else:
+            layer_outputs = self.model(x)
+        return layer_outputs
 
-        if mode == 'loss' or self.config.use_in_pred:
-            x = self.positional_encoding(x)
-            for layer in self.layers:
-                if self.gradient_checkpointing and self.training:
-                    x = checkpoint(layer, x)
-                else:
-                    x = layer(x)
-                hidden_states.append(x)
-                x = self.upsample(x)
-            
-            # Just applied layernorm after last upsample
-            # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
-            # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
-            # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
-            last_hidden_state = self.last_norm(x)
-            hidden_states.append(last_hidden_state)
+    def forward(self, x, metas, mode='loss'):
+        if self.gradient_checkpointing and self.training:
+            rec_outputs = checkpoint(self.model, x, mode)
+        else:
+            rec_outputs = self.model(x, mode)
+        pred_images = rec_outputs['pred_images']
+        hidden_states = rec_outputs['hidden_states']
 
         loss = None
         if mode == 'loss':
-            rec_pred = self.rec_head(last_hidden_state)
             loss = self.compute_loss_reconstruction(
-                rec_pred,
-                image = metas['ori_image'],
-                image_path = metas['image_path'],
+                logits=pred_images,
+                image=metas['ori_image'],
+                image_path=metas['image_path'],
             )
-        
+
         return dict(
             loss = loss,
             hidden_states = hidden_states,
