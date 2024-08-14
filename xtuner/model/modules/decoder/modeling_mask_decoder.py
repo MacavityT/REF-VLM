@@ -135,6 +135,8 @@ class MaskDecoderModel(DecoderModel):
         metas=None,
         mode='loss'
     ):
+
+
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
         pixel_decoder_outputs = self.pixel_decoder(visual_hidden_states)
@@ -150,7 +152,9 @@ class MaskDecoderModel(DecoderModel):
         image_features = image_features.view(batch_size, num_channels, height * width).permute(0, 2, 1)
         
         # prepare learnable queries
-        ref_mask[:, self.config.num_queries:] = False
+        ref_hidden_states = ref_hidden_states[:, :self.config.num_queries, :]
+        ref_mask = ref_mask[:, :self.config.num_queries]
+
         batch_size = ref_hidden_states.shape[0]
         ref_hidden_states = self.in_proj_queries(ref_hidden_states)
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)

@@ -99,7 +99,6 @@ class VPTEncoderModel(PreTrainedModel):
         tensor_regions = tensor_regions.to(device)
         return tensor_regions, region_count
 
-
     def mask_patch_feats(self, x, mask):
 
         if not x.shape[-2:] == mask.shape[-2:]:
