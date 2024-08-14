@@ -20,6 +20,7 @@ class VPTEncoderConfig(PretrainedConfig):
         bias=True,
         **kwargs,
     ):
+        super().__init__(**kwargs)
         self.visual_hidden_size = visual_hidden_size
         self.num_patches = num_patches
         self.patch_size = patch_size
@@ -31,4 +32,3 @@ class VPTEncoderConfig(PretrainedConfig):
         self.depth = depth
         self.bias = bias
         assert strategy in ['embedding', 'pooling']
-        super().__init__(**kwargs)

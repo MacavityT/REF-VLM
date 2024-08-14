@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
 import torch
+import random
 from torch import nn
 from torch.nn import MSELoss
 from torch.nn import functional as F
@@ -48,20 +49,23 @@ class SyncTunerAttentionBlcok(nn.Module):
 
     def forward(self, x, src_mask=None, src_key_padding_mask=None):
         # Self-attention with residual connection and layer norm
+        residual = x
         x = self.layernorm1(x)
         attn_output, _ = self.multihead_attn(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)
-        x = x + self.dropout(attn_output)
+        x = residual + self.dropout(attn_output)
         
         # Feed-forward network with residual connection and layer norm
+        residual = x
         x = self.layernorm2(x)
         ffn_output = self.ffn(x)
-        x = x + self.dropout(ffn_output)
+        x = residual + self.dropout(ffn_output)
         return x
 
 class SyncTunerModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     config_class = SyncTunerConfig
-    base_model_prefix = 'model'
+    base_model_prefix = 'layers'
+    _no_split_modules = ["SyncTunerAttentionBlcok"]
     supports_gradient_checkpointing = True
 
     """
@@ -82,7 +86,6 @@ class SyncTunerModel(PreTrainedModel):
         n_heads = config.num_heads
         dropout = config.dropout
         d_ffn = config.d_ffn
-        d_output = config.output_dim
 
         # models
         self.in_proj = nn.Linear(d_input, d_model)
@@ -97,17 +100,35 @@ class SyncTunerModel(PreTrainedModel):
                     dropout
                 )
             )
-        self.out_proj = nn.Linear(d_model, d_output)
+        self.last_norm = nn.LayerNorm(d_model)
+        self.rec_head = nn.Linear(d_model, 3)
+        self.criterion = MSELoss(reduction='none')
+
+        # # self.image_pool = redis.StrictRedis(host='localhost', port=6379, db=0)
+        # if image_pool is not None:
+        #     with jsonlines.open(image_pool, 'r') as f:
+        #         self.image_pool_idx2path = [data for data in f]
+        #         self.image_pool_path2idx = {path: index for index, path in \
+        #             enumerate(self.image_pool_idx2path)}
+        # else:
+        #     self.image_pool_idx2path = None
+        #     self.image_pool_path2idx = None
+        
+        # self.register_buffer(
+        #     "image_pool_used_idx", 
+        #     torch.zeros(len(self.image_pool_idx2path)).bool(), 
+        #     persistent=False
+        # )
 
     def enable_input_require_grads(self):
 
         def make_inputs_require_grad(module, input, output):
             output.requires_grad_(True)
 
-        self.out_proj.register_forward_hook(make_inputs_require_grad)
+        self.in_proj.register_forward_hook(make_inputs_require_grad)
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, SyncTunerConfig):
+        if isinstance(module, SyncTunerModel):
             module.gradient_checkpointing = value
     
     def upsample(self, x):
@@ -120,31 +141,96 @@ class SyncTunerModel(PreTrainedModel):
         x = F.interpolate(
             x, 
             size=(target_size, target_size),
-            mode="bicubic",
+            mode="bilinear",
             align_corners=False
         )
         x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, l, c
         return x
+    
+    def compute_loss_reconstruction(self, logits, image, image_path):
+        rec_flags = []
+        # for path in image_path:
+            # if path == '':
+            #     rec_flag = False # fake image
+            # # elif self.image_pool.sismember("processed_images", path):
+            # elif self.image_pool_used_idx[self.image_pool_path2idx[path]]:
+            #     rec_flag = False
+            # else:
+            #     rec_flag = np.random.uniform(0, 1) < self.config.ratio
+            #     self.image_pool_used_idx[self.image_pool_path2idx[path]] = rec_flag
+            #     # if rec_flag:
+            #     #     # self.image_pool.sadd("processed_images", path)
+        
+        for idx in range(logits.shape[0]):
+            if image_path[idx] == '':
+                rec_flag = False
+            else:
+                rec_flag = np.random.uniform(0, 1) < self.config.ratio
+            rec_flags.append(rec_flag)
+        if not any(rec_flags):
+            # idx = random.randint(0, len(rec_flags) - 1)
+            # rec_flags[idx] = True
+            return logits.sum() * 0.0
 
-    def forward(self, x):
+        b, c, h, w = image.shape
+        mask = torch.Tensor(rec_flags).expand(c, h, w, b).permute(3, 0, 1, 2).bool() # b, c, h, w
+        
+        # transform pred to target shape
+        b, l, c = logits.shape
+        grid_size = int(math.sqrt(l))
+        if logits.shape[1] != image.shape[-1] * image.shape[-2]:
+            logits = logits.view(b, grid_size, grid_size, c).permute(0, 3, 1, 2) # b, c, h, w
+            logits = F.interpolate(
+                logits,
+                size=image.shape[2:],
+                mode="bilinear",
+                align_corners=False
+            )
+
+        # ignore loss when 'rec_flag = False'
+        logits = logits[mask]
+        target = image[mask].to(logits.dtype)
+
+        # # ignore padding value
+        # ignore_mask = target == 1
+        # pred = pred[ignore_mask]
+        # target = target[ignore_mask]
+
+        loss_rec = self.criterion(logits, target)
+        return loss_rec.mean()
+
+    def forward(self, x, metas, mode='loss'):
         # Add position embedding
         x = self.in_proj(x)
-        outputs = [x]
+        hidden_states = [x]
 
-        x = self.positional_encoding(x)
-        for layer in self.layers:
-            if self.gradient_checkpointing and self.training:
-                x = checkpoint(layer, x)
-            else:
-                x = layer(x)
-            outputs.append(x)
-            x = self.upsample(x)
+        if mode == 'loss' or self.config.use_in_pred:
+            x = self.positional_encoding(x)
+            for layer in self.layers:
+                if self.gradient_checkpointing and self.training:
+                    x = checkpoint(layer, x)
+                else:
+                    x = layer(x)
+                hidden_states.append(x)
+                x = self.upsample(x)
+            
+            # Just applied layernorm after last upsample
+            # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
+            # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
+            # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
+            last_hidden_state = self.last_norm(x)
+            hidden_states.append(last_hidden_state)
+
+        loss = None
+        if mode == 'loss':
+            rec_pred = self.rec_head(last_hidden_state)
+            loss = self.compute_loss_reconstruction(
+                rec_pred,
+                image = metas['ori_image'],
+                image_path = metas['image_path'],
+            )
         
-        # output projection
-        x = self.out_proj(x)
-        outputs.append(x)
-
         return dict(
-            hidden_states = outputs,
-            last_hidden_state = x
+            loss = loss,
+            hidden_states = hidden_states,
         )

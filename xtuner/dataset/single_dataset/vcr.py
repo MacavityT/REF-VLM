@@ -127,7 +127,6 @@ class VCRDataset(MInstrDataset):
                 merge([rationale_gold_pack, answer_gold_pack, answer_choice], prefixs=['', '', '']),
             ]
             values = {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
-            # values = {'task':{'task_name':'referring gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
         elif version == 'qa-r':
             final_packs = [
                 merge([question_pack, answer_gold_pack], prefixs=['QUESTION:', '\nANSWER:'], postfixs=['', 'You should explain the reason for the above answer.']),
@@ -140,7 +139,6 @@ class VCRDataset(MInstrDataset):
                 rationale_choice,
             ]
             values = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
-            # values = {'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}
         elif version == 'q-a-q-r':
             final_packs = [
                 merge([question_pack], prefixs=['QUESTION:'], ),
@@ -187,11 +185,13 @@ class VCRDataset(MInstrDataset):
             for i,conversation in enumerate(conversations):
                 if conversation['from'] == 'gpt':
                     if 'boxes_seq' not in conversation.keys():
-                        continue
-                        # system_values[i//2] = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
-                        # system_values[i//2] = {'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}}
+                        system_values[i//2] = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
                     else:
-                        conversation['value'] = conversation['value'].replace(BOXES_PLACEHOLDER,f"{PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER}")
+                        if conversation['boxes_seq'] == []:
+                            del conversation['boxes_seq']
+                            system_values[i//2] = {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
+                        else:
+                            conversation['value'] = conversation['value'].replace(BOXES_PLACEHOLDER,f"{PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER}")
 
             conversations.insert(0,{'from':'system','value':system_values})
         ret = {

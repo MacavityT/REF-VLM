@@ -552,10 +552,8 @@ class GRITDataset(MInstrDataset):
 
 @DATASETS.register_module()
 class GRITOfflineDataset(MInstrDataset):
-    def __init__(self, *args, version, map_placeholders, **kwargs):
+    def __init__(self, *args, map_placeholders, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version = version
-        assert self.version == 'combine_off'
         assert os.path.isfile(self.text_path), "GRIT post process dataset is a single json file!"
         self.map_placeholders = map_placeholders
     

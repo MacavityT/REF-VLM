@@ -85,15 +85,21 @@ model = dict(
         use_projector=False,
     ),
     visual_sync_tuner=dict(
+        use_in_pred=True,
         num_layers=3,
         num_queries=vrt_length,
         d_input=4096,
         d_model=512,
         d_ffn=2048,
-        output_dim=3,
         num_heads=8,
         dropout=0.1,
         ratio=0.5
     ),
-    cot_weight=cot_weight,
-    vrt_weight=vrt_weight)
+    loss_coefficient=dict(
+        llm=1.,
+        rec=0.5,
+        moe=0.02,
+        box=0.5,
+        mask=0.5
+    )
+)

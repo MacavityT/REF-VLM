@@ -21,10 +21,6 @@ from .utils.register_cityscapes_panoptic import register_all_cityscapes_panoptic
 from .utils.process import semantic_inference, panoptic_inference, instance_inference,build_evaluator
 from ..okapi_metric import BaseComputeMetrics
 
-
-
-
-
 @METRICS.register_module()
 class SEGComputeMetrics(BaseComputeMetrics):
     def __init__(self, *args, version, task, dataset_root,

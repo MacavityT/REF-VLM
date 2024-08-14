@@ -30,11 +30,13 @@ from .utils import (LoadWoInit, find_all_linear_names,
                     prepare_inputs_labels_for_multimodal,
                     save_wrong_data)
 from xtuner.utils.constants import (
+    SPECIAL_TOKENS,
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,
     IMAGE_TOKEN_INDEX,
-    SPECIAL_TOKENS
+    VISUAL_REFERENCE_TOKEN,
+    VISUAL_REPRESENTATION_TOKEN,
 )
 from xtuner.tools.utils import get_random_available_port
 from torch.nn import CrossEntropyLoss, MSELoss
@@ -64,10 +66,8 @@ class OkapiModel(BaseModel):
                  use_activation_checkpointing=True,
                  cutoff_len=None,
                  max_position_embeddings=None,
-                 loss_weight=None,
-                 cot_weight=None,
-                 vrt_weight=None,
-                 image_pool=None):
+                 loss_coefficient=None,
+                ):
         super().__init__()
         self.freeze_llm = freeze_llm
         self.freeze_visual_encoder = freeze_visual_encoder
@@ -76,6 +76,7 @@ class OkapiModel(BaseModel):
         self.freeze_visual_sync_tuner = freeze_visual_sync_tuner
         self.freeze_moe_adapter = freeze_moe_adapter
         self.cutoff_len = cutoff_len
+        self.loss_coefficient = loss_coefficient
         with LoadWoInit():
             if isinstance(llm, dict):
                 llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
@@ -87,7 +88,9 @@ class OkapiModel(BaseModel):
             tokens_in_labels = [
                 BOT_TOKEN, EOT_TOKEN, 
                 BOU_TOKEN, EOU_TOKEN, 
-                BOV_TOKEN, EOV_TOKEN
+                BOV_TOKEN, EOV_TOKEN,
+                VISUAL_REFERENCE_TOKEN,
+                VISUAL_REPRESENTATION_TOKEN,
             ]
             self.token_ids = {}
             for token in tokens_in_labels:
@@ -230,9 +233,6 @@ class OkapiModel(BaseModel):
 
         self.visual_select_layer = visual_select_layer
 
-        self.cot_weight = cot_weight if cot_weight is not None else 1
-        self.vrt_weight = vrt_weight if vrt_weight is not None else 1
-        self.loss_weight = loss_weight
         self._is_init = True
 
     @staticmethod
@@ -273,8 +273,11 @@ class OkapiModel(BaseModel):
     def activation_checkpointing_enable(self):
         self.llm.gradient_checkpointing_enable()
         self.visual_encoder.gradient_checkpointing_enable()
-        self.vpt_encoder.gradient_checkpointing_enable()
         self.projector.gradient_checkpointing_enable()
+        if self.vpt_encoder is not None:
+            self.vpt_encoder.gradient_checkpointing_enable()
+        if self.visual_sync_tuner is not None:
+            self.visual_sync_tuner.gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -282,8 +285,12 @@ class OkapiModel(BaseModel):
     def activation_checkpointing_disable(self):
         self.llm.gradient_checkpointing_disable()
         self.visual_encoder.gradient_checkpointing_disable()
-        self.vpt_encoder.gradient_checkpointing_enable()
         self.projector.gradient_checkpointing_disable()
+        if self.vpt_encoder is not None:
+            self.vpt_encoder.gradient_checkpointing_enable()
+        if self.visual_sync_tuner is not None:
+            self.visual_sync_tuner.gradient_checkpointing_enable()
+        
 
     def init_weights(self):
         pass
@@ -317,6 +324,9 @@ class OkapiModel(BaseModel):
         to_return.update(
             {k: v
              for k, v in state_dict.items() if 'vpt_encoder.' in k})
+        to_return.update(
+            {k: v
+             for k, v in state_dict.items() if 'sync_tuner.' in k})
         return to_return
 
     @staticmethod
@@ -384,88 +394,118 @@ class OkapiModel(BaseModel):
         else:
             raise NotImplementedError
 
+    def prepare_visual_feats(self, visual_hidden_states, vpt_regions, mode='loss'):
+        # get vpt feats
+        if vpt_regions is not None:
+            visual_prompts = self.vpt_encoder(
+                visual_hidden_states,
+                regions = vpt_regions, 
+                return_dict = True
+            )
+        elif mode == 'loss':
+            # fake regions for contain compute graph
+            bs = visual_hidden_states.shape[0]
+            w = h = int(math.sqrt(visual_hidden_states.shape[1]))
+            fake_region = np.zeros((h, w))
+            regions = [None] * bs
+            regions[0] = [fake_region]
+            vpt_count = [0] * bs
+            visual_prompts = self.vpt_encoder(
+                visual_hidden_states,
+                regions = regions, 
+                return_dict = True
+            )
+            visual_prompts['vpt_count'] = vpt_count
+        else:
+            visual_prompts = None
+
+        # vpt feats with visual feats
+        if self.vpt_encoder.config.use_projector or \
+            visual_prompts is None:
+            visual_feats = self.projector(visual_hidden_states)
+        else:
+            # concat and reuse projector
+            vpt_feats = visual_prompts['vpt_feats']
+            b, q, n, c = vpt_feats.shape
+            _, l, _ = visual_hidden_states.shape
+            vpt_feats = vpt_feats.view(b, -1, c)
+            concat_feats = torch.cat([visual_hidden_states, vpt_feats], dim=1)
+            concat_feats = self.projector(concat_feats)
+
+            visual_feats = concat_feats[:, :l, :]
+            vpt_feats = concat_feats[:, l:, :]
+            vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
+            visual_prompts['vpt_feats'] = vpt_feats
+
+        return visual_feats, visual_prompts  
+    
+    def prepare_vrt_feats(self, hidden_states, metas, mode='loss'):
+        vrt_masks = metas.get('vrt_masks', None)
+        if vrt_masks.sum() == 0 and mode != 'loss':
+            return None
+        
+        vrt_hidden_states = []
+        num_queries = self.visual_sync_tuner.config.num_queries
+        dim_feats = hidden_states.shape[-1]
+        for feats, mask in zip(hidden_states, vrt_masks):
+            vrt_feats = feats[mask, :]
+            if vrt_feats.shape[0] > 0:
+                assert vrt_feats.shape[0] == num_queries
+                vrt_hidden_states.append(vrt_feats)
+            else:
+                # prepare fake features for all mode (for locating batch features in prediction mode)
+                fake_feats = torch.zeros(
+                    num_queries, 
+                    dim_feats
+                    ).to(hidden_states.device).to(hidden_states.dtype)
+                vrt_hidden_states.append(fake_feats)
+        vrt_hidden_states = torch.stack(vrt_hidden_states)
+        return vrt_hidden_states
+
     def forward(self, data, data_samples=None, mode='loss'):
         metas = dict()
+        meta_keys = [
+            'ori_image', 'image_path',
+            'ori_height', 'ori_width',            
+        ]
         if 'pixel_values' in data:
-            metas['ori_image'] = data['pixel_values']
-            metas['image_path'] = data['image_path']
-            metas['ori_height'] = data['ori_height']
-            metas['ori_width'] = data['ori_width']
+            for key in meta_keys:
+                if key == 'ori_image':
+                    metas[key] = data.get('pixel_values', None)
+                else:
+                    metas[key] = data.get(key, None)
 
             visual_outputs = self.visual_encoder(
                 data['pixel_values'].to(self.visual_encoder.dtype),
                 output_hidden_states=True)
             selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
 
-            if self.vpt_encoder is not None:
-                if 'visual_prompts' in data:
-                    visual_prompts = self.vpt_encoder(
-                        selected_feats,
-                        regions = data['visual_prompts'], 
-                        return_dict = True
-                    )
-                else:
-                    # fake regions for contain compute graph
-                    bs = selected_feats.shape[0]
-                    w = h = int(math.sqrt(selected_feats.shape[1]))
-                    fake_region = np.zeros((h, w))
-                    regions = [None] * bs
-                    regions[0] = [fake_region]
-                    vpt_count = [0] * bs
-                    visual_prompts = self.vpt_encoder(
-                        selected_feats,
-                        regions = regions, 
-                        return_dict = True
-                    )
-                    visual_prompts['vpt_count'] = vpt_count
-
-                if self.vpt_encoder.config.use_projector:
-                    pixel_values = self.projector(selected_feats)
-                    data['pixel_values'] = pixel_values
-                    data.update(visual_prompts)
-                else:
-                    # concat and reuse projector
-                    vpt_feats = visual_prompts['vpt_feats']
-                    b, q, n, c = vpt_feats.shape
-                    _, l, _ = selected_feats.shape
-                    vpt_feats = vpt_feats.view(b, -1, c)
-                    concat_feats = torch.cat([selected_feats, vpt_feats], dim=1)
-                    concat_feats = self.projector(concat_feats)
-
-                    pixel_values = concat_feats[:, :l, :]
-                    vpt_feats = concat_feats[:, l:, :]
-                    vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
-                    visual_prompts['vpt_feats'] = vpt_feats
-                    data.update(visual_prompts)
-                    data['pixel_values'] = pixel_values
-            else:
+            if self.vpt_encoder is None:
                 pixel_values = self.projector(selected_feats)
                 data['pixel_values'] = pixel_values
+            else:
+                vpt_regions = data.get('visual_prompts', None)
+                visual_feats, visual_prompts = self.prepare_visual_feats(
+                    selected_feats, 
+                    vpt_regions, 
+                    mode
+                )
+                data.update(visual_prompts)
+                data['pixel_values'] = visual_feats      
 
-            # get vrt mask
-            bov_id = self.token_ids[BOV_TOKEN]
-            eov_id = self.token_ids[EOV_TOKEN]
+            # vrt and ref mask
+            vrt_masks = []
+            ref_masks = []
             input_ids = data['input_ids']
-            bov_indices = []
-            eov_indices = []
             for ids in input_ids:
-                bov_idx = torch.where(ids == bov_id)[0].tolist()
-                eov_idx = torch.where(ids == eov_id)[0].tolist()
-                img_idx = torch.where(ids == IMAGE_TOKEN_INDEX)[0].tolist()
-                assert len(bov_idx) == len(eov_idx)
-                if len(bov_idx) == 1:
-                    assert len(img_idx) == 1 and img_idx < bov_idx
-                    image_token_len = pixel_values.shape[1]
-                    bov_indices.append(bov_idx[0] + image_token_len - 1)
-                    eov_indices.append(eov_idx[0] + image_token_len - 1)
-                elif len(bov_idx) == 0:
-                    bov_indices.append(-1)
-                    eov_indices.append(-1)
-                else:
-                    raise ValueError("vrt start num should be 0 or 1.")
-            metas['bov_indices'] = bov_indices
-            metas['eov_indices'] = eov_indices
-            
+                vrt_mask = ids == self.token_ids[VISUAL_REPRESENTATION_TOKEN]
+                ref_mask = ids == self.token_ids[VISUAL_REFERENCE_TOKEN]
+                vrt_masks.append(vrt_mask.bool())
+                ref_masks.append(ref_mask.bool())
+            data['vrt_masks'] = vrt_masks
+            data['ref_masks'] = ref_masks
+
+            # prepare data for prediction
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
                 data['input_ids'] = data['input_ids'][0][:labels_mask.index(False)].unsqueeze(0)
@@ -475,11 +515,13 @@ class OkapiModel(BaseModel):
             
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
             if self.cutoff_len is not None:
-                if data['inputs_embeds'].shape[1] > self.cutoff_len:
-                    data['inputs_embeds'] = data['inputs_embeds'][:, :self.cutoff_len, :]
-                    data['labels'] = data['labels'][:, :self.cutoff_len]
-                    data['position_ids'] = data['position_ids'][:, :self.cutoff_len]
-                    data['attention_mask'] = data['attention_mask'][:, :self.cutoff_len]
+                for key, value in data.items():
+                    if value is None: continue
+                    if value.shape[1] > self.cutoff_len:
+                        data[key] = value[:, :self.cutoff_len]
+            
+            metas['vrt_masks'] = data.pop('vrt_masks')
+            metas['ref_masks'] = data.pop('ref_masks')
 
         if mode == 'loss':
             return self.compute_loss(data, data_samples, metas)
@@ -496,7 +538,6 @@ class OkapiModel(BaseModel):
 
         return outputs
     
-    # TODO： Aaron add
     def predict(self, data, data_samples=None, metas=None):
         for key in data.keys():
             if data[key] is not None:
@@ -511,13 +552,8 @@ class OkapiModel(BaseModel):
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
         return generate_ids_dict
 
-    # def predict(self, data, data_samples=None):
-        
-    #     outputs = self.llm(**data)
-    #     logits_dict = [{'logits': logits} for logits in outputs.logits]
-    #     return logits_dict
-
     def compute_loss_llm(self, logits, labels):
+        cot_weight = 1
         # Shift so that tokens < n predict n
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
@@ -534,14 +570,14 @@ class OkapiModel(BaseModel):
             cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
             if len(cot_start) == len(cot_end):
                 for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = self.cot_weight
+                    weight[batch_idx, st:ed+1] = cot_weight
                     idx[batch_idx, st:ed+1] = 1
             elif len(cot_start) == len(cot_end) + 1:
                 last_st = cot_start[-1]
                 for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = self.cot_weight
+                    weight[batch_idx, st:ed+1] = cot_weight
                     idx[batch_idx, st:ed+1] = 1
-                weight[batch_idx, last_st:] = self.cot_weight
+                weight[batch_idx, last_st:] = cot_weight
                 idx[batch_idx, last_st:] = 1
             else:
                 print("<Task> and </Task> not match!")
@@ -565,114 +601,49 @@ class OkapiModel(BaseModel):
         answer_loss = weight[idx==2] * loss[idx==2]
         return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
 
-    def compute_loss_sync_tuner(self, vrt_feats, image, image_path):
-        rec_flags = []
-        # for path in image_path:
-            # if path == '':
-            #     rec_flag = False # fake image
-            # # elif self.image_pool.sismember("processed_images", path):
-            # elif self.image_pool_used_idx[self.image_pool_path2idx[path]]:
-            #     rec_flag = False
-            # else:
-            #     rec_flag = np.random.uniform(0, 1) < self.visual_sync_tuner.config.ratio
-            #     self.image_pool_used_idx[self.image_pool_path2idx[path]] = rec_flag
-            #     # if rec_flag:
-            #     #     # self.image_pool.sadd("processed_images", path)
-        
-        for _ in range(vrt_feats.shape[0]):
-            rec_flag = np.random.uniform(0, 1) < self.visual_sync_tuner.config.ratio
-            rec_flags.append(rec_flag)
-        if not any(rec_flags):
-            idx = random.randint(0, len(rec_flags) - 1)
-            rec_flags[idx] = True
-
-        b, c, h, w = image.shape
-        mask = torch.Tensor(rec_flags).expand(c, h, w, b).permute(3, 0, 1, 2).bool() # b, c, h, w
-        
-        loss_fct = MSELoss(reduction='none')
-        pred = self.visual_sync_tuner(vrt_feats)['last_hidden_state']
-
-        # transform pred to target shape
-        b, l, c = pred.shape
-        grid_size = int(math.sqrt(l))
-        if pred.shape[1] != image.shape[-1] * image.shape[-2]:
-            pred = pred.view(b, grid_size, grid_size, c).permute(0, 3, 1, 2) # b, c, h, w
-            pred = F.interpolate(
-                pred,
-                size=image.shape[2:],
-                mode="bicubic",
-                align_corners=False
-            )
-
-        # ignore loss when 'rec_flag = False'
-        pred = pred[mask]
-        target = image[mask].to(vrt_feats.dtype)
-
-        # # ignore padding value
-        # ignore_mask = target == 1
-        # pred = pred[ignore_mask]
-        # target = target[ignore_mask]
-
-        loss_rec = loss_fct(pred, target)
-        return loss_rec.mean()
-
-    def compute_loss_decoder(self, hidden_states, targets):
-        if targets is None:
-            return 0
-        return 0
-
     def compute_loss(self, data, data_samples=None, metas=None):
-        labels = data.pop("labels")
-        decode_labels = data.get('decode_labels', None)
+        labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
         if 'output_hidden_states' not in data.keys():
             data['output_hidden_states'] = True
         
-        loss_dict = dict()
-        # llm 
+        loss_dict = dict() # for loss backward propagation
+        cost_dict = dict() # for record only
+        # llm loss
         outputs = self.llm(**data)
         logits = outputs.logits
         loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
-        loss_dict['llm_cost'] = loss_llm
-        loss_dict['cot_cost'] = loss_cot
-        loss_dict['answer_cost'] = loss_answer
+        loss_dict['llm'] = loss_llm
+        cost_dict['llm_cost'] = loss_llm
+        cost_dict['cot_cost'] = loss_cot
+        cost_dict['answer_cost'] = loss_answer
 
-        # sync tuner reconstruction loss
-        selected_hidden_states = outputs.hidden_states[-1]
-        bov_indices = metas['bov_indices']
-        eov_indices = metas['eov_indices']
-        vrt_hidden_states = []
+        # reconstruction loss
+        rec_outputs = None
         if self.visual_sync_tuner is not None:
-            for batch_idx, (bov_idx, eov_idx) in enumerate(zip(bov_indices, eov_indices)):
-                if eov_idx - bov_idx - 1 == self.visual_sync_tuner.config.num_queries:
-                    vrt_hidden_states.append(selected_hidden_states[batch_idx, bov_idx+1:eov_idx, :])
-                elif bov_idx == -1 and eov_idx == -1:
-                    # fake features
-                    vrt_hidden_states.append(
-                        torch.zeros(
-                            self.visual_sync_tuner.config.num_queries, selected_hidden_states.shape[-1]
-                            ).to(selected_hidden_states.device).to(selected_hidden_states.dtype)
-                    )
-                else:
-                    raise ValueError(f"vrt length must equal to num_queries({self.visual_sync_tuner.config.num_queries}), but get {eov_idx - bov_idx - 1}")
-            vrt_hidden_states = torch.stack(vrt_hidden_states)
-            loss_rec = self.compute_loss_sync_tuner(
-                vrt_feats = vrt_hidden_states,
-                image = metas['ori_image'],
-                image_path = metas['image_path'],
+            vrt_hidden_states = self.prepare_vrt_feats(
+                hidden_states=outputs.hidden_states[-1],
+                metas=metas,
+                mode='loss'
             )
-            loss_dict['rec_cost'] = loss_rec
-        else:
-            loss_rec = 0
+            rec_outputs = self.visual_sync_tuner(
+                vrt_hidden_states,
+                metas=metas,
+                mode='loss'
+            )
+            loss_dict['rec'] = rec_outputs['loss']
+            cost_dict['rec_cost'] = rec_outputs['loss']
         
-        # decode loss
-        loss_decoder = self.compute_loss_decoder(
-            selected_hidden_states,
-            decode_labels
-        )
 
-        loss = loss_llm + loss_rec + loss_decoder
-        loss_dict['loss'] = loss
-        return loss_dict
+        # loss
+        loss = 0
+        for key, value in loss_dict.items():
+            coefficient = self.loss_coefficient[key]
+            loss += coefficient * value
+        
+        loss_result = dict()
+        loss_result['loss'] = loss
+        loss_result.update(cost_dict)
+        return loss_result
 
     def __getattr__(self, name: str):
         try:

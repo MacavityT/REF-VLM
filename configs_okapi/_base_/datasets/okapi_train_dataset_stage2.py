@@ -140,12 +140,12 @@ dataset_s2 = [
     train_all_dataset['interact_box'],
 
     # grit
-    train_all_dataset['grit_c'],
-    train_all_dataset['grit_d'],
-    train_all_dataset['grit_cond_d'],
-    train_all_dataset['grit_r'],
-    train_all_dataset['grit_g'],
-    train_all_dataset['grit_c_d'],
+    train_all_dataset['grit_c_offline'],
+    train_all_dataset['grit_d_offline'],
+    train_all_dataset['grit_cond_d_offline'],
+    train_all_dataset['grit_r_offline'],
+    train_all_dataset['grit_g_offline'],
+    train_all_dataset['grit_c_d_offline'],
 
     # grand
     grand_re_cap,

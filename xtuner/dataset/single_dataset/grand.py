@@ -1197,7 +1197,8 @@ class GranDDataset(MInstrDataset):
             return ret
         
     def __len__(self):
-        if (self.offline_processed_text_folder is not None) and os.path.exists(self.offline_processed_text_folder):
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder):
             return len(self.text_data)
         else:
             return len(self.text_path_file)
