@@ -20,8 +20,26 @@ def okapi_collate_fn(instances: Sequence[Dict],
     else:
         data_dict = collate_results['data']
     
+    conversations = []
+    for example in instances:
+        if example.get('conversations', None):
+            conversations.append(example['conversations'])
+        else:
+            conversations.append(None)
+    data_dict['conversations']  = conversations
+
+    has_decode_unit = any(inst.get('decode_units') is not None for inst in instances)
     has_vpt = any(inst.get('visual_prompts') is not None for inst in instances)
     has_decode_label = any(inst.get('decode_labels') is not None for inst in instances)
+
+    if has_decode_unit:
+        decode_units = []
+        for example in instances:
+            if example.get('decode_units', None):
+                decode_units.append(example['decode_units'])
+            else:
+                decode_units.append(None)
+        data_dict['decode_units'] = decode_units
 
     if has_vpt:
         visual_prompts = []

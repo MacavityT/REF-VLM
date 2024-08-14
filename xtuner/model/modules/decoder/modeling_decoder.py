@@ -1,130 +1,201 @@
+import warnings
+import math
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor, nn
+from transformers import PretrainedConfig
 from transformers import PreTrainedModel
-from transformers.activations import ACT2FN
+from torch.utils.checkpoint import checkpoint
+from typing import Dict, List, Optional, Tuple
 
-from .configuration_decoder import DecoderConfig, ProjectorConfig
+class DecoderPositionEmbedding(nn.Module):
+    """
+    This is a more standard version of the position embedding, very similar to the one used by the Attention is all you
+    need paper, generalized to work on images.
+    """
 
-"""
-Ref:
-    https://github.com/huggingface/transformers/blob/6cdbd73e01a9719bfaec07d91fd108e8d932bbbb/src/transformers/models/mixtral/modeling_mixtral.py#L886
-"""
-
-
-class MixtralBlockSparseTop2MLP(nn.Module):
-    def __init__(self, config: ProjectorConfig):
+    def __init__(
+        self, num_pos_feats: int = 64, temperature: int = 10000, normalize: bool = False, scale: Optional[float] = None
+    ):
         super().__init__()
-        self.ffn_dim = config.intermediate_size
-        self.hidden_dim = config.hidden_size
+        if scale is not None and normalize is False:
+            raise ValueError("normalize should be True if scale is passed")
+        self.num_pos_feats = num_pos_feats
+        self.temperature = temperature
+        self.normalize = normalize
+        self.scale = 2 * math.pi if scale is None else scale
 
-        self.w1 = nn.Linear(self.hidden_dim, self.ffn_dim, bias=False)
-        self.w2 = nn.Linear(self.ffn_dim, self.hidden_dim, bias=False)
-        self.w3 = nn.Linear(self.hidden_dim, self.ffn_dim, bias=False)
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if len(x.shape) == 3:
+            b, l, c = x.shape
+            grid_size = int(math.sqrt(l))
+            x = x.view(b, grid_size, grid_size, c)
+            x = x.permute(0, 3, 1, 2) # b, c, h, w
+            b, c, h, w = x.shape
+        elif len(x.shape) == 4:
+            b, c, h, w = x.shape
+        else:
+            raise ValueError("input hidden states with wrong shape.")  
 
-        self.act_fn = ACT2FN[config.hidden_act]
+        if mask is None:
+            mask = torch.ones((b, h, w), device=x.device, dtype=torch.bool)
+        if mask.shape[-2:] != x.shape[-2:]:
+            mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
+            mask = (mask > 0).to(torch.bool).to(x.device)
 
-    def forward(self, hidden_states):
-        current_hidden_states = self.act_fn(self.w1(hidden_states)) * self.w3(hidden_states)
-        current_hidden_states = self.w2(current_hidden_states)
-        return current_hidden_states
+        y_embed = mask.cumsum(1)
+        x_embed = mask.cumsum(2)
+        if self.normalize:
+            eps = 1e-6
+            y_embed = y_embed / (y_embed[:, -1:, :] + eps) * self.scale
+            x_embed = x_embed / (x_embed[:, :, -1:] + eps) * self.scale
 
+        dim_t = torch.arange(self.num_pos_feats, dtype=torch.int64, device=x.device).type_as(x)
+        dim_t = self.temperature ** (2 * torch.div(dim_t, 2, rounding_mode="floor") / self.num_pos_feats)
 
+        pos_x = x_embed[:, :, :, None] / dim_t
+        pos_y = y_embed[:, :, :, None] / dim_t
+        pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
+
+        # flatten
+        pos = pos.permute(0, 2, 3, 1).view(b, -1, c).to(x.dtype) # b, target_length, c
+        mask = mask.flatten(1)
+        return pos, mask
 
 class DecoderModel(PreTrainedModel):
-    # TODO :Taiyan
     _auto_class = 'AutoModel'
-    config_class = ProjectorConfig
-    base_model_prefix = 'model'
-    supports_gradient_checkpointing = True
+    base_model_prefix = 'layers'
+    supports_gradient_checkpointing = False
 
-    def __init__(self, config: ProjectorConfig) -> None:
+    def __init__(self, config: PretrainedConfig):
         super().__init__(config)
-        self.gradient_checkpointing = False
-
-        self.hidden_dim = config.hidden_size
-        self.ffn_dim = config.intermediate_size
-        self.num_experts = config.num_local_experts
-        self.top_k = config.num_experts_per_tok
-        # gating
-        self.gate = nn.Linear(self.hidden_dim, self.num_experts, bias=False)
-
-        self.experts = nn.ModuleList([MixtralBlockSparseTop2MLP(config) for _ in range(self.num_experts)])
-
-        # Jitter parameters
-        self.jitter_noise = config.router_jitter_noise
-
-    def enable_input_require_grads(self):
-
-        def make_inputs_require_grad(module, input, output):
-            output.requires_grad_(True)
-
-        self.model.register_forward_hook(make_inputs_require_grad)
-
-    def _set_gradient_checkpointing(self, module, value=False):
-        # if isinstance(module, ProjectorModel):
-        #     module.gradient_checkpointing = value
-        if isinstance(module, DecoderModel):
-            module.gradient_checkpointing = value
-
-    # def forward(self, x):
-    #     if self.gradient_checkpointing and self.training:
-    #         layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
-    #     else:
-    #         layer_outputs = self.model(x)
-    #     return layer_outputs
-
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        """ """
-        batch_size, sequence_length, hidden_dim = hidden_states.shape
-        if self.training and self.jitter_noise > 0:
-            hidden_states *= torch.empty_like(hidden_states).uniform_(1.0 - self.jitter_noise, 1.0 + self.jitter_noise)
-        hidden_states = hidden_states.view(-1, hidden_dim)
-        # router_logits: (batch * sequence_length, n_experts)
-        router_logits = self.gate(hidden_states)
-
-        routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
-        routing_weights, selected_experts = torch.topk(routing_weights, self.top_k, dim=-1)
-        routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
-        # we cast back to the input dtype
-        routing_weights = routing_weights.to(hidden_states.dtype)
-
-        final_hidden_states = torch.zeros(
-            (batch_size * sequence_length, hidden_dim), dtype=hidden_states.dtype, device=hidden_states.device
+        self._init_inputs(
+            config.encoder_input_dim,
+            config.encoder_input_index,
+            config.encoder_input_transform
+        )
+        self.visual_position_encoding = DecoderPositionEmbedding(
+            num_pos_feats=config.d_model // 2, 
+            normalize=True
         )
 
-        # One hot encode the selected experts to create an expert mask
-        # this will be used to easily index which expert is going to be sollicitated
-        expert_mask = torch.nn.functional.one_hot(selected_experts, num_classes=self.num_experts).permute(2, 1, 0)
+    def _set_gradient_checkpointing(self, module, value=False):
+        if isinstance(module, PreTrainedModel):
+            module.gradient_checkpointing = value
 
-        # Loop over all available experts in the model and perform the computation on each expert
-        for expert_idx in range(self.num_experts):
-            expert_layer = self.experts[expert_idx]
-            idx, top_x = torch.where(expert_mask[expert_idx])
+    def _init_inputs(self, in_channels, in_index, input_transform):
+        """Check and initialize input transforms.
 
-            if top_x.shape[0] == 0:
-                continue
+        The in_channels, in_index and input_transform must match.
+        Specifically, when input_transform is None, only single feature map
+        will be selected. So in_channels and in_index must be of type int.
+        When input_transform
 
-            # Index the correct hidden states and compute the expert hidden state for
-            # the current expert. We need to make sure to multiply the output hidden
-            # states by `routing_weights` on the corresponding tokens (top-1 and top-2)
-            current_state = hidden_states[None, top_x].reshape(-1, hidden_dim)
-            current_hidden_states = expert_layer(current_state) * routing_weights[top_x, idx, None]
+        Args:
+            in_channels (int|Sequence[int]): Input channels.
+            in_index (int|Sequence[int]): Input feature index.
+            input_transform (str|None): Transformation type of input features.
+                Options: 'resize_concat', 'multiple_select', None.
+                'resize_concat': Multiple feature maps will be resize to the
+                    same size as first one and than concat together.
+                    Usually used in FCN head of HRNet.
+                'multiple_select': Multiple feature maps will be bundle into
+                    a list and passed into decode head.
+                None: Only one select feature map is allowed.
+        """
 
-            # However `index_add_` only support torch tensors for indexing so we'll use
-            # the `top_x` tensor here.
-            final_hidden_states.index_add_(0, top_x, current_hidden_states.to(hidden_states.dtype))
-        final_hidden_states = final_hidden_states.reshape(batch_size, sequence_length, hidden_dim)
-        return final_hidden_states, router_logits
+        if input_transform is not None:
+            assert input_transform in ['resize_concat', 'multiple_select']
+        self.input_transform = input_transform
+        self.in_index = in_index
+        if input_transform is not None:
+            assert isinstance(in_channels, (list, tuple))
+            assert isinstance(in_index, (list, tuple))
+            assert len(in_channels) == len(in_index)
+            if input_transform == 'resize_concat':
+                self.in_channels = sum(in_channels)
+            else:
+                self.in_channels = in_channels
+        else:
+            assert isinstance(in_channels, int)
+            assert isinstance(in_index, int)
+            self.in_channels = in_channels
 
+    def resize(self, x, target_length):
+        b, l, c = x.shape
+        grid_size = int(math.sqrt(l))
+        target_grid_size = int(math.sqrt(target_length))
 
+        x = x.view(b, grid_size, grid_size, c)
+        x = x.permute(0, 3, 1, 2) # b, c, h, w
+        x = F.interpolate(
+            x, 
+            size=(target_grid_size, target_grid_size),
+            mode="bilinear",
+            align_corners=False
+        )
+        x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, target_length, c
+        return x
 
+    def transform_visual_inputs(self, inputs):
+        """Transform inputs for decoder.
 
+        Args:
+            inputs (list[Tensor]): List of multi-level img features.
 
-if __name__ == '__main__':
+        Returns:
+            Tensor: The transformed inputs
+        """
+        if self.input_transform == 'resize_concat':
+            inputs = [inputs[i] for i in self.in_index]
+            target_length = inputs[-1].shape[1]
+            upsampled_inputs = [
+                self.resize(
+                    x,
+                    target_length=target_length
+                ) for x in inputs
+            ]
+            inputs = torch.cat(upsampled_inputs, dim=2)
+        elif self.input_transform == 'multiple_select':
+            inputs = [inputs[i] for i in self.in_index]
+        else:
+            inputs = inputs[self.in_index]
 
-    x = torch.randn(1, 256, 1024)
-    ProjectorConfig = ProjectorConfig (hidden_size = 1024, intermediate_size =14336, num_local_experts = 4, num_experts_per_tok = 2, hidden_act="silu")
-    model = DecoderModel( config = ProjectorConfig )
-    final_hidden_states, router_logits = model(x)
-    print(final_hidden_states.shape) #torch.Size([1, 256, 1024])
+        return inputs
+
+    def get_unit_labels(self, metas, ref_mask, type):
+        decode_labels = metas.get('decode_labels', None)
+        if decode_labels is None:
+            return None
+        
+        target_labels =[]
+        for labels in decode_labels:
+            if labels is None: 
+                target_labels.append([])
+            else:
+                unit_labels = labels.get(type, [])
+                target_labels.append(unit_labels)
+        
+        label_num = sum([len(items) for items in target_labels])
+        if label_num == 0:
+            return None
+
+        # get used labels in batch data (sequence might be cutoff and remove some labels)
+        target_labels_trim = []
+        for batch_idx, mask in enumerate(ref_mask):
+            ref_num = mask.sum()
+            if ref_num == 0: continue
+            try:
+                assert len(target_labels[batch_idx]) >= ref_num
+            except:
+                metas['type'] = type
+                metas['ref_mask_filter'] = ref_mask
+                from xtuner.model.utils import save_wrong_data
+                save_wrong_data(f"wrong_ref",metas)
+                
+            
+            target_labels_trim.extend(target_labels[batch_idx][:ref_num])
+        target_labels_trim = [torch.tensor(label) for label in target_labels_trim]
+        return target_labels_trim

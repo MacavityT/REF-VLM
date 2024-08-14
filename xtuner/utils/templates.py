@@ -102,7 +102,7 @@ PROMPT_TEMPLATE = ConfigDict(
                 'Capabilities and tools that assistant can possess:\n'
                 '- Sentence: gives helpful, detailed, and polite answers.\n'
                 '- Phrase: gives short, precise answers, follow the format of \'<Phrase>phrase</Phrase>\'.\n'
-                '- Unit: gives answers with given unit name, follow the format of \'<Unit>unit name</Unit><REF>[number]\'.\n'),
+                '- Unit: gives answers with given unit name, follow the format of \'<Unit>unit name</Unit>[number]\'.\n'),
         SYSTEM=('{system}\n'),
         INSTRUCTION=('USER: {input} ASSISTANT:'),
         SEP='\n'),

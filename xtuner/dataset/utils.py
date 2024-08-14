@@ -404,17 +404,6 @@ def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
 
-
-def de_norm_box_xyxy(box, w, h):
-    x1, y1, x2, y2 = box
-    x1 = x1 * w
-    x2 = x2 * w
-    y1 = y1 * h
-    y2 = y2 * h
-    box = x1, y1, x2, y2
-    return box
-
-
 def box_xywh_to_xyxy(box, w=None, h=None):
     x, y, bw, bh = box
     x2 = x + bw
@@ -426,6 +415,28 @@ def box_xywh_to_xyxy(box, w=None, h=None):
     box = x, y, x2, y2
     return box
 
+def box_xyxy_to_xywh(box):
+    x1, y1, x2, y2 = box
+    bw = x2 - x1
+    bh = y2 - y1
+    x_center = (x1 + x2) / 2
+    y_center = (y1 + y2) / 2
+    box = x_center, y_center, bw, bh
+    return box
+
+def de_norm_box_xyxy(box, w, h):
+    x1, y1, x2, y2 = box
+    x1 = x1 * w
+    x2 = x2 * w
+    y1 = y1 * h
+    y2 = y2 * h
+    box = x1, y1, x2, y2
+    return box
+
+def de_norm_box_xywh(box, w, h):
+    box = box_xywh_to_xyxy(box, w, h)
+    box = de_norm_box_xyxy(box, w, h)
+    return box
 
 def norm_box_xyxy(box, w, h):
     x1, y1, x2, y2 = box
@@ -440,6 +451,10 @@ def norm_box_xyxy(box, w, h):
     normalized_box = (round(norm_x1, 3), round(norm_y1, 3), round(norm_x2, 3), round(norm_y2, 3))
     return normalized_box
 
+def norm_box_xywh(box, w, h):
+    box = box_xywh_to_xyxy(box, w, h)
+    normalized_box = norm_box_xyxy(box, w, h)
+    return normalized_box
 
 def norm_point_xyxy(point, w, h):
     x, y = point
@@ -447,7 +462,6 @@ def norm_point_xyxy(point, w, h):
     norm_y = max(0.0, min(y / h, 1.0))
     point = norm_x, norm_y
     return point
-
 
 def bbox2mask(box, width, height):
     mask = np.zeros((height, width))
@@ -472,25 +486,20 @@ def visualize_mask(image, masks, alpha=0.5, beta=1.0):
         masks = [masks]
 
     for mask in masks:
-        # 创建一个彩色mask
         assert mask.shape == image.shape[:-1]
         mask = mask * 255
         mask = mask.astype(np.uint8)
         random_color = [random.randint(0, 255) for _ in range(3)]
         colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
-        for i in range(3):  # 遍历B, G, R通道
+        for i in range(3):
             colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
 
-        # 创建一个alpha通道的mask，值为半透明度
         alpha_channel = np.ones_like(mask) * int(alpha * 255)
-
-        # 创建带alpha通道的mask
         colored_mask = cv2.merge([colored_mask, alpha_channel])
 
-        # 将image转换为带alpha通道的图像
-        if image.shape[2] == 3:  # 如果原图像没有alpha通道，添加一个全透明的alpha通道
+        if image.shape[2] == 3:
             b, g, r = cv2.split(image)
-            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255  # 全不透明
+            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255
             image = cv2.merge([b, g, r, alpha_channel])
     
         image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
@@ -502,25 +511,20 @@ def visualize_mask_single(image, mask, alpha=0.5, beta=1.0):
     if isinstance(image, Image.Image):
         image = np.array(image)
 
-    # 创建一个彩色mask
     assert mask.shape == image.shape[:-1]
     mask = mask * 255
     mask = mask.astype(np.uint8)
     random_color = [random.randint(0, 255) for _ in range(3)]
     colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
-    for i in range(3):  # 遍历B, G, R通道
+    for i in range(3):
         colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
 
-    # 创建一个alpha通道的mask，值为半透明度
     alpha_channel = np.ones_like(mask) * int(alpha * 255)
-
-    # 创建带alpha通道的mask
     colored_mask = cv2.merge([colored_mask, alpha_channel])
 
-    # 将image转换为带alpha通道的图像
-    if image.shape[2] == 3:  # 如果原图像没有alpha通道，添加一个全透明的alpha通道
+    if image.shape[2] == 3:
         b, g, r = cv2.split(image)
-        alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255  # 全不透明
+        alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255
         image = cv2.merge([b, g, r, alpha_channel])
 
     image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
@@ -536,7 +540,7 @@ def visualize_keypoints(image,keypoints,skeleton,index):
     plt.imshow(image)
     for sk in skeleton:
         sk = [item-1 for item in sk]
-        if np.all(v[sk] > 0):#相互连接的两个点的可见性都是否大于0,都大于0的话就画出连线
+        if np.all(v[sk] > 0): # if two joint points' visualization > 0, draw line
             plt.plot(x[sk], y[sk], linewidth=2, color='red')
     plt.plot(x[v > 0], y[v > 0], 'o', markersize=2, markerfacecolor='red', markeredgecolor='k', markeredgewidth=2)
     plt.axis('off')

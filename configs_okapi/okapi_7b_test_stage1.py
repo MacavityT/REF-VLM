@@ -30,7 +30,6 @@ save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/eval355
 #         portion=1/100,
 #         do_shuffle=True,
 #         seed=43,
-#         enforce_online=True,
 #         cfg=test_all_dataset['vqav2_val'],
 #             )
     
