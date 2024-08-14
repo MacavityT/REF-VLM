@@ -53,6 +53,7 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_name=r'REG',
+        placeholders=('<image>','<objs>'),
         map_placeholders=dict(
             input=["<boxes>"],
         )
@@ -62,6 +63,7 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/GC_genome196_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/Visual Genome',
         template_name=r'GC',
+        placeholders=('<image>','<objs>'),
         map_placeholders=dict(
             input=["<boxes>"],
         )

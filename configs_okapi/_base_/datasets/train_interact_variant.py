@@ -16,7 +16,7 @@ train_interact_variant = dict(
             input=["<masks>"],
             output=["<masks>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/mask_offline'
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/COCO_interactive/mask_offline_new'
     ),
     interact_box=dict(
         **interact_train_common_cfg,

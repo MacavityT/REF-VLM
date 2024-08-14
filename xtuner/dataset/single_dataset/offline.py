@@ -70,6 +70,7 @@ class OfflineDataset(Dataset):
                 item = self.read_npy(path_abs)
             elif self.format == 'pkl':
                 item = self.read_pkl(path_abs)
+            item['offline_path'] = path_abs
         else:
             item = self.data[index]    
         
