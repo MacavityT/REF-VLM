@@ -23,7 +23,7 @@ with read_base():
 max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 2  # per_device
+batch_size = 15  # per_device
 dataloader_num_workers = 1
 vrt_length = 256
 vpt_num_patches = 9
@@ -80,7 +80,7 @@ model=dict(
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
         visual_hidden_size=visual_hidden_size,
-        use_mask_token=True,
+        use_mask_token=False,
         use_projector=False
     ),
     visual_sync_tuner=dict(

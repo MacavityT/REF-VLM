@@ -81,7 +81,7 @@ model = dict(
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
         visual_hidden_size=visual_hidden_size,
-        use_mask_token=True,
+        use_mask_token=False,
         use_projector=False
     ),
     visual_sync_tuner=dict(
