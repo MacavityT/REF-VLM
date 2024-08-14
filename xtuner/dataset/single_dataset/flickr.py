@@ -265,13 +265,17 @@ class FlickrDataset(MInstrDataset):
             boxes_list = [BOXES_PLACEHOLDER * len(box_seq) for box_seq in item['boxes_seq']]
             caption = caption.replace(BOXES_PLACEHOLDER,'{}').format(*boxes_list)
 
+            value = [{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
+
+
+
             ret = {
                 'image': image,
                 'target': {'boxes': item['boxes']},  # 'seg' /
                 'conversations': [
                     {
                         'from': 'system',
-                        'value':[{'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}]
+                        'value':value,
                     },
                     {
                         'from': 'human',
@@ -284,6 +288,12 @@ class FlickrDataset(MInstrDataset):
                     }
                 ]
             }
+
+            if item['boxes_seq'] == []:
+                ret['conversations'][0]['value'] = [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]
+                ret['conversations'][1]['value'] = "Can you give me a brief description of this image<image>?"
+                del ret['conversations'][2]['boxes_seq'] 
+
             ret['map_placeholders'] = self.map_placeholders
         return ret
 

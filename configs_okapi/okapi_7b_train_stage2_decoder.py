@@ -17,25 +17,14 @@ with read_base():
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-# dataset grand det and seg
-# dataset_args = [
-#     train_all_dataset['rec'],
-#     # train_all_dataset['interact_box'],
-#     train_all_dataset['interact_mask']
-# ]
-# for dataset in dataset_args:
-#     if dataset['type'] == 'SubSet':
-#         dataset['cfg'].setdefault('stage',2)
-#     else:
-#         dataset['stage'] = 2
 
 
 # Data configs
 max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 12  # per_device
-dataloader_num_workers = 4
+batch_size = 2  # per_device
+dataloader_num_workers = 1
 vrt_length = 256
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
