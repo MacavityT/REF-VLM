@@ -65,30 +65,22 @@ class VPTEncoder(nn.Module):
 
         batch_size = len(regions)
         max_num = max(region_count)
-        tensor_regions = torch.zeros((batch_size, max_num, max_h, max_w), dtype=dtype)
+        tensor_regions = torch.zeros((batch_size, max_num, max_h, max_w))
         for batch_idx, num in enumerate(region_count):
             if num == 0: continue
             regions_in_batch = regions[batch_idx]
             for region_index, region in enumerate(regions_in_batch):
                 if isinstance(region, np.ndarray):
-                    region = torch.from_numpy(region).to(dtype)
+                    region = torch.from_numpy(region)
                 elif isinstance(region, torch.Tensor):
-                    region = region.to(dtype)
+                    region = region
                 else:
                     raise ValueError("VPT region type error!")
                 tensor_regions[batch_idx, region_index, ...] = region
-        tensor_regions = tensor_regions.to(device)
+        tensor_regions = tensor_regions.to(device).to(dtype)
         return tensor_regions, region_count
 
     def mask_patch_feats(self, x, mask):
-
-        if not x.shape[-2:] == mask.shape[-2:]:
-            # reshape mask to x
-            mask = F.interpolate(mask, size=x.shape[-2:], mode='bilinear', align_corners=False)
-        mask = (mask > 0).to(mask.dtype).to(mask.device)
-        denorm = mask.sum(dim=(-1, -2), keepdim=True) + 1e-8
-        mask = mask / denorm
-
         b, c, h ,w = x.shape
         b, q, h, w = mask.shape
         
@@ -139,11 +131,21 @@ class VPTEncoder(nn.Module):
         assert x.size(0) == len(regions)
 
         # pad regions list to tensor
-        regions, vpt_count = self.pad_regions(regions, x.dtype, x.device) # b, q, h, w
+        masks, vpt_count = self.pad_regions(regions, x.dtype, x.device) # b, q, h, w
         x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
-        vpt_feats = self.mask_patch_feats(x, regions)  # b, q, n, c
+
+        # resize masks
+        if not x.shape[-2:] == masks.shape[-2:]:
+            # reshape mask to x
+            masks = F.interpolate(masks, size=x.shape[-2:], mode='bilinear', align_corners=False)
+        masks = (masks > 0).to(masks.dtype).to(masks.device)
+        denorm = masks.sum(dim=(-1, -2), keepdim=True) + 1e-8
+        masks = masks / denorm
+
+        # get vpt feats using visual feats and masks
+        vpt_feats = self.mask_patch_feats(x, masks)  # b, q, n, c
         if self.config.use_mask_token:
-            mask_token = self.get_mask_token(regions)
+            mask_token = self.get_mask_token(masks)
             vpt_feats = torch.cat([vpt_feats, mask_token], dim=2) # [b, q, n+1, c]
         
         vpt_feats = vpt_feats + self.position_embedding(self.position_ids)

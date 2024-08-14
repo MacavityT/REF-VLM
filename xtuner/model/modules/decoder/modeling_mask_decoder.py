@@ -135,8 +135,6 @@ class MaskDecoderModel(DecoderModel):
         metas=None,
         mode='loss'
     ):
-
-
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
         pixel_decoder_outputs = self.pixel_decoder(visual_hidden_states)
