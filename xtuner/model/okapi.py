@@ -517,14 +517,6 @@ class OkapiModel(BaseModel):
             ref_feats_len = ref_feats.shape[0]
             ref_hidden_states[batch_idx, :ref_feats_len, :] = ref_feats
             ref_attention_masks[batch_idx, :ref_feats_len] = True
-
-            # if ref_feats_len > 0:
-            #     ref_hidden_states[batch_idx, :ref_feats_len, :] = ref_feats
-            #     ref_attention_masks[batch_idx, :ref_feats_len] = True
-            # else:
-            #     # prepare fake features for all mode (for locating batch features in prediction mode)
-            #     # ref_hidden_states and ref_attention_masks zero value has already prepared
-            #     ref_attention_masks[batch_idx] = True
         return ref_hidden_states, ref_attention_masks
 
     def forward(self, data, data_samples=None, mode='loss'):
