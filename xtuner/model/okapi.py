@@ -294,7 +294,7 @@ class OkapiModel(BaseModel):
         self.llm.gradient_checkpointing_disable()
         self.visual_encoder.gradient_checkpointing_disable()
         self.projector.gradient_checkpointing_disable()
-        if self.vpt_encoder is None:
+        if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_disable()
         if self.visual_sync_tuner is not None:
             self.visual_sync_tuner.gradient_checkpointing_disable()

@@ -24,15 +24,21 @@ max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 15  # per_device
-dataloader_num_workers = 1
+dataloader_num_workers = 4
 vrt_length = 256
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
-ref_max_num = 30
-ref_num_queries = ref_max_num * ref_length
+ref_box_num = 100
+ref_mask_num = 30
+ref_box_queries = ref_box_num * ref_length
+ref_mask_queries = ref_mask_num * ref_length
 prompt_template = PROMPT_TEMPLATE.okapi
 
+
+# dataset_args = [
+#     train_all_dataset['grand_c_s'],
+# ]
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -88,7 +94,7 @@ model=dict(
         num_layers=3,
         num_queries=vrt_length,
         d_input=4096,
-        d_model=1024,
+        d_model=512,
         d_ffn=2048,
         num_heads=8,
         dropout=0.1,
@@ -107,13 +113,13 @@ model=dict(
     # ),
     visual_decoder=dict(
         box=dict(
-            num_queries=ref_num_queries,
+            num_queries=ref_box_queries,
             # quries_input_dim=256,
             quries_input_dim=4096,
             encoder_input_transform='resize_concat',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             encoder_input_index=[3, 2, 1], 
-            encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_dim=[512, 512, 512],
             decoder_layers=6,
             decoder_ffn_dim=2048,
             decoder_attention_heads=8,
@@ -127,13 +133,13 @@ model=dict(
             giou_loss_coefficient=2,
         ),
         mask=dict(
-            num_queries=ref_num_queries,
+            num_queries=ref_mask_queries,
             # quries_input_dim=256,
             quries_input_dim=4096,
             encoder_input_transform='multiple_select',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             encoder_input_index=[3, 2, 1], 
-            encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_dim=[512, 512, 512],
             #region query decoder config
             decoder_layers=6,
             decoder_ffn_dim=2048,

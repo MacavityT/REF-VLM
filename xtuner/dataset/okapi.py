@@ -207,8 +207,7 @@ class OkapiDataset(Dataset):
                 print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
                 image_path = ''
                 image = np.zeros((336,336,3)).astype(np.uint8)
-                # ori_width = 0
-                # ori_height = 0
+
         elif isinstance(image_path,np.ndarray):
             image = image
             image_path = ''
@@ -221,7 +220,6 @@ class OkapiDataset(Dataset):
                 image,
                 tuple(int(x * 255) for x in self.image_processor.image_mean)
             )
-            # image.save('square_image.jpg')
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
             image = image.resize((336,336))
