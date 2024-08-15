@@ -107,6 +107,7 @@ class OkapiModel(BaseModel):
                 temperature=0.1,
                 top_p=0.75,
                 top_k=40,
+                output_hidden_states=True,
                 eos_token_id=self.tokenizer.eos_token_id,
                 pad_token_id=self.tokenizer.pad_token_id
                 if self.tokenizer.pad_token_id is not None else
@@ -337,7 +338,7 @@ class OkapiModel(BaseModel):
         # Step 5. Visual SyncTuner
         to_return.update(
             {k: v
-             for k, v in state_dict.items() if 'sync_tuner.' in k})
+             for k, v in state_dict.items() if 'visual_sync_tuner.' in k})
         # Step 6. MoEAdapter
         to_return.update(
             {k: v
@@ -501,7 +502,7 @@ class OkapiModel(BaseModel):
         max_num_queries = max(moe_num_queries, max_decoder_num_queries)
         if max_num_queries == 0:
             return None, None
-        
+
         batch_size, _, dim_feats = hidden_states.shape
         ref_hidden_states = torch.zeros((batch_size, max_num_queries, dim_feats),
                                     dtype=hidden_states.dtype,
@@ -617,7 +618,15 @@ class OkapiModel(BaseModel):
                 stopping_criteria=self.stop_criteria)
 
         generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
-        return generate_ids_dict
+
+
+        hidden_states = None
+
+
+
+        results = dict()
+        results['generate_ids'] = generate_ids_dict
+        return results
 
     def compute_loss_llm(self, logits, labels):
         cot_weight = 1

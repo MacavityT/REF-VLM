@@ -9,7 +9,6 @@ from .configuration_box_decoder import BoxDecoderConfig
 from transformers.models.detr import DetrConfig
 from transformers.models.detr.modeling_detr import (
     DetrDecoder,
-    DetrDecoderLayer,
     DetrMLPPredictionHead,
     generalized_box_iou
 )
@@ -104,7 +103,7 @@ class BoxDecoderModel(DecoderModel):
         # prepare learnable queries
         ref_hidden_states = ref_hidden_states[:, :self.config.num_queries, :]
         ref_mask = ref_mask[:, :self.config.num_queries]
-        
+
         batch_size = ref_hidden_states.shape[0]
         ref_hidden_states = self.in_proj_queries(ref_hidden_states)
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
