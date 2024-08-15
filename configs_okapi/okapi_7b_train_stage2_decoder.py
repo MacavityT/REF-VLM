@@ -24,7 +24,7 @@ max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 15  # per_device
-dataloader_num_workers = 4
+dataloader_num_workers = 1
 vrt_length = 256
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
@@ -37,8 +37,14 @@ prompt_template = PROMPT_TEMPLATE.okapi
 
 
 # dataset_args = [
-#     train_all_dataset['grand_c_s'],
+#     train_all_dataset['vcr_qc_rac'],
 # ]
+
+# for dataset in dataset_args:
+#     if dataset['type'] == 'SubSet':
+#         dataset['cfg'].setdefault('stage',2)
+#     else:
+#         dataset['stage'] = 2
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -86,7 +92,7 @@ model=dict(
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
         visual_hidden_size=visual_hidden_size,
-        use_mask_token=False,
+        use_mask_token=True,
         use_projector=False
     ),
     visual_sync_tuner=dict(

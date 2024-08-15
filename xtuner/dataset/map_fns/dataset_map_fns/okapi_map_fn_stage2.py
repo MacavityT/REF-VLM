@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import re
 import numpy as np
+import os
 import copy
 from typing import List, Dict, Any, Tuple, Union
 from xtuner.model.utils import save_wrong_data
@@ -92,7 +93,7 @@ def get_placeholders_order(string, placeholders):
     ordered_placeholders = [placeholder for _, placeholder in positions]
     return ordered_placeholders
 
-def get_cot_elements(output, output_placeholders):
+def get_cot_elements(output, output_placeholders,example):
     st_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ST_PLACEHOLDER_STAGE2), output)]
     ed_indices = [match.start() for match in \
@@ -103,6 +104,8 @@ def get_cot_elements(output, output_placeholders):
         assert len(st_indices) == len(ed_indices)
     except:
         save_wrong_data('wrong_cot',output)
+        if 'offline_path' in example.keys():
+            os.remove(example['offline_path'])
     # get start and end placeholder pairs
     pairs = []
     contents = []
@@ -131,6 +134,8 @@ def get_cot_elements(output, output_placeholders):
         assert len(contents) == len(pairs)
     except:
         save_wrong_data('wrong_cot_length',output)
+        if 'offline_path' in example.keys():
+            os.remove(example['offline_path'])
     # get phrase names
     p_names = []        
     p_placeholders = [PHRASE_ST_PLACEHOLDER_STAGE2, PHRASE_ED_PLACEHOLDER_STAGE2]
@@ -152,6 +157,8 @@ def get_cot_elements(output, output_placeholders):
             assert len(idx_nonzero) == 1
         except:
             save_wrong_data('wrong_cot_counts',output)
+            if 'offline_path' in example.keys():
+                os.remove(example['offline_path'])
             idx_nonzero = [0]
             
         idx_placeholder = idx_nonzero[0]
@@ -206,7 +213,7 @@ def target_map_fn(example):
             mapped_tgt_seq = map_obj(tgt_value, tgt_seq)
             flat_tgt_seq = flatten_obj(mapped_tgt_seq)
             assert len(all_find) == len(flat_tgt_seq), \
-                f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
+                    f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
             if len(all_find) == 0: continue
             tgt_in_msg[placeholder] = flat_tgt_seq
 
@@ -285,7 +292,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                     output_placeholders = map_placeholders.get('output', [])
                     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
                     if unit_decode:
-                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)                    
+                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders, example)                    
                         cot_content = ''
                         for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
                             cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
@@ -299,6 +306,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                         if not target_seq: continue
                         
                         units = []
+                        assert len(p_names)== len(target_seq)
                         for tgts in target_seq:
                             for tgt_idx, tgt in enumerate(tgts):
                                 unit = f"[{tgt_idx}]" + VISUAL_REFERENCE_TOKEN * ref_len
