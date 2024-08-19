@@ -186,10 +186,13 @@ class BoxDecoderModel(DecoderModel):
             num_layers=3
         )
 
-        matcher = BoxDecoderGroupHungarianMatcher(
-            bbox_cost=config.bbox_loss_coefficient,
-            giou_cost=config.giou_loss_coefficient
-        )
+        if config.use_group_matcher:
+            matcher = BoxDecoderGroupHungarianMatcher(
+                bbox_cost=config.bbox_loss_coefficient,
+                giou_cost=config.giou_loss_coefficient
+            )
+        else:
+            matcher = None
         self.criteria = BoxDecoderLoss(matcher)
         # Initialize weights and apply final processing
         self.post_init()

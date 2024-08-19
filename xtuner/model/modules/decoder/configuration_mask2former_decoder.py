@@ -26,6 +26,7 @@ class MaskDecoderConfig(PretrainedConfig):
         feature_strides=[4, 8, 16, 32],
         common_stride=4,
         encoder_feedforward_dim=1024,
+        use_group_matcher=True,
         mask_loss_coefficient=20,
         dice_loss_coefficient=1,
         **kwargs,
@@ -49,6 +50,7 @@ class MaskDecoderConfig(PretrainedConfig):
         self.feature_strides = feature_strides
         self.common_stride = common_stride
         self.encoder_feedforward_dim = encoder_feedforward_dim
+        self.use_group_matcher = use_group_matcher
         self.mask_loss_coefficient = mask_loss_coefficient
         self.dice_loss_coefficient = dice_loss_coefficient
         

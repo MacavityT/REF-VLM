@@ -22,6 +22,7 @@ class BoxDecoderConfig(PretrainedConfig):
         dropout=0.1,
         attention_dropout=0.0,
         activation_dropout=0.0,
+        use_group_matcher=True,
         bbox_loss_coefficient=5,
         giou_loss_coefficient=2,
         **kwargs,
@@ -42,6 +43,7 @@ class BoxDecoderConfig(PretrainedConfig):
         self.activation_function = activation_function
         self.decoder_layerdrop = decoder_layerdrop
         # Loss coefficients
+        self.use_group_matcher = use_group_matcher
         self.bbox_loss_coefficient = bbox_loss_coefficient
         self.giou_loss_coefficient = giou_loss_coefficient
         

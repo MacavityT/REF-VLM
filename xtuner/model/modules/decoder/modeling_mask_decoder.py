@@ -186,6 +186,13 @@ class MaskDecoderModel(DecoderModel):
             cost_mask=config.mask_loss_coefficient,
             cost_dice=config.dice_loss_coefficient
         )
+        if config.use_group_matcher:
+            matcher = MaskDecoderGroupHungarianMatcher(
+                cost_mask=config.mask_loss_coefficient,
+                cost_dice=config.dice_loss_coefficient
+            )
+        else:
+            matcher = None
         self.criteria = MaskDecoderLoss(matcher)
         self.post_init()
 
@@ -232,20 +239,6 @@ class MaskDecoderModel(DecoderModel):
             padding_mask[: tensor.shape[1], : tensor.shape[2]] = False
 
         return padded_tensors, padding_masks
-
-    def compute_loss_mask(self, pred_masks, target_masks):
-        num_masks = len(target_masks)
-        # upsample predictions to the target size, we have to add one dim to use interpolate
-        pred_masks = nn.functional.interpolate(
-            pred_masks[:, None], size=target_masks.shape[-2:], mode="bilinear", align_corners=False
-        )
-        pred_masks = pred_masks[:, 0].flatten(1)
-        target_masks = target_masks.flatten(1)
-        losses = {
-            "loss_mask": sigmoid_focal_loss(pred_masks, target_masks, num_masks),
-            "loss_dice": dice_loss(pred_masks, target_masks, num_masks),
-        }
-        return losses
     
     def forward(self, 
         visual_hidden_states,
