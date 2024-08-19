@@ -182,11 +182,11 @@ class MaskDecoderModel(DecoderModel):
             config.mask_feature_size
         )
         
-        self.matcher = MaskDecoderGroupHungarianMatcher(
+        matcher = MaskDecoderGroupHungarianMatcher(
             cost_mask=config.mask_loss_coefficient,
             cost_dice=config.dice_loss_coefficient
         )
-        self.criteria = MaskDecoderLoss(self.matcher)
+        self.criteria = MaskDecoderLoss(matcher)
         self.post_init()
 
     def transform_visual_inputs(self, inputs):
