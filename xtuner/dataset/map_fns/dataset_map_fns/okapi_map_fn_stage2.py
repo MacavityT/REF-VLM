@@ -4,7 +4,6 @@ import numpy as np
 import os
 import copy
 from typing import List, Dict, Any, Tuple, Union
-from xtuner.model.utils import save_wrong_data
 from xtuner.utils.constants import (
     DEFAULT_IMAGE_TOKEN,
     BOXES_PLACEHOLDER,
@@ -93,15 +92,15 @@ def get_placeholders_order(string, placeholders):
     ordered_placeholders = [placeholder for _, placeholder in positions]
     return ordered_placeholders
 
-def get_cot_elements(output, output_placeholders,example):
+def get_cot_elements(output, output_placeholders):
     st_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ST_PLACEHOLDER_STAGE2), output)]
     ed_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ED_PLACEHOLDER_STAGE2), output)]
     st_indices = [idx + len(PHRASE_ST_PLACEHOLDER_STAGE2) \
                     for idx in st_indices]
-    assert len(st_indices) == len(ed_indices)
 
+    assert len(st_indices) == len(ed_indices)
     # get start and end placeholder pairs
     pairs = []
     contents = []
@@ -145,7 +144,6 @@ def get_cot_elements(output, output_placeholders,example):
         counts = [content.count(placeholder) for placeholder in output_placeholders]
         idx_nonzero = [idx for idx, num in enumerate(counts) if num != 0]
         assert len(idx_nonzero) == 1
-            
         idx_placeholder = idx_nonzero[0]
         u_names.append(output_placeholders[idx_placeholder]) 
         u_counts.append(counts[idx_placeholder])
@@ -177,6 +175,7 @@ def target_map_fn(example):
 
     visual_prompts = []
     decode_labels = []
+    decode_seqs = []
     for msg in messages:
         sentence = msg['value']
         if msg['from'] == 'human':
@@ -187,6 +186,7 @@ def target_map_fn(example):
             raise NotImplementedError
 
         tgt_in_msg = dict()
+        tgt_seqs = dict()
         for placeholder in placeholders:
             pattern = re.compile(placeholder)
             all_find = pattern.findall(sentence)
@@ -201,6 +201,7 @@ def target_map_fn(example):
                     f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
             if len(all_find) == 0: continue
             tgt_in_msg[placeholder] = flat_tgt_seq
+            tgt_seqs[UNIT_MAP[placeholder]] = tgt_seq
 
         items = []
         ordered_placeholders = get_placeholders_order(sentence, placeholders)
@@ -216,6 +217,11 @@ def target_map_fn(example):
             visual_prompts.append(items if len(items) > 0 else None)
         elif msg['from'] == 'gpt':
             decode_labels.append(items if len(items) > 0 else None)
+            if len(tgt_seqs) > 0:
+                tgt_seqs = tuple(tgt_seqs.values())[0]
+            else:
+                tgt_seqs = []
+            decode_seqs.append(tgt_seqs if len(tgt_seqs) > 0 else None)
 
     result = dict()
     if any(unit is not None for unit in decode_units):
@@ -224,6 +230,8 @@ def target_map_fn(example):
         result['visual_prompts'] = visual_prompts
     if any(label is not None for label in decode_labels):
         result['decode_labels'] = decode_labels
+    if any(seq is not None for seq in decode_seqs):
+        result['decode_seqs'] = decode_seqs
     return result
 
 def conversation_map_fn(example, vrt_len=64, ref_len=1):
@@ -277,7 +285,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                     output_placeholders = map_placeholders.get('output', [])
                     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
                     if unit_decode:
-                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders, example)                    
+                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)
                         cot_content = ''
                         for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
                             cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
@@ -291,7 +299,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                         if not target_seq: continue
                         
                         units = []
-                        assert len(p_names)== len(target_seq)
+                        assert len(p_names) == len(target_seq)
                         for tgts in target_seq:
                             for tgt_idx, tgt in enumerate(tgts):
                                 unit = f"[{tgt_idx}]" + VISUAL_REFERENCE_TOKEN * ref_len

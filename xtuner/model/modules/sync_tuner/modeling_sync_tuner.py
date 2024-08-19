@@ -132,7 +132,6 @@ class SyncTunerFPNModel(nn.Module):
             hidden_states = hidden_states,
         )
 
-
 class SyncTunerModel(PreTrainedModel):
     _auto_class = 'AutoModel'
     config_class = SyncTunerConfig
@@ -235,16 +234,9 @@ class SyncTunerModel(PreTrainedModel):
         loss_rec = self.criterion(logits, target)
         return loss_rec.mean()
 
-    def forward(self, x):
-        if self.gradient_checkpointing and self.training:
-            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
-        else:
-            layer_outputs = self.model(x)
-        return layer_outputs
-
     def forward(self, x, metas, mode='loss'):
         if self.gradient_checkpointing and self.training:
-            rec_outputs = checkpoint(self.model, x, mode)
+            rec_outputs = checkpoint(self.model, x, mode, use_reentrant=True)
         else:
             rec_outputs = self.model(x, mode)
         pred_images = rec_outputs['pred_images']

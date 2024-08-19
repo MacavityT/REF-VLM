@@ -190,7 +190,7 @@ class VPTEncoderModel(PreTrainedModel):
 
     def forward(self, x, regions, return_dict=True):
         if self.gradient_checkpointing and self.training:
-            outputs = checkpoint(self.model, x, regions, return_dict)
+            outputs = checkpoint(self.model, x, regions, return_dict, use_reentrant=True)
         else:
             outputs = self.model(x, regions, return_dict)
         return outputs

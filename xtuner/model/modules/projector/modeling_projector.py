@@ -43,7 +43,7 @@ class ProjectorModel(PreTrainedModel):
 
     def forward(self, x):
         if self.gradient_checkpointing and self.training:
-            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x)
+            layer_outputs = torch.utils.checkpoint.checkpoint(self.model, x, use_reentrant=True)
         else:
             layer_outputs = self.model(x)
         return layer_outputs

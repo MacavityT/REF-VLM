@@ -139,7 +139,7 @@ class MoEAdapterModel(PreTrainedModel):
         for layer in self.layers:
             all_hidden_states += (hidden_states,)
             if self.gradient_checkpointing and self.training:
-                hidden_states, router_logits = checkpoint(layer, hidden_states, attention_mask)
+                hidden_states, router_logits = checkpoint(layer, hidden_states, attention_mask, use_reentrant=True)
             else:
                 hidden_states, router_logits = layer(hidden_states, attention_mask)
             all_router_logits += (router_logits,)
