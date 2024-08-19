@@ -119,10 +119,6 @@ dataset_s2 = [
     # instruct
     train_all_dataset['instruct'],
 
-    # gpt gen
-    train_all_dataset['gpt4gen_qbc'],
-    train_all_dataset['gpt4gen_rd_qbc'],
-
     # osprey
     train_all_dataset['osprey_partlevel'],
     train_all_dataset['osprey_shortform'],
