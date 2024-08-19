@@ -18,6 +18,7 @@ from detectron2.evaluation import (
     SemSegEvaluator,
 )
 from torchvision.ops import box_iou
+from . import openseg_classes
 from .instance_evaluation import InstanceSegEvaluator
 from .register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic
 from .register_cityscapes_panoptic import register_all_cityscapes_panoptic
@@ -230,41 +231,55 @@ class SEGDETProcessor:
         if self.task in ['ade_panoptic','ade_semantic','cityscapes_panoptic']:
             self.process_config()
 
+    def convert_cls_to_id(self,label_txt):
+        label_dict = {}
+        with open(label_txt,'r') as f:
+            for line in f.readlines():
+                line = line.strip('\n').split(':')
+                for class_name in line[1].split(','):
+                    label_dict[class_name] = int(line[0])
+            f.close()
+        return label_dict
+
     def process_config(self):
-            self.cfg = get_cfg()
+        self.cfg = get_cfg()
 
-            self.cfg.DATASETS.PROPOSAL_FILES_TEST = ()
-            self.cfg.DATALOADER.NUM_WORKERS = 4 
+        self.cfg.DATASETS.PROPOSAL_FILES_TEST = ()
+        self.cfg.DATALOADER.NUM_WORKERS = 4 
 
-            if self.task == 'ade_panoptic':
-                register_all_ade20k_panoptic(self.dataset_root)
-                self.cfg.DATASETS.TRAIN = ('openvocab_ade20k_panoptic_train')
-                self.cfg.DATASETS.TEST = ('openvocab_ade20k_panoptic_val')
-                self.eval_dataset_name = 'openvocab_ade20k_panoptic_val'
-                self.len_data = 150
+        if self.task == 'ade_panoptic':
+            register_all_ade20k_panoptic(self.dataset_root)
+            self.cfg.DATASETS.TRAIN = ('openvocab_ade20k_panoptic_train')
+            self.cfg.DATASETS.TEST = ('openvocab_ade20k_panoptic_val')
+            self.eval_dataset_name = 'openvocab_ade20k_panoptic_val'
+            self.len_data = 150
 
-            elif self.task == 'ade_semantic':
-                register_all_ade20k_semantic(self.dataset_root)
+        elif self.task == 'ade_semantic':
 
-            elif self.task == 'cityscapes_panoptic':
-                register_all_cityscapes_panoptic(self.dataset_root)
-                self.cfg.DATASETS.TRAIN = ('openvocab_cityscapes_fine_panoptic_train')
-                self.cfg.DATASETS.TEST = ('openvocab_cityscapes_fine_panoptic_val')
-                self.eval_dataset_name = 'openvocab_cityscapes_fine_panoptic_val'
-                self.len_data = 19
-            else:
-                raise NotImplementedError
-            
-            self.task_evaluator = build_evaluator(self.cfg,self.eval_dataset_name)
+            register_all_ade20k_semantic(self.dataset_root)
 
-            train_metadata = MetadataCatalog.get(self.cfg.DATASETS.TRAIN)
-            test_metadata = MetadataCatalog.get(self.cfg.DATASETS.TEST)
+        elif self.task == 'cityscapes_panoptic':
 
-            self.test_metadata = test_metadata
-            _, self.train_num_templates, self.train_class_names = self.prepare_class_names_from_metadata(
-                train_metadata, train_metadata)
-            self.category_overlapping_mask, self.test_num_templates, self.test_class_names = self.prepare_class_names_from_metadata(
-                test_metadata, train_metadata)
+            register_all_cityscapes_panoptic(self.dataset_root)
+            self.cfg.DATASETS.TRAIN = ('openvocab_cityscapes_fine_panoptic_train')
+            self.cfg.DATASETS.TEST = ('openvocab_cityscapes_fine_panoptic_val')
+            self.eval_dataset_name = 'openvocab_cityscapes_fine_panoptic_val'
+            self.len_data = 19
+        else:
+            raise NotImplementedError
+        
+        self.task_evaluator = build_evaluator(self.cfg,self.eval_dataset_name)
+
+        train_metadata = MetadataCatalog.get(self.cfg.DATASETS.TRAIN)
+        test_metadata = MetadataCatalog.get(self.cfg.DATASETS.TEST)
+
+        self.test_metadata = test_metadata
+        _, self.train_num_templates, self.train_class_names = self.prepare_class_names_from_metadata(
+            train_metadata, train_metadata)
+        self.category_overlapping_mask, self.test_num_templates, self.test_class_names = self.prepare_class_names_from_metadata(
+            test_metadata, train_metadata)
+
+
 
     def prepare_class_names_from_metadata(self, metadata, train_metadata):
         def split_labels(x):
