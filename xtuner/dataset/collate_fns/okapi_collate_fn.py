@@ -20,51 +20,31 @@ def okapi_collate_fn(instances: Sequence[Dict],
     else:
         data_dict = collate_results['data']
     
+    # example['conversations'] is the origin data from single dataset
+    # example['conversation'] is the data processed with map_fn
     conversations = []
     for example in instances:
-        if example.get('conversations', None):
-            conversations.append(example['conversations'])
-        else:
-            conversations.append(None)
+        conversations.append(example.get('conversation', None))
     data_dict['conversations']  = conversations
 
-    has_decode_unit = any(inst.get('decode_units') is not None for inst in instances)
-    has_vpt = any(inst.get('visual_prompts') is not None for inst in instances)
-    has_decode_label = any(inst.get('decode_labels') is not None for inst in instances)
-
-    if has_decode_unit:
-        decode_units = []
+    dynamic_keys = [
+        'decode_units', 'visual_prompts', 
+        'decode_labels', 'decode_seqs'
+    ]
+    for key in dynamic_keys:
+        exist = any(inst.get(key) is not None for inst in instances)
+        if not exist: continue
+        contents = []
         for example in instances:
-            if example.get('decode_units', None):
-                decode_units.append(example['decode_units'])
+            if example.get(key, None):
+                contents.append(example[key])
             else:
-                decode_units.append(None)
-        data_dict['decode_units'] = decode_units
+                contents.append(None)
+        data_dict[key] = contents    
 
-    if has_vpt:
-        visual_prompts = []
-        for example in instances:
-            if example.get('visual_prompts', None):
-                visual_prompts.append(example['visual_prompts'])
-            else:
-                visual_prompts.append(None)
-        data_dict['visual_prompts']  = visual_prompts
-
-    if has_decode_label:
-        decode_labels = []
-        for example in instances:
-            if example.get('decode_labels', None):
-                decode_labels.append(example['decode_labels'])
-            else:
-                decode_labels.append(None)
-        data_dict['decode_labels'] = decode_labels
-
-    image_path = [example['image_path'] for example in instances]
-    ori_height = [example['ori_height'] for example in instances]
-    ori_width = [example['ori_width'] for example in instances]
-    data_dict['image_path'] = image_path
-    data_dict['ori_height'] = ori_height
-    data_dict['ori_width'] = ori_width
+    image_info_keys = ['image_path', 'ori_height', 'ori_width']
+    for key in image_info_keys:
+        data_dict[key] = [example[key] for example in instances]
 
     if return_hf_format:
         return data_dict

@@ -83,7 +83,6 @@ class OkapiDataset(Dataset):
             print_log("Mode = inference, Okapi Datasets is empty ...")
             self.data = []
 
-
         if isinstance(dataset_map_fn, str):
             map_fn_obj = MAP_FUNC.get(dataset_map_fn) or \
                 get_object_from_string(dataset_map_fn)
@@ -116,18 +115,6 @@ class OkapiDataset(Dataset):
             self.data = TorchConcatDataset(self.dataset)
         else:
             raise NotImplementedError
-
-    # @property
-    # def modality_length(self):
-    #     # only work when pretokenize
-    #     length_list = []
-    #     for data_dict in self.data:
-    #         cur_len = len(data_dict['input_ids'])
-    #         if data_dict.get('image', None) is None:
-    #             cur_len = -cur_len
-    #         length_list.append(cur_len)
-    #     return length_list
-
 
     def __len__(self):
         return len(self.data)
@@ -230,7 +217,6 @@ class OkapiDataset(Dataset):
             ori_height = 336
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
-
         
         return dict(
             pixel_values = image,
@@ -315,19 +301,11 @@ class OkapiDataset(Dataset):
         # image
         if data_dict.get('image', None) is not None:
             image_info = data_dict['image']
-            if 'path' in image_info.keys():
-                image_path = image_info['path']
-                image_meta = self.image_process(image_path)
-            elif 'value' in image_info.keys():
-                image_value = image_info['value']
-                image_meta = self.image_process(image_value)
+            image_path = image_info['path']
+            image_meta = self.image_process(image_path)
             data_dict['pixel_values'] = image_meta['pixel_values']
-            if 'width' in data_dict['image'].keys() and 'height' in data_dict['image'].keys():
-                data_dict['ori_width'] = data_dict['image']['width']
-                data_dict['ori_height'] = data_dict['image']['height']
-            else:
-                data_dict['ori_width'] = image_meta['ori_width']
-                data_dict['ori_height'] = image_meta['ori_height']
+            data_dict['ori_width'] = image_meta['ori_width']
+            data_dict['ori_height'] = image_meta['ori_height']
             data_dict['image_path'] = image_meta['image_path']
         else:
             if hasattr(self.image_processor, 'crop_size'):
@@ -362,14 +340,6 @@ class OkapiDataset(Dataset):
                 )
             )
 
-        if data_dict.get('decode_units', None) is not None:
-            assert data_dict.get('image', None) is not None, \
-                'decode units set, but no image input.'
-            first_unit = data_dict['decode_units'][0]
-            assert all(unit == first_unit \
-                for unit in data_dict['decode_units'])
-            data_dict['decode_units'] = first_unit
-
         if data_dict.get('visual_prompts', None) is not None:
             assert data_dict.get('image', None) is not None, \
                 'visual prompts set, but no image input.'
@@ -387,9 +357,20 @@ class OkapiDataset(Dataset):
             else:
                 raise f"max num:{max_num} is lower than 0"
 
-        if data_dict.get('decode_labels', None) is not None:
+        if data_dict.get('decode_units', None) is not None:
             assert data_dict.get('image', None) is not None, \
-                'decode labels set, but no image input.'
+                'decode units set, but no image input.'
+            # decode units
+            first_unit = data_dict['decode_units'][0]
+            assert all(unit == first_unit \
+                for unit in data_dict['decode_units'])
+            data_dict['decode_units'] = first_unit
+
+            # decode seqs
+            decode_seqs = data_dict['decode_seqs']
+            data_dict['decode_seqs'] = decode_seqs[0]
+
+            # decode labels
             decode_labels = self.decode_labels_process(
                 data_dict['decode_labels']
             )

@@ -165,6 +165,42 @@ class DecoderModel(PreTrainedModel):
 
         return inputs
 
+    def get_label_slices(self, metas, ref_mask):
+        decode_seqs = metas.get('decode_seqs', None)
+        if decode_seqs is None:
+            return None
+        
+        target_slices =[]
+        for seqs in decode_seqs:
+            if seqs is None:
+                target_slices.append([])
+            else:
+                u_num = [len(seq) for seq in seqs]
+                target_slices.append(u_num)
+        
+        slice_num = sum([len(items) for items in target_slices])
+        if slice_num == 0:
+            return None
+
+        # get used seqs in batch data (sequence might be cutoff and remove some seqs)
+        target_slices_trim = []
+        for batch_idx, mask in enumerate(ref_mask):
+            ref_num = mask.sum()
+            if ref_num == 0: continue
+
+            unit_num = target_slices[batch_idx] 
+            if (sum(unit_num) >= ref_num):
+                diff = sum(unit_num) - ref_num
+                while diff > 0:
+                    cur_diff = diff
+                    diff -= min(unit_num[-1], cur_diff)
+                    unit_num[-1] -= min(unit_num[-1], cur_diff)
+                    if unit_num[-1] == 0: unit_num.pop()
+                target_slices_trim.extend(unit_num)
+            else:
+                raise ValueError('decode_seqs value error! Sum of unit_num fewer than ref_num!')
+        return target_slices_trim
+
     def get_unit_labels(self, metas, ref_mask, type):
         decode_labels = metas.get('decode_labels', None)
         if decode_labels is None:
@@ -187,15 +223,7 @@ class DecoderModel(PreTrainedModel):
         for batch_idx, mask in enumerate(ref_mask):
             ref_num = mask.sum()
             if ref_num == 0: continue
-            try:
-                assert len(target_labels[batch_idx]) >= ref_num
-            except:
-                metas['type'] = type
-                metas['ref_mask_filter'] = ref_mask
-                from xtuner.model.utils import save_wrong_data
-                save_wrong_data(f"wrong_ref",metas)
-                
-            
+            assert len(target_labels[batch_idx]) >= ref_num
             target_labels_trim.extend(target_labels[batch_idx][:ref_num])
         target_labels_trim = [torch.tensor(label) for label in target_labels_trim]
         return target_labels_trim

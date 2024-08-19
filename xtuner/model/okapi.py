@@ -525,7 +525,7 @@ class OkapiModel(BaseModel):
             'ori_image', 'image_path',
             'ori_height', 'ori_width',
             'decode_labels', 'decode_units',
-            'conversations'
+            'decode_seqs', 'conversations'
         ]
         if 'pixel_values' in data:
             for key in meta_keys:
