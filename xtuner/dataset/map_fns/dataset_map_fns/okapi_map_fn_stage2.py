@@ -92,7 +92,7 @@ def get_placeholders_order(string, placeholders):
     ordered_placeholders = [placeholder for _, placeholder in positions]
     return ordered_placeholders
 
-def get_cot_elements(output, output_placeholders,example):
+def get_cot_elements(output, output_placeholders):
     st_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ST_PLACEHOLDER_STAGE2), output)]
     ed_indices = [match.start() for match in \

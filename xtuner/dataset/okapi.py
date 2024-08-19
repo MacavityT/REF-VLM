@@ -292,6 +292,14 @@ class OkapiDataset(Dataset):
                     converted_labels[label['type']].append(unit_label)
         return converted_labels
 
+    def decode_seqs_process(self, decode_seqs):
+        converted_seqs = []
+        for seq_one_turn in decode_seqs:
+            if seq_one_turn is None: continue
+            for seq in seq_one_turn:
+                converted_seqs.append(seq)
+        return converted_seqs
+
     def __getitem__(self, index):
         assert self.data is not None, 'Please add valid dataset first!'
         data_dict = self.data[index]
@@ -314,33 +322,33 @@ class OkapiDataset(Dataset):
                         crop_size = self.image_processor.crop_size
                     else:
                         crop_size = self.image_processor.size
-                    data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
-                                                            crop_size['width'])
-                    data_dict['ori_height'] = 0
-                    data_dict['ori_width'] = 0
-                    data_dict['image_path'] = ''
-                
-                if 'input_ids' not in data_dict.keys():
-                    if 'target' in data_dict.keys():
-                        self.target_process(
-                            data_dict['target'], 
-                            width=data_dict['ori_width'],
-                            height=data_dict['ori_height']
-                        )
-                    # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
-                    data_dict.update(self.dataset_map_fn(data_dict))
-                    data_dict.update(self.template_map_fn(data_dict))
-                    # 'input_ids', 'labels'
-                    data_dict.update(
-                        encode_fn(
-                            example=data_dict,
-                            tokenizer=self.tokenizer,
-                            max_length=self.max_length,
-                            input_ids_with_output=True,
-                            with_image_token=True,
-                            visual_prompts=data_dict.get('visual_prompts', None)
-                        )
+                data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
+                                                        crop_size['width'])
+                data_dict['ori_height'] = 0
+                data_dict['ori_width'] = 0
+                data_dict['image_path'] = ''
+            
+            if 'input_ids' not in data_dict.keys():
+                if 'target' in data_dict.keys():
+                    self.target_process(
+                        data_dict['target'], 
+                        width=data_dict['ori_width'],
+                        height=data_dict['ori_height']
                     )
+                # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
+                data_dict.update(self.dataset_map_fn(data_dict))
+                data_dict.update(self.template_map_fn(data_dict))
+                # 'input_ids', 'labels'
+                data_dict.update(
+                    encode_fn(
+                        example=data_dict,
+                        tokenizer=self.tokenizer,
+                        max_length=self.max_length,
+                        input_ids_with_output=True,
+                        with_image_token=True,
+                        visual_prompts=data_dict.get('visual_prompts', None)
+                    )
+                )
 
             if data_dict.get('visual_prompts', None) is not None:
                 assert data_dict.get('image', None) is not None, \
@@ -369,8 +377,10 @@ class OkapiDataset(Dataset):
                 data_dict['decode_units'] = first_unit
 
                 # decode seqs
-                decode_seqs = data_dict['decode_seqs']
-                data_dict['decode_seqs'] = decode_seqs[0]
+                decode_seqs = self.decode_seqs_process(
+                    data_dict['decode_seqs']
+                )
+                data_dict['decode_seqs'] = decode_seqs
 
                 # decode labels
                 decode_labels = self.decode_labels_process(
@@ -380,8 +390,8 @@ class OkapiDataset(Dataset):
         except Exception as e:
             from xtuner.model.utils import save_wrong_data
             print(e)
-            save_wrong_data(f"wrong_data_dict",data_dict)
-            raise ValueError
+            save_wrong_data(f"wrong_data_dict", data_dict)
+            raise ValueError('Error in get data process')
 
         # #region debug
         # ori_path = 'vis_origin.jpg'

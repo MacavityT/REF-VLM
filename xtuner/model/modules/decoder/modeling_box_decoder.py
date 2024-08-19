@@ -248,12 +248,13 @@ class BoxDecoderModel(DecoderModel):
             try:
                 target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
                 target_slices = self.get_label_slices(metas, ref_mask)
-            except:
+            except Exception as e:
+                print(e)
                 metas['type'] = 'box'
                 metas['ref_mask_filter'] = ref_mask
                 save_wrong_data(f"wrong_ref", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = box')
-
+            
             if ref_mask.sum() > 0 and target_boxes is not None:
                 target_boxes = torch.stack(
                     target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)

@@ -188,17 +188,15 @@ class DecoderModel(PreTrainedModel):
             ref_num = mask.sum()
             if ref_num == 0: continue
 
-            unit_num = target_slices[batch_idx] 
-            if (sum(unit_num) >= ref_num):
-                diff = sum(unit_num) - ref_num
-                while diff > 0:
-                    cur_diff = diff
-                    diff -= min(unit_num[-1], cur_diff)
-                    unit_num[-1] -= min(unit_num[-1], cur_diff)
-                    if unit_num[-1] == 0: unit_num.pop()
-                target_slices_trim.extend(unit_num)
-            else:
-                raise ValueError('decode_seqs value error! Sum of unit_num fewer than ref_num!')
+            unit_num = target_slices[batch_idx]
+            assert sum(unit_num) >= ref_num
+            diff = sum(unit_num) - ref_num
+            while diff > 0:
+                cur_diff = diff
+                diff -= min(unit_num[-1], cur_diff)
+                unit_num[-1] -= min(unit_num[-1], cur_diff)
+                if unit_num[-1] == 0: unit_num.pop()
+            target_slices_trim.extend(unit_num)
         return target_slices_trim
 
     def get_unit_labels(self, metas, ref_mask, type):

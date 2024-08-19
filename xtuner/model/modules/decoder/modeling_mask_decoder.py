@@ -308,7 +308,8 @@ class MaskDecoderModel(DecoderModel):
             try:
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
-            except:
+            except Exception as e:
+                print(e)
                 metas['type'] = 'mask'
                 metas['ref_mask_filter'] = ref_mask
                 save_wrong_data(f"wrong_ref", metas)
