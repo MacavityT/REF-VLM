@@ -458,7 +458,6 @@ class OkapiModel(BaseModel):
             visual_prompts['vpt_feats'] = vpt_feats
 
         return visual_feats, visual_prompts  
-
     def prepare_vrt_feats(self, hidden_states, metas, mode='loss'):
         vrt_masks = metas.get('vrt_masks', None)
         if vrt_masks.sum() == 0 and mode != 'loss':

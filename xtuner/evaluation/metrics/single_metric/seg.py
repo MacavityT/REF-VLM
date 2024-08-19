@@ -18,7 +18,8 @@ from xtuner.utils import IGNORE_INDEX
 from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from .utils.register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic
 from .utils.register_cityscapes_panoptic import register_all_cityscapes_panoptic
-from .utils.process import semantic_inference, panoptic_inference, instance_inference,build_evaluator
+from .utils.get_cot import get_matches_from_text
+from .utils.process import semantic_inference, panoptic_inference, instance_inference,build_evaluator, SEGDETProcessor
 from ..okapi_metric import BaseComputeMetrics
 
 @METRICS.register_module()
@@ -30,95 +31,7 @@ class SEGComputeMetrics(BaseComputeMetrics):
         self.version = version
         assert self.version in ['general','prompt']
         self.task = task
-        self.bert_model = SentenceTransformer(bert_model)
-        self.process_config()
-        self.num_queries = num_queries
-
-    def process_config(self):
-        self.cfg = get_cfg()
-
-        self.cfg.DATASETS.PROPOSAL_FILES_TEST = ()
-        self.cfg.DATALOADER.NUM_WORKERS = 4 
-
-        if self.task == 'ade_panoptic':
-            register_all_ade20k_panoptic(self.dataset_root)
-            self.cfg.DATASETS.TRAIN = ('openvocab_ade20k_panoptic_train')
-            self.cfg.DATASETS.TEST = ('openvocab_ade20k_panoptic_val')
-            self.eval_dataset_name = 'openvocab_ade20k_panoptic_val'
-            self.len_data = 150
-
-        elif self.task == 'ade_semantic':
-            register_all_ade20k_semantic(self.dataset_root)
-
-        elif self.task == 'cityscapes_panoptic':
-            register_all_cityscapes_panoptic(self.dataset_root)
-            self.cfg.DATASETS.TRAIN = ('openvocab_cityscapes_fine_panoptic_train')
-            self.cfg.DATASETS.TEST = ('openvocab_cityscapes_fine_panoptic_val')
-            self.eval_dataset_name = 'openvocab_cityscapes_fine_panoptic_val'
-            self.len_data = 19
-        else:
-            raise NotImplementedError
-        
-        self.task_evaluator = build_evaluator(self.cfg,self.eval_dataset_name)
-
-        train_metadata = MetadataCatalog.get(self.cfg.DATASETS.TRAIN)
-        test_metadata = MetadataCatalog.get(self.cfg.DATASETS.TEST)
-
-        self.test_metadata = test_metadata
-        _, self.train_num_templates, self.train_class_names = self.prepare_class_names_from_metadata(
-            train_metadata, train_metadata)
-        self.category_overlapping_mask, self.test_num_templates, self.test_class_names = self.prepare_class_names_from_metadata(
-            test_metadata, train_metadata)
-
-        _, self.region_test_num_templates, self.region_test_class_names = self.prepare_class_names_from_metadata(
-            test_metadata, train_metadata)
-        
-        self.class_sentence_embeddings = self.bert_model.encode(
-            self.region_test_class_names, convert_to_tensor=True)
-
-    def prepare_class_names_from_metadata(self, metadata, train_metadata):
-        def split_labels(x):
-            res = []
-            for x_ in x:
-                x_ = x_.replace(', ', ',')
-                # there can be multiple synonyms for single class
-                x_ = x_.split(',')
-                res.append(x_)
-            return res
-        # get text classifier
-        try:
-            # it includes both thing and stuff
-            class_names = split_labels(metadata.stuff_classes)
-            train_class_names = split_labels(train_metadata.stuff_classes)
-        except:
-            # this could be for insseg, where only thing_classes are available
-            class_names = split_labels(metadata.thing_classes)
-            train_class_names = split_labels(train_metadata.thing_classes)
-        train_class_names = {l for label in train_class_names for l in label}  # 解析嵌套列表
-        category_overlapping_list = []
-        for test_class_names in class_names:
-            is_overlapping = not set(train_class_names).isdisjoint(
-                set(test_class_names))
-            category_overlapping_list.append(is_overlapping)
-        category_overlapping_mask = torch.tensor(
-            category_overlapping_list, dtype=torch.long)
-
-        def fill_all_templates_ensemble(x_=''):
-            res = []
-            for x in x_:
-                res.append(x)
-            return res, len(res)
-
-        num_templates = []
-        templated_class_names = []
-        for x in class_names:
-            templated_classes, templated_classes_num = fill_all_templates_ensemble(x)
-            templated_class_names += templated_classes
-            # how many templates for current classes
-            num_templates.append(templated_classes_num)
-        class_names = templated_class_names
-        #print("text for classification:", class_names)
-        return category_overlapping_mask, num_templates, class_names
+        self.processor = SEGDETProcessor(task=self.prefix)
     
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
@@ -141,9 +54,8 @@ class SEGComputeMetrics(BaseComputeMetrics):
             target = target.replace('</s>','').strip()
             decode_pred = decode_pred.replace('</s>','').strip()
 
-            pattern = r"Name:\s*(.+?)\s*Unit:\s*<Unit>mask</Unit>\s*Num:\s*(\d+)"
-            matches_pred = re.findall(pattern, decode_pred)
-            matches_target = re.findall(pattern, target)
+            matches_pred = get_matches_from_text(decode_pred)
+            matches_target = get_matches_from_text(target)
             
             # TODO: change the format
             pred_mask = sample['masks']   # torch.Tensor

@@ -7,7 +7,7 @@ with read_base():
 
 gc = dict(
     type='SubSet',
-    portion=1/20,
+    portion=1/15,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['gc'],
@@ -88,10 +88,6 @@ dataset_s1 = [
     train_all_dataset['rec'],
     train_all_dataset['caption'],
     train_all_dataset['reg'],
-    
-    # vcr
-    train_all_dataset['vcr_qc_rac'],
-    train_all_dataset['vcr_qac_r'],
 
     # vqa v2
     train_all_dataset['vqav2_train'],
@@ -122,10 +118,6 @@ dataset_s2 = [
 
     # instruct
     train_all_dataset['instruct'],
-
-    # gpt gen
-    train_all_dataset['gpt4gen_qbc'],
-    train_all_dataset['gpt4gen_rd_qbc'],
 
     # osprey
     train_all_dataset['osprey_partlevel'],

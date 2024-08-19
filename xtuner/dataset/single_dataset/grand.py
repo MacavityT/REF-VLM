@@ -75,7 +75,7 @@ def resize_mask(mask,width,height,ratio=0.3):
     if mask is None:
         return None
     mask = Image.fromarray(mask)
-    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.ANTIALIAS)
+    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.LANCZOS)
     mask = np.array(mask)
     mask[mask!=0] = 1
     return mask.astype(np.uint8)
@@ -1032,7 +1032,7 @@ class GranDDataset(MInstrDataset):
 
         return ret
     
-
+    # TODO： 如果是空的话就应该变成一个caption的任务
     def seg_det(self,ret,objects,floating_objects,ratio):
         if self.use_floating_objects:
             objects = objects + floating_objects

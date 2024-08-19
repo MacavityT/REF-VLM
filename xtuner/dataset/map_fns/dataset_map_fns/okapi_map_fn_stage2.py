@@ -1,9 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import re
 import numpy as np
+import os
 import copy
 from typing import List, Dict, Any, Tuple, Union
-from xtuner.model.utils import save_wrong_data
 from xtuner.utils.constants import (
     DEFAULT_IMAGE_TOKEN,
     BOXES_PLACEHOLDER,
@@ -92,7 +92,7 @@ def get_placeholders_order(string, placeholders):
     ordered_placeholders = [placeholder for _, placeholder in positions]
     return ordered_placeholders
 
-def get_cot_elements(output, output_placeholders):
+def get_cot_elements(output, output_placeholders,example):
     st_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ST_PLACEHOLDER_STAGE2), output)]
     ed_indices = [match.start() for match in \
@@ -198,7 +198,7 @@ def target_map_fn(example):
             mapped_tgt_seq = map_obj(tgt_value, tgt_seq)
             flat_tgt_seq = flatten_obj(mapped_tgt_seq)
             assert len(all_find) == len(flat_tgt_seq), \
-                f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
+                    f"placeholder {placeholder} not match. sentence: {sentence}. num targets:{len(flat_tgt_seq)}"
             if len(all_find) == 0: continue
             tgt_in_msg[placeholder] = flat_tgt_seq
             tgt_seqs[UNIT_MAP[placeholder]] = tgt_seq
@@ -285,11 +285,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                     output_placeholders = map_placeholders.get('output', [])
                     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
                     if unit_decode:
-                        try:
-                            p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)
-                        except:
-                            save_wrong_data('wrong_cot', output)
-                            raise ValueError('Error in get_cot_elements process.')  
+                        p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)
                         cot_content = ''
                         for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
                             cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
