@@ -185,7 +185,7 @@ class DecoderModel(PreTrainedModel):
         # get used seqs in batch data (sequence might be cutoff and remove some seqs)
         target_slices_trim = []
         for batch_idx, mask in enumerate(ref_mask):
-            ref_num = mask.sum()
+            ref_num = mask.sum().cpu().item()
             if ref_num == 0: continue
 
             unit_num = target_slices[batch_idx]

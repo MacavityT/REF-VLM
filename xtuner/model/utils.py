@@ -209,13 +209,8 @@ def prepare_inputs_labels_for_multimodal(
         
         cur_vpt_feats = None
         if vpt_feats is not None:
-            try:
-                assert vpt_count[batch_idx] == num_vpt, \
-                    f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
-            except:
-                print(f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}')
-                file_prefix = f"wrong_vpt"
-                save_wrong_data(file_prefix,cur_input_ids.clone().detach().cpu().numpy())
+            assert vpt_count[batch_idx] == num_vpt, \
+                f'vpt count not equal to placeholder num, vpt_count: {vpt_count[batch_idx]}, placeholder num: {num_vpt}'
             cur_vpt_feats = vpt_feats[batch_idx]
         
         num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()

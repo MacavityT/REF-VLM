@@ -294,11 +294,11 @@ class MaskDecoderModel(DecoderModel):
             condition = torch.zeros_like(ref_mask).to(torch.bool)
             condition[batch_remove_mask, :] = True 
             ref_mask = ref_mask.masked_fill(condition, False)
-        pred_masks = masks_queries_logits[ref_mask, :]
-
+        
         loss = None
         if mode == 'loss':   
             try:
+                pred_masks = masks_queries_logits[ref_mask, :]
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
             except Exception as e:
@@ -319,7 +319,11 @@ class MaskDecoderModel(DecoderModel):
             else:
                 loss = pred_masks.sum() * 0.0
         else:
-            pred_masks = torch.sigmoid(masks_queries_logits)
+            masks_queries_logits = torch.sigmoid(masks_queries_logits)
+            pred_masks = []
+            for queries_logits, mask in zip(masks_queries_logits, ref_mask):
+                masks = queries_logits[mask, :]
+                pred_masks.append(masks)
 
         return dict(
             loss=loss,
