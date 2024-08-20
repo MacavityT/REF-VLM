@@ -676,6 +676,7 @@ class OkapiModel(BaseModel):
         
         return results
 
+    @torch.no_grad()
     def predict(self, data, data_samples=None, metas=None):
         def _pad_special_token_masks(special_token_masks, target_size, pad_side):
             if special_token_masks is not None:
@@ -736,7 +737,7 @@ class OkapiModel(BaseModel):
             metas=metas, 
             mode='predict'
         )
-        decoder_outputs = modules_outputs['visual_decoder']
+        decoder_outputs = modules_outputs.get('visual_decoder', None)
 
         results = dict()
         results['generate_ids'] = llm_outputs.sequences
@@ -808,66 +809,27 @@ class OkapiModel(BaseModel):
         cost_dict['cot_cost'] = loss_cot
         cost_dict['answer_cost'] = loss_answer
 
-        # reconstruction loss
-        rec_outputs = None
-        if self.visual_sync_tuner is not None:
-            vrt_hidden_states = self.prepare_vrt_feats(
-                hidden_states=outputs.hidden_states[-1],
-                metas=metas,
-                mode='loss'
-            )
-            rec_outputs = self.visual_sync_tuner(
-                vrt_hidden_states,
-                metas=metas,
-                mode='loss'
-            )
+        # all modules forward
+        modules_outputs = self.modules_forward_pipeline(
+            hidden_states=outputs.hidden_states[-1], 
+            metas=metas, 
+            mode='loss'
+        )
+        rec_outputs = modules_outputs.get('visual_sync_tuner', None)
+        if rec_outputs is not None:
             loss_dict['rec'] = rec_outputs['loss']
             cost_dict['rec_cost'] = rec_outputs['loss']
-
-        ref_used_module = [self.moe_adapter, self.visual_decoder]
-        if any(module is not None for module in ref_used_module):
-            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-                outputs.hidden_states[-1],
-                metas=metas,
-                mode='loss'
-            )
-
-        # moe adapter
-        moe_outputs = None
-        if self.moe_adapter is not None:
-            moe_outputs = self.moe_adapter(
-                ref_hidden_states,
-                # ref_attention_masks,
-                mode='loss'
-            )
+        
+        moe_outputs = modules_outputs.get('moe_adapter', None)
+        if moe_outputs is not None:
             loss_dict['moe'] = moe_outputs['loss']
             cost_dict['moe_cost'] = moe_outputs['loss']
-
-        # decoders
-        if self.visual_decoder is not None:
-            if rec_outputs is None:
-                visual_hidden_states = [metas['visual_hidden_states']]
-            else:
-                # pyramid outputs
-                visual_hidden_states = rec_outputs['hidden_states']
-
-            if moe_outputs is None:
-                decode_hidden_states = ref_hidden_states
-            else:
-                # last layer output
-                decode_hidden_states = moe_outputs['hidden_states'][-1]
-            
-            for type, decoder in self.visual_decoder.items():
-                decode_outputs = decoder(
-                    visual_hidden_states,
-                    decode_hidden_states,
-                    visual_mask=None,
-                    ref_mask=ref_attention_masks,
-                    metas=metas,
-                    mode='loss'
-                )
-                loss_dict[type] = decode_outputs['loss']
-                cost_dict[f'{type}_cost'] = decode_outputs['loss']
+        
+        decoder_outputs = modules_outputs.get('visual_decoder', None)
+        if decoder_outputs is not None:
+            for type, outputs in decoder_outputs.items():
+                loss_dict[type] = outputs['loss']
+                cost_dict[f'{type}_cost'] = outputs['loss']
 
         # loss
         loss = 0
