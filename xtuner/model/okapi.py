@@ -738,6 +738,7 @@ class OkapiModel(BaseModel):
                 decode_hidden_states = moe_outputs['hidden_states'][-1]
             
             for type, decoder in self.visual_decoder.items():
+
                 decode_outputs = decoder(
                     visual_hidden_states,
                     decode_hidden_states,

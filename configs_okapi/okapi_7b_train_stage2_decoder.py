@@ -109,6 +109,7 @@ model=dict(
     # ),
     visual_decoder=dict(
         box=dict(
+            use_group_matcher=True,
             num_queries=ref_box_queries,
             # quries_input_dim=256,
             quries_input_dim=4096,
@@ -129,6 +130,7 @@ model=dict(
             giou_loss_coefficient=2,
         ),
         mask=dict(
+            use_group_matcher=True,
             num_queries=ref_mask_queries,
             # quries_input_dim=256,
             quries_input_dim=4096,

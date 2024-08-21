@@ -11,7 +11,8 @@ from detectron2.utils.file_io import PathManager
 
 from . import openseg_classes
 
-CITYSCAPES_CLASS_PATH = '/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/cityscapes_with_prompt_eng.txt'
+
+CITYSCAPES_CLASS_PATH = os.path.join(os.path.dirname(__file__),'cityscapes_with_prompt_eng.txt')
 CITYSCAPES_CATEGORIES = openseg_classes.get_cityscapes_categories_with_prompt_eng(CITYSCAPES_CLASS_PATH)
 
 """

@@ -11,7 +11,7 @@ from detectron2.data.datasets.coco import load_sem_seg
 
 from . import openseg_classes
 
-ADE_CLASS_PATH = '/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_150_with_prompt_eng.txt'
+ADE_CLASS_PATH = os.path.join(os.path.dirname(__file__),'ade20k_150_with_prompt_eng.txt')
 ADE20K_150_CATEGORIES = openseg_classes.get_ade20k_categories_with_prompt_eng(ADE_CLASS_PATH)
 
 ADE20k_COLORS = [k["color"] for k in ADE20K_150_CATEGORIES]

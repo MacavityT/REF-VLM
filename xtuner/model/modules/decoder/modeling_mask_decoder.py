@@ -301,23 +301,23 @@ class MaskDecoderModel(DecoderModel):
             try:
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
+                if ref_mask.sum() > 0 and target_masks is not None:
+                    target_masks, _ = self._pad_images_to_max_in_batch(target_masks)
+                    target_masks = target_masks.to(pred_masks.device).to(pred_masks.dtype)
+                    loss_dict = self.criteria(pred_masks, target_masks, target_slices)
+                    weight_dict = {
+                        "loss_mask": self.config.mask_loss_coefficient,
+                        "loss_dice": self.config.dice_loss_coefficient}
+                    loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+                else:
+                    loss = pred_masks.sum() * 0.0
+
             except Exception as e:
                 print(e)
                 metas['type'] = 'mask'
-                metas['ref_mask_filter'] = ref_mask
-                save_wrong_data(f"wrong_ref", metas)
+                metas['ref_mask_filter'] = ref_mask 
+                save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = mask')
-
-            if ref_mask.sum() > 0 and target_masks is not None:
-                target_masks, _ = self._pad_images_to_max_in_batch(target_masks)
-                target_masks = target_masks.to(pred_masks.device).to(pred_masks.dtype)
-                loss_dict = self.criteria(pred_masks, target_masks, target_slices)
-                weight_dict = {
-                    "loss_mask": self.config.mask_loss_coefficient,
-                    "loss_dice": self.config.dice_loss_coefficient}
-                loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
-            else:
-                loss = pred_masks.sum() * 0.0
         else:
             pred_masks = torch.sigmoid(masks_queries_logits)
 
