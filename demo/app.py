@@ -11,26 +11,38 @@ import os
 import copy
 import time
 import random
+
 from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
 from xtuner.utils.constants import MASKS_PLACEHOLDER
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import okapi_collate_fn
+from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
-
-SYS_VALUE_OKAPI = {
-    'VQA': {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}},
-    'Detection':{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']},
-    'Segmentation':{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
-    'Grounding Detection':{'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']},
-    'Grounding Segmentation': {'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
-    'Gcg Detection': {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']},
-    'Gcg Segmentation': {'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']},
+SYS_IDX_TASK = {
+    'VQA': 0,
+    'Detection': 1,
+    'Segmentation': 2,
+    'Grounding Detection': 3,
+    'Grounding Segmentation': 4,
+    'Gcg Detection': 5,
+    'Gcg Segmentation': 6,
 }
+
+
+SYS_VALUE_OKAPI = [
+    {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}},
+    {'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']},
+    {'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
+    {'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']},
+    {'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
+    {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']},
+    {'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']},
+]
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
@@ -154,8 +166,8 @@ def img_select_box(input_image: dict, prompt_image_list: list):
     return prompt_image_list
 
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
+import debugpy
+debugpy.connect(('127.0.0.1', 5577))
 
 args = parse_args()
 torch.manual_seed(args.seed)
@@ -182,7 +194,8 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     if radio == "":
         return "", chatbot, state, prompt_image_list,radio
 
-    system_value = SYS_VALUE_OKAPI[radio]
+    task_idx = SYS_IDX_TASK[radio]
+    system_value = SYS_VALUE_OKAPI[task_idx]
     input_text_chatbot = input_text
     pattern = r"<masks>"
     input_text_chatbot = re.sub(pattern, r"**\<masks\>**", input_text_chatbot)
@@ -226,10 +239,10 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     state['dataloader'] = DataLoader(batch_size=1,num_workers=0,dataset=state['input_data_okapi'],collate_fn=okapi_collate_fn)
 
 
-    return "", chatbot, state, prompt_image_list,radio
+    return "", chatbot, state, prompt_image_list,radio,input_image
 
 
-def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k):
+def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k,input_image,output_image):
 
     if radio == "":
         raise gr.Error("You must set a valid task first!")
@@ -251,21 +264,32 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     input_str = decode_generate_ids(tokenizer,data_batch['data']['input_ids'],skip_special_tokens=False)
     print(f'input:{input_str}')
 
-    output = decode_generate_ids(tokenizer,output[0]['generate_ids'],skip_special_tokens=False)
-    output = output.replace("<","\<").replace(">","\>")
-    bot_message = output
-    print(output)
+    output_seq = decode_generate_ids(tokenizer,output['generate_ids'][0],skip_special_tokens=False)
+    output_seq = output_seq.replace("<","\<").replace(">","\>")
+    bot_message = output_seq
+    print(output_seq)
     chatbot[-1][1] = ""
     
     for character in bot_message:
         chatbot[-1][1] += character
         time.sleep(0.005)
         yield chatbot
-    
-    return chatbot
 
-def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state):
-    return None,None,{'point':None},[],[],{
+    if output['decoder_outputs'] is not None:
+        boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
+        boxes_denorm = []
+        for box in boxes_output:
+            box_xyxy = box_xywh_to_xyxy(box,w=336,h=336)
+            box_denorm = de_norm_box_xyxy(box_xyxy,w=input_image.shape[1],h=input_image.shape[0])
+            boxes_denorm.append(box_denorm)
+        output_image = visualize_box(input_image,boxes_denorm)
+
+        masks_output = output['decoder_outputs']['mask']['preds'][0].cpu().numpy()
+    
+    return chatbot,output_image
+
+def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state):
+    return None,None,{'point':None},[],[],None,{
                                         'previous_system':None,
                                         'input_data':SingleInferDataset(),
                                         'input_data_okapi':BUILDER.build(cfg.infer_dataset),
@@ -511,7 +535,7 @@ with gr.Blocks(
             with gr.Row():
                 with gr.Column():
                     chatbot = gr.Chatbot(height=600)
-                    output_mask = gr.Image(label="Output image", height=300, interactive=False)             
+                    output_image = gr.Image(label="Output image", height=300, interactive=False)             
                     clear_button = gr.Button("🗑 Clear Button")
                     gr.Markdown(descrip_chatbot)
 
@@ -521,8 +545,8 @@ with gr.Blocks(
 
     
     clear_button.click(clear_states,
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state]).then(
         lambda: None,
         None,
         None,
@@ -593,35 +617,35 @@ with gr.Blocks(
                         [input_text_1,input_img_1,chatbot,radio_1,task_state,prompt_image_list],
                         [input_text_1,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider],
-                        [chatbot]
+                        [chatbot,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider,input_img_1,output_image],
+                        [chatbot,output_image]
                         )
     submit_button_2.click(submit_step1,
                         [input_text_2,input_img_2, chatbot,radio_2,task_state,prompt_image_list,point_mask],
                         [input_text_2,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider],
-                        [chatbot]
+                        [chatbot,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider,input_img_2,output_image],
+                        [chatbot,output_image]
                         )
     submit_button_3.click(submit_step1,
                         [input_text_3,input_img_3,chatbot,radio_3,task_state,prompt_image_list],
                         [input_text_3,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider],
-                        [chatbot]
+                        [chatbot,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider,input_img_3,output_image],
+                        [chatbot,output_image]
                         )
     submit_button_4.click(submit_step1,
                         [input_text_4,input_img_4,chatbot,radio_4,task_state,prompt_image_list],
                         [input_text_4,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider],
-                        [chatbot]
+                        [chatbot,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider,input_img_4,output_image],
+                        [chatbot,output_image]
                         )
 
 
     example_data_1.click(clear_states,
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state]).then(
         init_image,
         [example_data_1],
         [
@@ -635,8 +659,8 @@ with gr.Blocks(
     )
 
     example_data_2.click(clear_states,
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state]).then(
         init_image,
         [example_data_2],
         [
@@ -650,8 +674,8 @@ with gr.Blocks(
     )
 
     example_data_3.click(clear_states,
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state]).then(
         init_image,
         [example_data_3],
         [
@@ -665,8 +689,8 @@ with gr.Blocks(
     )
 
     example_data_4.click(clear_states,
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state],
-                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,task_state]).then(
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state],
+                         [preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state]).then(
         init_image,
         [example_data_4],
         [

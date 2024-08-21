@@ -582,6 +582,8 @@ def visualize_box(image, boxes, line_thickness=2):
         right_bottom = tuple((x2, y2))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
+    
+    return image
 
 def convert_bbox(bbox):
     """
