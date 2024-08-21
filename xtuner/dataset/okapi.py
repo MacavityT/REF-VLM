@@ -364,21 +364,23 @@ class OkapiDataset(Dataset):
                 else:
                     raise f"max num:{max_num} is lower than 0"
 
+            # decode units
             if data_dict.get('decode_units', None) is not None:
                 assert data_dict.get('image', None) is not None, \
                     'decode units set, but no image input.'
-                # decode units
                 first_unit = data_dict['decode_units'][0]
                 assert all(unit == first_unit \
                     for unit in data_dict['decode_units'])
                 data_dict['decode_units'] = first_unit
 
+            if data_dict.get('decode_seqs', None) is not None:
                 # decode seqs
                 decode_seqs = self.decode_seqs_process(
                     data_dict['decode_seqs']
                 )
                 data_dict['decode_seqs'] = decode_seqs
 
+            if data_dict.get('decode_labels', None) is not None:
                 # decode labels
                 decode_labels = self.decode_labels_process(
                     data_dict['decode_labels']
