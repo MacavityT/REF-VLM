@@ -151,15 +151,10 @@ def get_cot_elements(output, output_placeholders):
     return p_names, u_names, u_counts
 
 def target_map_fn(example):
-    if 'target' not in example.keys():
-        return {}
-    
-    target = example['target']
-    messages = example['conversations']
-    map_placeholders = example.get('map_placeholders', None)
-    if not map_placeholders:
-        return dict()
+    result = dict()
 
+    # decode type process
+    messages = example['conversations']
     decode_units = []
     if messages[0]['from'] == 'system':
         systems = messages[0]
@@ -172,6 +167,18 @@ def target_map_fn(example):
             else:
                 unit = None
             decode_units.append(unit)
+
+    if any(unit is not None for unit in decode_units):
+        result['decode_units'] = decode_units
+
+    # decode label process
+    if 'target' not in example.keys():
+        return result
+    
+    target = example['target']
+    map_placeholders = example.get('map_placeholders', None)
+    if not map_placeholders:
+        return result
 
     visual_prompts = []
     decode_labels = []
@@ -223,9 +230,6 @@ def target_map_fn(example):
                 tgt_seqs = []
             decode_seqs.append(tgt_seqs if len(tgt_seqs) > 0 else None)
 
-    result = dict()
-    if any(unit is not None for unit in decode_units):
-        result['decode_units'] = decode_units
     if any(vpt is not None for vpt in visual_prompts):
         result['visual_prompts'] = visual_prompts
     if any(label is not None for label in decode_labels):
