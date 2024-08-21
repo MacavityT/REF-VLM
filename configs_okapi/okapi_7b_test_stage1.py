@@ -41,7 +41,6 @@ save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/eval355
 #         portion=1/1000,
 #         do_shuffle=True,
 #         seed=43,
-#         enforce_online=True,
 #         cfg=test_all_dataset['caption'],
 #             )
     
@@ -55,7 +54,6 @@ save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/eval355
 #         portion=1/3,
 #         do_shuffle=False,
 #         seed=43,
-#         enforce_online=True,
 #         cfg=test_all_dataset['reg_refcocoa_unc_testa'],
 #         # cfg=test_all_dataset['interact_reg']
 #         )

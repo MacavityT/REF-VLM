@@ -318,10 +318,7 @@ class OkapiDataset(Dataset):
                 if hasattr(self.image_processor, 'crop_size'):
                     crop_size = self.image_processor.crop_size
                 else:
-                    if hasattr(self.image_processor, 'crop_size'):
-                        crop_size = self.image_processor.crop_size
-                    else:
-                        crop_size = self.image_processor.size
+                    crop_size = self.image_processor.size
                 data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                         crop_size['width'])
                 data_dict['ori_height'] = 0

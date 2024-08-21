@@ -63,6 +63,7 @@ class OkapiModel(BaseModel):
                  freeze_vpt_encoder=False,
                  freeze_visual_sync_tuner=False,
                  freeze_moe_adapter=False,
+                 freeze_visual_decoder=False,
                  visual_select_layer=-2,
                  pretrained_pth=None,
                  projector_depth=2,
@@ -79,6 +80,7 @@ class OkapiModel(BaseModel):
         self.freeze_vpt_encoder = freeze_vpt_encoder
         self.freeze_visual_sync_tuner = freeze_visual_sync_tuner
         self.freeze_moe_adapter = freeze_moe_adapter
+        self.freeze_visual_decoder = freeze_visual_decoder
         self.cutoff_len = cutoff_len
         self.loss_coefficient = loss_coefficient
         with LoadWoInit():
@@ -100,7 +102,6 @@ class OkapiModel(BaseModel):
             for token in tokens_in_labels:
                 self.token_ids[token] = self.tokenizer.convert_tokens_to_ids(token)
             # generate config
-            #TODO: 增加output_hidden_states设置，用于后期ref生成和解码
             default_generation_kwargs = dict(
                 max_new_tokens=512,
                 do_sample=True,
@@ -108,6 +109,7 @@ class OkapiModel(BaseModel):
                 top_p=0.75,
                 top_k=40,
                 output_hidden_states=True,
+                return_dict_in_generate=True,
                 eos_token_id=self.tokenizer.eos_token_id,
                 pad_token_id=self.tokenizer.pad_token_id
                 if self.tokenizer.pad_token_id is not None else
@@ -117,7 +119,7 @@ class OkapiModel(BaseModel):
             self.stop_criteria = StoppingCriteriaList()
 
             self.visual_encoder = self._build_from_cfg_or_module(
-                visual_encoder)
+                visual_encoder).to(self.llm.dtype)
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector)
@@ -157,22 +159,22 @@ class OkapiModel(BaseModel):
                 depth=projector_depth
             )
             self.projector = ProjectorModel(projector_config).to(
-                self.visual_encoder.dtype)
+                self.llm.dtype)
         if vpt_encoder is not None and \
             'type' not in vpt_encoder:
             vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
-                self.visual_encoder.dtype)
+                self.llm.dtype)
         if self.visual_sync_tuner is None and visual_sync_tuner is not None:
             sync_tuner_config = SyncTunerConfig(**visual_sync_tuner)
             assert sync_tuner_config.num_queries > 0, 'vrt length error!'
             self.visual_sync_tuner = SyncTunerModel(sync_tuner_config).to(
-                self.visual_encoder.dtype)
+                self.llm.dtype)
         if moe_adapter is not None and \
             'type' not in moe_adapter:
             moe_adapter_config = MoEAdapterConfig(**moe_adapter)
             self.moe_adapter = MoEAdapterModel(moe_adapter_config).to(
-                self.visual_encoder.dtype)
+                self.llm.dtype)
         if visual_decoder is not None:
             assert isinstance(visual_decoder, dict)
             for decoder_type, decoder_config in visual_decoder.items():
@@ -181,7 +183,7 @@ class OkapiModel(BaseModel):
                     decoder_config = DECODER_CONFIG_CLASS[decoder_type](**decoder_config)
                     self.visual_decoder[decoder_type] = \
                         DECODER_MODEL_CLASS[decoder_type](decoder_config).to(
-                            self.visual_encoder.dtype)
+                            self.llm.dtype)
         if len(self.visual_decoder) == 0:
             self.visual_decoder = None
 
@@ -200,6 +202,9 @@ class OkapiModel(BaseModel):
         if self.freeze_moe_adapter and \
             self.moe_adapter is not None:
             self.moe_adapter.requires_grad_(False)
+        if self.freeze_visual_decoder and \
+            self.visual_decoder is not None:
+            self.visual_decoder.requires_grad_(False)
 
         if use_activation_checkpointing:
             # For backward compatibility
@@ -456,8 +461,9 @@ class OkapiModel(BaseModel):
             vpt_feats = concat_feats[:, l:, :]
             vpt_feats = vpt_feats.view(b, q, n, vpt_feats.shape[-1])
             visual_prompts['vpt_feats'] = vpt_feats
-
-        return visual_feats, visual_prompts  
+        
+        return visual_feats, visual_prompts
+    
     def prepare_vrt_feats(self, hidden_states, metas, mode='loss'):
         vrt_masks = metas.get('vrt_masks', None)
         if vrt_masks.sum() == 0 and mode != 'loss':
@@ -526,32 +532,35 @@ class OkapiModel(BaseModel):
             'decode_labels', 'decode_units',
             'decode_seqs', 'conversations'
         ]
-        if 'pixel_values' in data:
-            for key in meta_keys:
-                if key == 'ori_image':
-                    metas[key] = data.get('pixel_values', None)
-                else:
-                    metas[key] = data.get(key, None)
-
-            visual_outputs = self.visual_encoder(
-                data['pixel_values'].to(self.visual_encoder.dtype),
-                output_hidden_states=True)
-            selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
-            metas['visual_hidden_states'] = selected_feats
-
-            if self.vpt_encoder is None:
-                pixel_values = self.projector(selected_feats)
-                data['pixel_values'] = pixel_values
+        assert 'pixel_values' in data, "pixel_values must in data dict."
+        for key in meta_keys:
+            if key == 'ori_image':
+                metas[key] = data.get('pixel_values', None)
             else:
-                vpt_regions = data.get('visual_prompts', None)
-                visual_feats, visual_prompts = self.prepare_visual_feats(
-                    selected_feats, 
-                    vpt_regions, 
-                    mode
-                )
-                data.update(visual_prompts)
-                data['pixel_values'] = visual_feats
+                metas[key] = data.get(key, None)
 
+        visual_outputs = self.visual_encoder(
+            data['pixel_values'].to(self.visual_encoder.dtype),
+            output_hidden_states=True)
+        selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
+        metas['visual_hidden_states'] = selected_feats
+
+        if self.vpt_encoder is None:
+            pixel_values = self.projector(selected_feats)
+            data['pixel_values'] = pixel_values
+        else:
+            vpt_regions = data.get('visual_prompts', None)
+            visual_feats, visual_prompts = self.prepare_visual_feats(
+                selected_feats, 
+                vpt_regions, 
+                mode
+            )
+            if visual_prompts is not None:
+                data.update(visual_prompts) 
+            data['pixel_values'] = visual_feats
+
+        # prepare data for train/predict
+        try:
             # vrt and ref mask
             vrt_masks = []
             ref_masks = []
@@ -564,7 +573,6 @@ class OkapiModel(BaseModel):
             data['vrt_masks'] = vrt_masks
             data['ref_masks'] = ref_masks
 
-            # prepare data for prediction
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
                 trim = ['input_ids', 'vrt_masks', 'ref_masks']
@@ -575,7 +583,7 @@ class OkapiModel(BaseModel):
                     data[key] = data[key][0][:labels_mask.index(False)].unsqueeze(0)
                 for key in remove:
                     data[key] = None
-            
+
             data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
             if self.cutoff_len is not None:
                 for key, value in data.items():
@@ -585,6 +593,10 @@ class OkapiModel(BaseModel):
             
             metas['vrt_masks'] = data.pop('vrt_masks')
             metas['ref_masks'] = data.pop('ref_masks')
+        except Exception as e:
+            print(e)
+            file_prefix = f"wrong_prepare_data"
+            save_wrong_data(file_prefix, data)
 
         if mode == 'loss':
             return self.compute_loss(data, data_samples, metas)
@@ -601,26 +613,135 @@ class OkapiModel(BaseModel):
 
         return outputs
     
+    def modules_forward_pipeline(self, hidden_states, metas, mode):
+        results = dict()
+        rec_outputs = None
+        if self.visual_sync_tuner is not None:
+            vrt_hidden_states = self.prepare_vrt_feats(
+                hidden_states=hidden_states,
+                metas=metas,
+                mode=mode
+            )
+            rec_outputs = self.visual_sync_tuner(
+                vrt_hidden_states,
+                metas=metas,
+                mode=mode
+            )
+            results['visual_sync_tuner'] = rec_outputs
+
+        ref_used_module = [self.moe_adapter, self.visual_decoder]
+        if any(module is not None for module in ref_used_module):
+            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
+                hidden_states,
+                metas=metas,
+                mode=mode
+            )
+
+        # moe adapter
+        moe_outputs = None
+        if self.moe_adapter is not None:
+            moe_outputs = self.moe_adapter(
+                ref_hidden_states,
+                # ref_attention_masks,
+                mode=mode
+            )
+            results['moe_adapter'] = moe_outputs
+        
+        # decoders
+        if self.visual_decoder is not None:
+            visual_decoder_outputs = dict()
+            if rec_outputs is None:
+                visual_hidden_states = [metas['visual_hidden_states']]
+            else:
+                # pyramid outputs
+                visual_hidden_states = rec_outputs['hidden_states']
+
+            if moe_outputs is None:
+                decode_hidden_states = ref_hidden_states
+            else:
+                # last layer output
+                decode_hidden_states = moe_outputs['hidden_states'][-1]
+            
+            for type, decoder in self.visual_decoder.items():
+                decode_outputs = decoder(
+                    visual_hidden_states,
+                    decode_hidden_states,
+                    visual_mask=None,
+                    ref_mask=ref_attention_masks,
+                    metas=metas,
+                    mode=mode
+                )
+                visual_decoder_outputs[type] = decode_outputs
+            results['visual_decoder'] = visual_decoder_outputs
+        
+        return results
+
+    @torch.no_grad()
     def predict(self, data, data_samples=None, metas=None):
+        def _pad_special_token_masks(special_token_masks, target_size, pad_side):
+            if special_token_masks is not None:
+                dtype = special_token_masks.dtype
+                device = special_token_masks.device
+                padded_special_token_masks = torch.zeros(
+                    target_size).to(dtype).to(device)
+                cur_length = special_token_masks.shape[1]
+                if pad_side == 'left':
+                    padded_special_token_masks[:, :cur_length] = special_token_masks
+                elif pad_side == 'right':
+                    padded_special_token_masks[:, -cur_length:] = special_token_masks
+                else:
+                    raise ValueError('only support left or right side')
+            else:
+                padded_special_token_masks = None
+            return padded_special_token_masks
+
         for key in data.keys():
             if data[key] is not None:
                 data[key] = data[key].to(self.llm.dtype)
-        generate_ids = self.llm.generate(
+        
+        llm_outputs = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
                 generation_config=self.gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
                 stopping_criteria=self.stop_criteria)
+        
+        # prepare hidden_states for modules
+        hidden_states = []
+        for time_step_feats in llm_outputs.hidden_states:
+            last_layer_feats = time_step_feats[-1]
+            hidden_states.append(last_layer_feats)
+        hidden_states = torch.cat(hidden_states, dim=1)
 
-        generate_ids_dict = [{'generate_ids':generate_id} for generate_id in generate_ids]
+        # prepare special token masks for modules
+        vrt_masks = metas.get('vrt_masks', None)
+        metas['vrt_masks'] = _pad_special_token_masks(
+            special_token_masks=vrt_masks,
+            target_size=hidden_states.shape[:-1],
+            pad_side='left'
+        )
 
+        # remove last generated token (the last one usually is </s>)
+        # in all situations, the last token will not used for inference (</s> or cutoff as max_length)
+        ref_masks = llm_outputs.sequences[:, :-1] == \
+            self.token_ids[VISUAL_REFERENCE_TOKEN]
+        metas['ref_masks'] = _pad_special_token_masks(
+            special_token_masks=ref_masks,
+            target_size=hidden_states.shape[:-1],
+            pad_side='right'
+        )
 
-        hidden_states = None
-
-
+        # get decoders outputs
+        modules_outputs = self.modules_forward_pipeline(
+            hidden_states=hidden_states, 
+            metas=metas, 
+            mode='predict'
+        )
+        decoder_outputs = modules_outputs.get('visual_decoder', None)
 
         results = dict()
-        results['generate_ids'] = generate_ids_dict
+        results['generate_ids'] = llm_outputs.sequences
+        results['decoder_outputs'] = decoder_outputs
         return results
 
     def compute_loss_llm(self, logits, labels):
@@ -688,67 +809,27 @@ class OkapiModel(BaseModel):
         cost_dict['cot_cost'] = loss_cot
         cost_dict['answer_cost'] = loss_answer
 
-        # reconstruction loss
-        rec_outputs = None
-        if self.visual_sync_tuner is not None:
-            vrt_hidden_states = self.prepare_vrt_feats(
-                hidden_states=outputs.hidden_states[-1],
-                metas=metas,
-                mode='loss'
-            )
-            rec_outputs = self.visual_sync_tuner(
-                vrt_hidden_states,
-                metas=metas,
-                mode='loss'
-            )
+        # all modules forward
+        modules_outputs = self.modules_forward_pipeline(
+            hidden_states=outputs.hidden_states[-1], 
+            metas=metas, 
+            mode='loss'
+        )
+        rec_outputs = modules_outputs.get('visual_sync_tuner', None)
+        if rec_outputs is not None:
             loss_dict['rec'] = rec_outputs['loss']
             cost_dict['rec_cost'] = rec_outputs['loss']
-
-        ref_used_module = [self.moe_adapter, self.visual_decoder]
-        if any(module is not None for module in ref_used_module):
-            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-                outputs.hidden_states[-1],
-                metas=metas,
-                mode='loss'
-            )
-
-        # moe adapter
-        moe_outputs = None
-        if self.moe_adapter is not None:
-            moe_outputs = self.moe_adapter(
-                ref_hidden_states,
-                # ref_attention_masks,
-                mode='loss'
-            )
+        
+        moe_outputs = modules_outputs.get('moe_adapter', None)
+        if moe_outputs is not None:
             loss_dict['moe'] = moe_outputs['loss']
             cost_dict['moe_cost'] = moe_outputs['loss']
-
-        # decoders
-        if self.visual_decoder is not None:
-            if rec_outputs is None:
-                visual_hidden_states = [metas['visual_hidden_states']]
-            else:
-                # pyramid outputs
-                visual_hidden_states = rec_outputs['hidden_states']
-
-            if moe_outputs is None:
-                decode_hidden_states = ref_hidden_states
-            else:
-                # last layer output
-                decode_hidden_states = moe_outputs['hidden_states'][-1]
-            
-            for type, decoder in self.visual_decoder.items():
-
-                decode_outputs = decoder(
-                    visual_hidden_states,
-                    decode_hidden_states,
-                    visual_mask=None,
-                    ref_mask=ref_attention_masks,
-                    metas=metas,
-                    mode='loss'
-                )
-                loss_dict[type] = decode_outputs['loss']
-                cost_dict[f'{type}_cost'] = decode_outputs['loss']
+        
+        decoder_outputs = modules_outputs.get('visual_decoder', None)
+        if decoder_outputs is not None:
+            for type, outputs in decoder_outputs.items():
+                loss_dict[type] = outputs['loss']
+                cost_dict[f'{type}_cost'] = outputs['loss']
 
         # loss
         loss = 0

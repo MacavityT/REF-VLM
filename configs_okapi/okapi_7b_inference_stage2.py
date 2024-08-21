@@ -26,8 +26,7 @@ ref_length = 1
 cot_weight = 1
 vrt_weight = 1
 model_dir = '/code/okapi-mllm/sketch_checkpoints/0719_iter59525'
-
-
+# model_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0813/iter_23500.pth'
 
 projector = dict(
     type=AutoModel.from_pretrained,
@@ -59,8 +58,6 @@ infer_dataset = dict(
     pad_image_to_square=True,
     mode='inference')
 
-
-
 if os.path.exists(os.path.join(model_dir,'visual_sync_tuner')):
     visual_sync_tuner = dict(
         type=AutoModel.from_pretrained,
@@ -82,7 +79,6 @@ if os.path.exists(os.path.join(model_dir,'visual_sync_tuner')):
         projector=projector,
         vpt_encoder=vpt_encoder,
         visual_sync_tuner=visual_sync_tuner)
-
 else:
     model = dict(
         type=OkapiModel,

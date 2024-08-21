@@ -294,11 +294,11 @@ class MaskDecoderModel(DecoderModel):
             condition = torch.zeros_like(ref_mask).to(torch.bool)
             condition[batch_remove_mask, :] = True 
             ref_mask = ref_mask.masked_fill(condition, False)
-        pred_masks = masks_queries_logits[ref_mask, :]
-
+        
         loss = None
         if mode == 'loss':   
             try:
+                pred_masks = masks_queries_logits[ref_mask, :]
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
                 if ref_mask.sum() > 0 and target_masks is not None:
@@ -319,7 +319,11 @@ class MaskDecoderModel(DecoderModel):
                 save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = mask')
         else:
-            pred_masks = torch.sigmoid(masks_queries_logits)
+            masks_queries_logits = torch.sigmoid(masks_queries_logits)
+            pred_masks = []
+            for queries_logits, mask in zip(masks_queries_logits, ref_mask):
+                masks = queries_logits[mask, :]
+                pred_masks.append(masks)
 
         return dict(
             loss=loss,

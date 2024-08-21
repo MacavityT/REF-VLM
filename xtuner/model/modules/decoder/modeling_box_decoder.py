@@ -235,7 +235,7 @@ class BoxDecoderModel(DecoderModel):
             return_dict=True,
         )
         sequence_output = decoder_outputs[0]
-        pred_boxes = self.predictor(sequence_output).sigmoid()
+        boxes_queries_logits = self.predictor(sequence_output).sigmoid()
 
         decode_units = metas.get('decode_units', None)
         if decode_units is not None:
@@ -244,11 +244,11 @@ class BoxDecoderModel(DecoderModel):
             condition = torch.zeros_like(ref_mask).to(torch.bool)
             condition[batch_remove_mask, :] = True 
             ref_mask = ref_mask.masked_fill(condition, False)
-        pred_boxes = pred_boxes[ref_mask, :]
 
         loss = None
         if mode == 'loss':
             try:
+                pred_boxes = boxes_queries_logits[ref_mask, :]
                 target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
                 target_slices = self.get_label_slices(metas, ref_mask)
             
@@ -269,6 +269,23 @@ class BoxDecoderModel(DecoderModel):
                 metas['ref_mask_filter'] = ref_mask
                 save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = box')
+            
+            if ref_mask.sum() > 0 and target_boxes is not None:
+                target_boxes = torch.stack(
+                    target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)
+                loss_dict = self.criteria(pred_boxes, target_boxes, target_slices)
+                weight_dict = {
+                    "loss_bbox": self.config.bbox_loss_coefficient,
+                    "loss_giou": self.config.giou_loss_coefficient}
+                loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+            else:
+                loss = pred_boxes.sum() * 0.0
+        else:
+            pred_boxes = []
+            for queries_logits, mask in zip(boxes_queries_logits, ref_mask):
+                boxes = queries_logits[mask, :]
+                pred_boxes.append(boxes)
+
         return dict(
             loss=loss,
             preds=pred_boxes
