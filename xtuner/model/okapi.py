@@ -615,6 +615,20 @@ class OkapiModel(BaseModel):
     
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
+
+        ref_hidden_states, ref_attention_masks = None, None
+        ref_used_module = [self.moe_adapter, self.visual_decoder]
+        if any(module is not None for module in ref_used_module):
+            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
+                hidden_states,
+                metas=metas,
+                mode=mode
+            )
+        if ref_hidden_states is None:
+            # only in predict process
+            return results
+
+        # visual sync tuner
         rec_outputs = None
         if self.visual_sync_tuner is not None:
             vrt_hidden_states = self.prepare_vrt_feats(
@@ -628,14 +642,6 @@ class OkapiModel(BaseModel):
                 mode=mode
             )
             results['visual_sync_tuner'] = rec_outputs
-
-        ref_used_module = [self.moe_adapter, self.visual_decoder]
-        if any(module is not None for module in ref_used_module):
-            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-                hidden_states,
-                metas=metas,
-                mode=mode
-            )
 
         # moe adapter
         moe_outputs = None
