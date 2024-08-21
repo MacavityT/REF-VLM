@@ -304,91 +304,96 @@ class OkapiDataset(Dataset):
         assert self.data is not None, 'Please add valid dataset first!'
         data_dict = self.data[index]
 
-        try:
-            # image
-            if data_dict.get('image', None) is not None:
-                image_info = data_dict['image']
-                image_path = image_info['path']
-                image_meta = self.image_process(image_path)
-                data_dict['pixel_values'] = image_meta['pixel_values']
-                data_dict['ori_width'] = image_meta['ori_width']
-                data_dict['ori_height'] = image_meta['ori_height']
-                data_dict['image_path'] = image_meta['image_path']
+        # try:
+        # image
+        if data_dict.get('image', None) is not None:
+            image_info = data_dict['image']
+            if 'path' in image_info.keys():
+                image = image_info['path']
+            elif 'value' in image_info.keys():
+                image = image_info['value']
             else:
-                if hasattr(self.image_processor, 'crop_size'):
-                    crop_size = self.image_processor.crop_size
-                else:
-                    crop_size = self.image_processor.size
-                data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
-                                                        crop_size['width'])
-                data_dict['ori_height'] = 0
-                data_dict['ori_width'] = 0
-                data_dict['image_path'] = ''
-            
-            if 'input_ids' not in data_dict.keys():
-                if 'target' in data_dict.keys():
-                    self.target_process(
-                        data_dict['target'], 
-                        width=data_dict['ori_width'],
-                        height=data_dict['ori_height']
-                    )
-                # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
-                data_dict.update(self.dataset_map_fn(data_dict))
-                data_dict.update(self.template_map_fn(data_dict))
-                # 'input_ids', 'labels'
-                data_dict.update(
-                    encode_fn(
-                        example=data_dict,
-                        tokenizer=self.tokenizer,
-                        max_length=self.max_length,
-                        input_ids_with_output=True,
-                        with_image_token=True,
-                        visual_prompts=data_dict.get('visual_prompts', None)
-                    )
+                raise NotImplementedError
+            image_meta = self.image_process(image)
+            data_dict['pixel_values'] = image_meta['pixel_values']
+            data_dict['ori_width'] = image_meta['ori_width']
+            data_dict['ori_height'] = image_meta['ori_height']
+            data_dict['image_path'] = image_meta['image_path']
+        else:
+            if hasattr(self.image_processor, 'crop_size'):
+                crop_size = self.image_processor.crop_size
+            else:
+                crop_size = self.image_processor.size
+            data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
+                                                    crop_size['width'])
+            data_dict['ori_height'] = 0
+            data_dict['ori_width'] = 0
+            data_dict['image_path'] = ''
+        
+        if 'input_ids' not in data_dict.keys():
+            if 'target' in data_dict.keys():
+                self.target_process(
+                    data_dict['target'], 
+                    width=data_dict['ori_width'],
+                    height=data_dict['ori_height']
                 )
-
-            if data_dict.get('visual_prompts', None) is not None:
-                assert data_dict.get('image', None) is not None, \
-                    'visual prompts set, but no image input.'
-                max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
-                if max_num > 0:
-                    visual_prompts = self.visual_prompts_process(
-                        data_dict['visual_prompts'],
-                        ori_width=data_dict['ori_width'],
-                        ori_height=data_dict['ori_height'],
-                        max_num = max_num # input content might be cut off
-                    )
-                    data_dict['visual_prompts'] = visual_prompts
-                elif max_num == 0:
-                    data_dict.pop('visual_prompts', None)
-                else:
-                    raise f"max num:{max_num} is lower than 0"
-
-            if data_dict.get('decode_units', None) is not None:
-                assert data_dict.get('image', None) is not None, \
-                    'decode units set, but no image input.'
-                # decode units
-                first_unit = data_dict['decode_units'][0]
-                assert all(unit == first_unit \
-                    for unit in data_dict['decode_units'])
-                data_dict['decode_units'] = first_unit
-
-                # decode seqs
-                decode_seqs = self.decode_seqs_process(
-                    data_dict['decode_seqs']
+            # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
+            data_dict.update(self.dataset_map_fn(data_dict))
+            data_dict.update(self.template_map_fn(data_dict))
+            # 'input_ids', 'labels'
+            data_dict.update(
+                encode_fn(
+                    example=data_dict,
+                    tokenizer=self.tokenizer,
+                    max_length=self.max_length,
+                    input_ids_with_output=True,
+                    with_image_token=True,
+                    visual_prompts=data_dict.get('visual_prompts', None)
                 )
-                data_dict['decode_seqs'] = decode_seqs
+            )
 
-                # decode labels
-                decode_labels = self.decode_labels_process(
-                    data_dict['decode_labels']
+        if data_dict.get('visual_prompts', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'visual prompts set, but no image input.'
+            max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
+            if max_num > 0:
+                visual_prompts = self.visual_prompts_process(
+                    data_dict['visual_prompts'],
+                    ori_width=data_dict['ori_width'],
+                    ori_height=data_dict['ori_height'],
+                    max_num = max_num # input content might be cut off
                 )
-                data_dict['decode_labels'] = decode_labels
-        except Exception as e:
-            from xtuner.model.utils import save_wrong_data
-            print(e)
-            save_wrong_data(f"wrong_data_dict", data_dict)
-            raise ValueError('Error in get data process')
+                data_dict['visual_prompts'] = visual_prompts
+            elif max_num == 0:
+                data_dict.pop('visual_prompts', None)
+            else:
+                raise f"max num:{max_num} is lower than 0"
+
+        if data_dict.get('decode_units', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'decode units set, but no image input.'
+            # decode units
+            first_unit = data_dict['decode_units'][0]
+            assert all(unit == first_unit \
+                for unit in data_dict['decode_units'])
+            data_dict['decode_units'] = first_unit
+
+            # decode seqs
+            decode_seqs = self.decode_seqs_process(
+                data_dict['decode_seqs']
+            )
+            data_dict['decode_seqs'] = decode_seqs
+
+            # decode labels
+            decode_labels = self.decode_labels_process(
+                data_dict['decode_labels']
+            )
+            data_dict['decode_labels'] = decode_labels
+        # except Exception as e:
+        #     from xtuner.model.utils import save_wrong_data
+        #     print(e)
+        #     save_wrong_data(f"wrong_data_dict", data_dict)
+        #     raise ValueError('Error in get data process')
 
         # #region debug
         # ori_path = 'vis_origin.jpg'

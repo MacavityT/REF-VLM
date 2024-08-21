@@ -240,11 +240,12 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     model.gen_config.temperature = temperature
     model.gen_config.top_p = top_p
     model.gen_config.top_k = top_k
-    for idx, data_batch in enumerate(state['dataloader']):
-        for key in data_batch['data'].keys():
-            if isinstance(data_batch['data'][key],torch.Tensor):
-                data_batch['data'][key] = data_batch['data'][key].cuda()
-        output = model(**data_batch,mode='predict')
+    with torch.no_grad():
+        for idx, data_batch in enumerate(state['dataloader']):
+            for key in data_batch['data'].keys():
+                if isinstance(data_batch['data'][key],torch.Tensor):
+                    data_batch['data'][key] = data_batch['data'][key].cuda()
+            output = model(**data_batch,mode='predict')
 
     print("prompt length: ", len(prompt_image_list))
     input_str = decode_generate_ids(tokenizer,data_batch['data']['input_ids'],skip_special_tokens=False)
