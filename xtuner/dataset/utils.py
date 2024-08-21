@@ -578,8 +578,8 @@ def visualize_box(image, boxes, line_thickness=2):
     
     for box in boxes:
         x1, y1, x2, y2 = box
-        left_top = tuple((x1, y1))
-        right_bottom = tuple((x2, y2))
+        left_top = tuple((int(x1), int(y1)))
+        right_bottom = tuple((int(x2), int(y2)))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
     

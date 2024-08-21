@@ -11,38 +11,60 @@ import os
 import copy
 import time
 import random
+from PIL import Image
 
 from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
 from xtuner.utils.constants import MASKS_PLACEHOLDER
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import okapi_collate_fn
-from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box
+from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box,expand2square
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
-SYS_IDX_TASK = {
-    'VQA': 0,
-    'Detection': 1,
-    'Segmentation': 2,
-    'Grounding Detection': 3,
-    'Grounding Segmentation': 4,
-    'Gcg Detection': 5,
-    'Gcg Segmentation': 6,
-}
+
+def denormalize_bbox_to_corners(box, image_width, image_height):
+    norm_x, norm_y, norm_w, norm_h = box
+    # 计算中心点的原始坐标
+    x_center = norm_x * image_width
+    y_center = norm_y * image_height
+
+    # 计算原始的宽度和高度
+    width = norm_w * image_width
+    height = norm_h * image_height
+
+    # 计算左上角和右下角坐标
+    xmin = x_center - (width / 2)
+    ymin = y_center - (height / 2)
+    xmax = x_center + (width / 2)
+    ymax = y_center + (height / 2)
+
+    denorm_box = (xmin,ymin,xmax,ymax)
+
+    # 返回反归一化后的坐标
+    return denorm_box
 
 
-SYS_VALUE_OKAPI = [
-    {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}},
-    {'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']},
-    {'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
-    {'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']},
-    {'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']},
-    {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']},
-    {'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']},
-]
+def choose_system(task_name):
+    if task_name == 'VQA':
+        return {'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}
+    elif task_name == 'Detection':
+        return {'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}
+    elif task_name == 'Segmentation':
+        return {'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}
+    elif task_name == 'Grounding Detection':
+        return {'task':{'task_name':'grounding_detection','element':['phrase'],'use_unit':True},'unit':['box']}
+    elif task_name == 'Grounding Segmentation':
+        return {'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}
+    elif task_name == 'Gcg Detection':
+        return {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
+    elif task_name == 'Gcg Segmentation':
+        return {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
+    else:
+        raise NotImplementedError
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
@@ -166,8 +188,8 @@ def img_select_box(input_image: dict, prompt_image_list: list):
     return prompt_image_list
 
 
-import debugpy
-debugpy.connect(('127.0.0.1', 5577))
+# import debugpy
+# debugpy.connect(('127.0.0.1', 5577))
 
 args = parse_args()
 torch.manual_seed(args.seed)
@@ -194,8 +216,7 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     if radio == "":
         return "", chatbot, state, prompt_image_list,radio
 
-    task_idx = SYS_IDX_TASK[radio]
-    system_value = SYS_VALUE_OKAPI[task_idx]
+    system_value = choose_system(radio)
     input_text_chatbot = input_text
     pattern = r"<masks>"
     input_text_chatbot = re.sub(pattern, r"**\<masks\>**", input_text_chatbot)
@@ -244,6 +265,12 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
 
 def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k,input_image,output_image):
 
+    if input_image is not None:
+        if isinstance(input_image,dict):
+            input_image = input_image['image']
+    input_image = expand2square(Image.fromarray(input_image),background_color=0)
+    input_image = input_image.resize((336,336))
+
     if radio == "":
         raise gr.Error("You must set a valid task first!")
     
@@ -269,22 +296,30 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k,
     bot_message = output_seq
     print(output_seq)
     chatbot[-1][1] = ""
+
+    if output['decoder_outputs'] is not None:
+        boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
+        masks_output = output['decoder_outputs']['mask']['preds'][0].float().cpu().numpy().tolist()
+
+        if boxes_output != []:
+            boxes_denorm = []
+            for box in boxes_output:
+                box_xyxy = box_xywh_to_xyxy(box,w=input_image.width,h=input_image.height)
+                box_denorm = de_norm_box_xyxy(box_xyxy,w=input_image.width,h=input_image.height)
+                # box_denorm = denormalize_bbox_to_corners(box,input_image.width,input_image.height)
+                boxes_denorm.append(box_denorm)
+            output_image = visualize_box(input_image,boxes_denorm)
+
+        elif masks_output != []:
+            pass
+        
     
     for character in bot_message:
         chatbot[-1][1] += character
         time.sleep(0.005)
-        yield chatbot
+        yield chatbot,output_image
 
-    if output['decoder_outputs'] is not None:
-        boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
-        boxes_denorm = []
-        for box in boxes_output:
-            box_xyxy = box_xywh_to_xyxy(box,w=336,h=336)
-            box_denorm = de_norm_box_xyxy(box_xyxy,w=input_image.shape[1],h=input_image.shape[0])
-            boxes_denorm.append(box_denorm)
-        output_image = visualize_box(input_image,boxes_denorm)
 
-        masks_output = output['decoder_outputs']['mask']['preds'][0].cpu().numpy()
     
     return chatbot,output_image
 
@@ -535,7 +570,7 @@ with gr.Blocks(
             with gr.Row():
                 with gr.Column():
                     chatbot = gr.Chatbot(height=600)
-                    output_image = gr.Image(label="Output image", height=300, interactive=False)             
+                    output_image = gr.Image(label="Output image", height=336, interactive=False)             
                     clear_button = gr.Button("🗑 Clear Button")
                     gr.Markdown(descrip_chatbot)
 

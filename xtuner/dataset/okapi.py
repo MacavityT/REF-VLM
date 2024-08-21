@@ -312,8 +312,6 @@ class OkapiDataset(Dataset):
                 image = image_info['path']
             elif 'value' in image_info.keys():
                 image = image_info['value']
-            else:
-                raise NotImplementedError
             image_meta = self.image_process(image)
             data_dict['pixel_values'] = image_meta['pixel_values']
             data_dict['ori_width'] = image_meta['ori_width']
@@ -337,44 +335,31 @@ class OkapiDataset(Dataset):
                     width=data_dict['ori_width'],
                     height=data_dict['ori_height']
                 )
-
-            if data_dict.get('visual_prompts', None) is not None:
-                assert data_dict.get('image', None) is not None, \
-                    'visual prompts set, but no image input.'
-                max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
-                if max_num > 0:
-                    visual_prompts = self.visual_prompts_process(
-                        data_dict['visual_prompts'],
-                        ori_width=data_dict['ori_width'],
-                        ori_height=data_dict['ori_height'],
-                        max_num = max_num # input content might be cut off
-                    )
-                    data_dict['visual_prompts'] = visual_prompts
-                elif max_num == 0:
-                    data_dict.pop('visual_prompts', None)
-                else:
-                    raise f"max num:{max_num} is lower than 0"
-
-            # decode units
-            if data_dict.get('decode_units', None) is not None:
-                assert data_dict.get('image', None) is not None, \
-                    'decode units set, but no image input.'
-                first_unit = data_dict['decode_units'][0]
-                assert all(unit == first_unit \
-                    for unit in data_dict['decode_units'])
-                data_dict['decode_units'] = first_unit
-
-            # decode seqs
-            if data_dict.get('decode_seqs', None) is not None:
-                
-                decode_seqs = self.decode_seqs_process(
-                    data_dict['decode_seqs']
+            # 'visual_prompts', 'decode_labels', 'decode_units', 'conversation'
+            data_dict.update(self.dataset_map_fn(data_dict))
+            data_dict.update(self.template_map_fn(data_dict))
+            # 'input_ids', 'labels'
+            data_dict.update(
+                encode_fn(
+                    example=data_dict,
+                    tokenizer=self.tokenizer,
+                    max_length=self.max_length,
+                    input_ids_with_output=True,
+                    with_image_token=True,
+                    visual_prompts=data_dict.get('visual_prompts', None)
                 )
+            )
 
-            # decode labels
-            if data_dict.get('decode_labels', None) is not None:
-                decode_labels = self.decode_labels_process(
-                    data_dict['decode_labels']
+        if data_dict.get('visual_prompts', None) is not None:
+            assert data_dict.get('image', None) is not None, \
+                'visual prompts set, but no image input.'
+            max_num = data_dict['input_ids'].count(VISUAL_PROMPT_INDEX)
+            if max_num > 0:
+                visual_prompts = self.visual_prompts_process(
+                    data_dict['visual_prompts'],
+                    ori_width=data_dict['ori_width'],
+                    ori_height=data_dict['ori_height'],
+                    max_num = max_num # input content might be cut off
                 )
                 data_dict['visual_prompts'] = visual_prompts
             elif max_num == 0:
@@ -382,22 +367,25 @@ class OkapiDataset(Dataset):
             else:
                 raise f"max num:{max_num} is lower than 0"
 
+        # decode units
         if data_dict.get('decode_units', None) is not None:
             assert data_dict.get('image', None) is not None, \
                 'decode units set, but no image input.'
-            # decode units
             first_unit = data_dict['decode_units'][0]
             assert all(unit == first_unit \
                 for unit in data_dict['decode_units'])
             data_dict['decode_units'] = first_unit
 
-            # decode seqs
+        # decode seqs
+        if data_dict.get('decode_seqs', None) is not None:
+            
             decode_seqs = self.decode_seqs_process(
                 data_dict['decode_seqs']
             )
             data_dict['decode_seqs'] = decode_seqs
 
-            # decode labels
+        # decode labels
+        if data_dict.get('decode_labels', None) is not None:
             decode_labels = self.decode_labels_process(
                 data_dict['decode_labels']
             )
