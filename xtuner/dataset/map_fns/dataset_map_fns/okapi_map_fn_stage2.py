@@ -232,10 +232,10 @@ def target_map_fn(example):
 
     if any(vpt is not None for vpt in visual_prompts):
         result['visual_prompts'] = visual_prompts
-    if any(label is not None for label in decode_labels):
-        result['decode_labels'] = decode_labels
     if any(seq is not None for seq in decode_seqs):
         result['decode_seqs'] = decode_seqs
+    if any(label is not None for label in decode_labels):
+        result['decode_labels'] = decode_labels
     return result
 
 def conversation_map_fn(example, vrt_len=64, ref_len=1):
