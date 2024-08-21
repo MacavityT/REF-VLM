@@ -36,6 +36,9 @@ from .utils import (
     norm_point_xyxy,
     de_norm_box_xyxy,
     box_xyxy_to_xywh,
+    de_norm_box_xyxy_square2origin,
+    denorm_box_xywh_square2origin,
+    box_xywh_to_xyxy,
     visualize_mask,
     visualize_mask_single,
     visualize_box_single,
@@ -375,7 +378,6 @@ class OkapiDataset(Dataset):
 
             # decode seqs
             if data_dict.get('decode_seqs', None) is not None:
-                
                 decode_seqs = self.decode_seqs_process(
                     data_dict['decode_seqs']
                 )

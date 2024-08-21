@@ -414,7 +414,7 @@ def box_xywh_to_xyxy(box, w=None, h=None):
         x2 = min(x2, w)
     if h is not None:
         y2 = min(y2, h)
-    box = x1, y1, x2, y2
+    box = (round(x1, 3), round(y1, 3), round(x2, 3), round(y2, 3))
     return box
 
 def box_xyxy_to_xywh(box):
@@ -423,7 +423,7 @@ def box_xyxy_to_xywh(box):
     bh = y2 - y1
     x_center = (x1 + x2) / 2
     y_center = (y1 + y2) / 2
-    box = x_center, y_center, bw, bh
+    box = (round(x_center, 3), round(y_center, 3), round(bw, 3), round(bh, 3))
     return box
 
 def de_norm_box_xyxy(box, w, h):
@@ -438,6 +438,27 @@ def de_norm_box_xyxy(box, w, h):
 def de_norm_box_xywh(box, w, h):
     box = box_xywh_to_xyxy(box, w, h)
     box = de_norm_box_xyxy(box, w, h)
+    return box
+
+def de_norm_box_xyxy_square2origin(box, origin_width, origin_height):
+    if origin_width == origin_height:
+        return box
+
+    if origin_width > origin_height:
+        x1, y1, x2, y2 = [i * origin_width for i in box]
+        y1 -= (origin_width - origin_height) // 2
+        y2 -= (origin_width - origin_height) // 2
+    else:
+        x1, y1, x2, y2 = [i * origin_height for i in box]
+        x1 -= (origin_height - origin_width) // 2
+        x2 -= (origin_height - origin_width) // 2
+
+    box = x1, y1, x2, y2
+    return box
+
+def denorm_box_xywh_square2origin(box, origin_width, origin_height):
+    box = box_xywh_to_xyxy(box)
+    box = de_norm_box_xyxy_square2origin(box, origin_width, origin_height)
     return box
 
 def norm_box_xyxy(box, w, h):
