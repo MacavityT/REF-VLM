@@ -370,7 +370,6 @@ class OkapiDataset(Dataset):
                 decode_seqs = self.decode_seqs_process(
                     data_dict['decode_seqs']
                 )
-            )
 
             # decode labels
             if data_dict.get('decode_labels', None) is not None:
