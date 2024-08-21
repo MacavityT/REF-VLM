@@ -373,15 +373,16 @@ class OkapiDataset(Dataset):
                     for unit in data_dict['decode_units'])
                 data_dict['decode_units'] = first_unit
 
+            # decode seqs
             if data_dict.get('decode_seqs', None) is not None:
-                # decode seqs
+                
                 decode_seqs = self.decode_seqs_process(
                     data_dict['decode_seqs']
                 )
                 data_dict['decode_seqs'] = decode_seqs
 
+            # decode labels
             if data_dict.get('decode_labels', None) is not None:
-                # decode labels
                 decode_labels = self.decode_labels_process(
                     data_dict['decode_labels']
                 )
