@@ -6,6 +6,7 @@ from io import BytesIO
 from itertools import chain
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 import requests
 import random
@@ -403,6 +404,28 @@ def points_xy_expand2square(points, width, height):
 def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
+
+def mask_square2origin(mask, origin_width, origin_height):
+    target_size = max(origin_width, origin_height)
+    
+    mask = F.interpolate(
+        mask, 
+        size=(target_size, target_size), 
+        mode='bilinear', 
+        align_corners=False
+    )
+    if origin_width == origin_height:
+        return mask
+
+    if origin_width > origin_height:
+        top = (origin_width - origin_height) // 2
+        bottom = top + origin_height
+        result = mask[top:bottom, :]
+    else:
+        left = (origin_height - origin_width) // 2
+        right = left + origin_width
+        result = mask[:, left:right]
+    return result
 
 def box_xywh_to_xyxy(box, w=None, h=None):
     x_center, y_center, bw, bh = box
