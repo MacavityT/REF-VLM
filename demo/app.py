@@ -17,7 +17,12 @@ from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACE
 from xtuner.utils.constants import MASKS_PLACEHOLDER
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import okapi_collate_fn
-from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box,expand2square,denorm_box_xywh_square2origin
+from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
+from xtuner.dataset.utils import (visualize_box,
+                                  visualize_mask,
+                                  mask_square2origin,
+                                  draw_label_type,
+                                  denorm_box_xywh_square2origin)
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
@@ -42,7 +47,7 @@ def choose_system(task_name):
     elif task_name == 'Gcg Detection':
         return {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
     elif task_name == 'Gcg Segmentation':
-        return {'task':{'task_name':'gcg_detection','element':['phrase','sentence'],'use_unit':True},'unit':['box']}
+        return {'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']}
     else:
         raise NotImplementedError
 
@@ -193,7 +198,6 @@ model.cuda().eval()
 
 
 def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_list, point_mask=None):
-
     if radio == "":
         return "", chatbot, state, prompt_image_list,radio
 
@@ -274,11 +278,20 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     chatbot[-1][1] = ""
 
     if output['decoder_outputs'] is not None:
-        boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
-        masks_output = output['decoder_outputs']['mask']['preds'][0].float().cpu().numpy().tolist()
-
-        state['boxes_output'] = boxes_output
-        state['masks_output'] = masks_output
+        if 'box' in output['decoder_outputs'].keys():
+            boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
+            state['boxes_output'] = boxes_output
+        if 'mask' in output['decoder_outputs'].keys():
+            masks_output = output['decoder_outputs']['mask']['preds'][0].float().cpu().numpy().tolist()
+            state['masks_output'] = masks_output
+        try:
+            labels = get_cot_elements(output_seq.replace("\\",""),['<REF>'])
+            new_labels = []
+            for label, num in zip(labels[0],labels[2]):
+                new_labels.extend([label.strip()]*int(num))
+        except:
+            new_labels = None
+        state['labels'] = new_labels
 
     for character in bot_message:
         chatbot[-1][1] += character
@@ -287,8 +300,8 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     
     return chatbot
 
-def submit_step3(state,input_image,output_image):
-
+def submit_step3(state,input_image,output_image,threshold=0.4):
+    output_image = None
     if input_image is not None:
         if isinstance(input_image,dict):
             input_image = input_image['image']
@@ -302,11 +315,16 @@ def submit_step3(state,input_image,output_image):
         for box in boxes_output:
             box_denorm = denorm_box_xywh_square2origin(box,input_image.width,input_image.height)
             boxes_denorm.append(box_denorm)
-        output_image = visualize_box(input_image,boxes_denorm)
+        output_image = visualize_box(input_image,boxes_denorm,labels=state['labels'])
     elif masks_output != []:
-        pass
+        masks_resize = [mask_square2origin(torch.tensor(mask),input_image.width,input_image.height) for mask in masks_output]
+        masks_resize = [(mask > threshold).cpu().numpy().astype(np.uint8) for mask in masks_resize]
+        output_image = visualize_mask(input_image,masks_resize)
+    if output_image is not None:
+        output_image = Image.fromarray(output_image).resize((600,330))
 
-    output_image = Image.fromarray(output_image).resize((600,330))
+    state['boxes_output'] = []
+    state['masks_output'] = []
 
     return output_image
 
@@ -319,7 +337,8 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
                                         'dataloader': None,
                                         'prompt_input':None,
                                         'boxes_output':[],
-                                        'masks_output':[]}
+                                        'masks_output':[],
+                                        'labels':None}
 theme = gr.themes.Default()
 
 # title_markdown = ("""
@@ -379,7 +398,8 @@ with gr.Blocks(
                                  'input_data_okapi':BUILDER.build(cfg.infer_dataset),
                                  'dataloader': None,
                                  'boxes_output':[],
-                                 'masks_output':[]})
+                                 'masks_output':[],
+                                 'labels':None})
     example_list_image = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
         [os.path.join(os.path.dirname(__file__), "assets/fishing.jpg")],

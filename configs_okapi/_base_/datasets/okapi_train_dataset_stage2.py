@@ -38,13 +38,6 @@ grand_re_cap = dict(
     cfg=train_all_dataset['grand_c'],
 )
 
-grand_det_seg = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['grand_d_s'],
-)
 
 grand_cond_d = dict(
     type='SubSet',
@@ -81,27 +74,27 @@ grand_re_seg = dict(
 dataset_s1 = [
 
     # subsets
-    gc,
+    # gc,
 
     # general datasets
-    train_all_dataset['flickr'],
-    train_all_dataset['rec'],
-    train_all_dataset['caption'],
-    train_all_dataset['reg'],
+    # train_all_dataset['flickr'],
+    # train_all_dataset['rec'],
+    # train_all_dataset['caption'],
+    # train_all_dataset['reg'],
 
     # vqa v2
-    train_all_dataset['vqav2_train'],
-    train_all_dataset['vqae_train'],
-    train_all_dataset['vqax_train'],
+    # train_all_dataset['vqav2_train'],
+    # train_all_dataset['vqae_train'],
+    # train_all_dataset['vqax_train'],
 
     # point qa
-    train_all_dataset['point_local_b'],
-    train_all_dataset['point_local_p'],
-    train_all_dataset['point_twice_oq_bp'],
-    train_all_dataset['point_twice_sq_bp'],
-    train_all_dataset['point_twice_gq_bp'],
-    train_all_dataset['point_v7w_p'],
-    train_all_dataset['point_v7w_b'],
+    # train_all_dataset['point_local_b'],
+    # train_all_dataset['point_local_p'],
+    # train_all_dataset['point_twice_oq_bp'],
+    # train_all_dataset['point_twice_sq_bp'],
+    # train_all_dataset['point_twice_gq_bp'],
+    # train_all_dataset['point_v7w_p'],
+    # train_all_dataset['point_v7w_b'],
 ]
 
 
@@ -110,43 +103,44 @@ dataset_s2 = [
 
 
     # llava grounding
-    train_all_dataset['llavag_reg'],
+    # train_all_dataset['llavag_reg'],
     train_all_dataset['llavag_gcg'],
     
     # png
     train_all_dataset['png_gcg'],
 
     # instruct
-    train_all_dataset['instruct'],
+    # train_all_dataset['instruct'],
 
     # osprey
-    train_all_dataset['osprey_partlevel'],
-    train_all_dataset['osprey_shortform'],
-    train_all_dataset['osprey_lvis'],
-    train_all_dataset['osprey_conversations'],
-    train_all_dataset['osprey_detailed'],
+    # train_all_dataset['osprey_partlevel'],
+    # train_all_dataset['osprey_shortform'],
+    # train_all_dataset['osprey_lvis'],
+    # train_all_dataset['osprey_conversations'],
+    # train_all_dataset['osprey_detailed'],
 
     # interact
-    train_all_dataset['interact_reg'],
+    # train_all_dataset['interact_reg'],
     train_all_dataset['interact_mask'],
-    train_all_dataset['interact_box'],
+    # train_all_dataset['interact_box'],
 
     # grit
-    train_all_dataset['grit_c_offline'],
-    train_all_dataset['grit_d_offline'],
-    train_all_dataset['grit_cond_d_offline'],
-    train_all_dataset['grit_r_offline'],
-    train_all_dataset['grit_g_offline'],
-    train_all_dataset['grit_c_d_offline'],
+    # train_all_dataset['grit_c_offline'],
+    # train_all_dataset['grit_d_offline'],
+    # train_all_dataset['grit_cond_d_offline'],
+    # train_all_dataset['grit_r_offline'],
+    # train_all_dataset['grit_g_offline'],
+    # train_all_dataset['grit_c_d_offline'],
 
     # grand
-    grand_re_cap,
-    grand_det_seg,
-    grand_cond_d,
-    grand_cond_s,
-    train_all_dataset['grand_re_det'],
-    train_all_dataset['grand_re_seg'],
-    train_all_dataset['grand_c_d'],
+    # grand_re_cap,
+    # grand_cond_d,
+    # train_all_dataset['grand_d'],
+    train_all_dataset['grand_s'],
+    train_all_dataset['grand_cond_s'],
+    # train_all_dataset['grand_re_det'],
+    # train_all_dataset['grand_re_seg'],
+    # train_all_dataset['grand_c_d'],
     train_all_dataset['grand_c_s'],
 
 ]

@@ -109,7 +109,6 @@ class LLAVAGrounding(MInstrDataset):
             system = {
                 'from':'system',
                 'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(item['conversations'])//2)],
-                # 'value': [{'task':{'task_name':'referring vqa','element':['sentence'],'use_unit':False}} for _ in range(len(item['conversations'])//2)],
                 }
             
 
@@ -132,7 +131,7 @@ class LLAVAGrounding(MInstrDataset):
                         mask_seq = []
                         for i,mask_idx in enumerate(sublist):
                             annotation = self.anns[mask_idx]
-                            rleObjs = mask_utils.frPyObjects(annotation["segmentation"], image_info["width"], image_info["height"])
+                            rleObjs = mask_utils.frPyObjects(annotation["segmentation"], image_info["height"], image_info["width"])
                             mask = decode(rleObjs)
                             if len(mask.shape) == 3:
                                 gt_masks.append(mask[:,:,0])
