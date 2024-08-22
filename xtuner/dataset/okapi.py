@@ -26,6 +26,7 @@ from .huggingface import process_hf_dataset, encode_fn
 from .utils import (
     imfrombytes,
     expand2square,
+    get_pixel_mask,
     bbox2mask,
     point2mask,
     boxes_xyxy_expand2square,
@@ -324,9 +325,15 @@ class OkapiDataset(Dataset):
                     crop_size = self.image_processor.size
                 data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                         crop_size['width'])
-                data_dict['ori_height'] = 0
-                data_dict['ori_width'] = 0
+                data_dict['ori_height'] = crop_size['height']
+                data_dict['ori_width'] = crop_size['width']
                 data_dict['image_path'] = ''
+
+            data_dict['pixel_masks'] = get_pixel_mask(
+                data_dict['pixel_values'],
+                data_dict['ori_width'],
+                data_dict['ori_height']
+            )
             
             if 'input_ids' not in data_dict.keys():
                 if 'target' in data_dict.keys():

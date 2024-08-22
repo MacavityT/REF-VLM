@@ -313,6 +313,28 @@ def expand2square(pil_img, background_color):
         result.paste(pil_img, ((height - width) // 2, 0))
         return result
 
+def get_pixel_mask(image, origin_width, origin_height):
+    height, width = image.shape[-2:]
+    if height != width:
+        return torch.ones((height, width)).to(torch.bool)
+
+    mask = torch.zeros((height, width)).to(torch.bool)
+    if origin_width == origin_height:
+        return mask
+    if origin_width > origin_height:
+        ratio = origin_height / origin_width
+        real_height = width * ratio
+        top = int((height - real_height) // 2)
+        bottom = int(top + real_height)
+        mask[top:bottom, :] = True
+    else:
+        ratio = origin_width / origin_height
+        real_width = height * ratio
+        left = int((width - real_width) // 2)
+        right = int(left + real_width)
+        mask[:, left:right] = True
+    return mask
+
 def load_image(image_file):
     if image_file.startswith('http://') or image_file.startswith('https://'):
         response = requests.get(image_file)

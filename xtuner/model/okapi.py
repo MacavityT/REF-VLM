@@ -530,7 +530,8 @@ class OkapiModel(BaseModel):
             'ori_image', 'image_path',
             'ori_height', 'ori_width',
             'decode_labels', 'decode_units',
-            'decode_seqs', 'conversations'
+            'decode_seqs', 'conversations',
+            'pixel_masks'
         ]
         assert 'pixel_values' in data, "pixel_values must in data dict."
         for key in meta_keys:

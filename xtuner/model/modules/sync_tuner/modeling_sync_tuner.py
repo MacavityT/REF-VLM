@@ -151,7 +151,7 @@ class SyncTunerModel(PreTrainedModel):
         self.config = config
 
         self.model = SyncTunerFPNModel(config)
-        self.criterion = MSELoss(reduction='none')
+        self.criterion = MSELoss(reduction='mean')
         # # self.image_pool = redis.StrictRedis(host='localhost', port=6379, db=0)
         # if image_pool is not None:
         #     with jsonlines.open(image_pool, 'r') as f:
@@ -184,8 +184,12 @@ class SyncTunerModel(PreTrainedModel):
         if isinstance(module, SyncTunerModel):
             module.gradient_checkpointing = value
     
-    def compute_loss_reconstruction(self, logits, image, image_path):
-        rec_flags = []
+    def compute_loss_reconstruction(self, logits, metas):
+        targets = metas['ori_image']
+        image_path = metas['image_path']
+        pixel_masks = torch.stack(metas['pixel_masks'])
+
+        rec_flags = torch.zeros((logits.shape[0])).to(torch.bool)
         # for path in image_path:
             # if path == '':
             #     rec_flag = False # fake image
@@ -200,39 +204,36 @@ class SyncTunerModel(PreTrainedModel):
         
         for idx in range(logits.shape[0]):
             if image_path[idx] == '':
-                rec_flag = False
+                rec_flags[idx] = False
             else:
-                rec_flag = np.random.uniform(0, 1) < self.config.ratio
-            rec_flags.append(rec_flag)
-        if not any(rec_flags):
-            return logits.sum() * 0.0
-
-        b, c, h, w = image.shape
-        mask = torch.Tensor(rec_flags).expand(c, h, w, b).permute(3, 0, 1, 2).bool() # b, c, h, w
+                rec_flags[idx] = np.random.uniform(0, 1) < self.config.ratio
+        
+        if not any(rec_flags): return logits.sum() * 0.0
         
         # transform pred to target shape
         b, l, c = logits.shape
         grid_size = int(math.sqrt(l))
-        if logits.shape[1] != image.shape[-1] * image.shape[-2]:
+        if logits.shape[1] != targets.shape[-1] * targets.shape[-2]:
             logits = logits.view(b, grid_size, grid_size, c).permute(0, 3, 1, 2) # b, c, h, w
             logits = F.interpolate(
                 logits,
-                size=image.shape[2:],
+                size=targets.shape[2:],
                 mode="bilinear",
                 align_corners=False
             )
 
-        # ignore loss when 'rec_flag = False'
-        logits = logits[mask]
-        target = image[mask].to(logits.dtype)
+        # filter with rec_flag
+        preds = logits[rec_flags]
+        targets = targets[rec_flags]
+        pixel_masks = pixel_masks[rec_flags]
 
-        # # ignore padding value
-        # ignore_mask = target == 1
-        # pred = pred[ignore_mask]
-        # target = target[ignore_mask]
+        # filter with pixel_masks
+        pixel_masks = pixel_masks.unsqueeze(1).expand_as(preds)
+        preds = preds[pixel_masks]
+        targets = targets[pixel_masks].to(preds.dtype)
 
-        loss_rec = self.criterion(logits, target)
-        return loss_rec.mean()
+        loss = self.criterion(preds, targets)
+        return loss
 
     def forward(self, x, metas, mode='loss'):
         if self.gradient_checkpointing and self.training:
@@ -246,8 +247,7 @@ class SyncTunerModel(PreTrainedModel):
         if mode == 'loss':
             loss = self.compute_loss_reconstruction(
                 logits=pred_images,
-                image=metas['ori_image'],
-                image_path=metas['image_path'],
+                metas=metas
             )
 
         return dict(

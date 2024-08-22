@@ -111,27 +111,108 @@ class MaskDecoderLoss(nn.Module):
         target_idx = torch.stack(target_idx)
         return source_idx, target_idx
 
-    def compute_loss_mask(self, pred_masks, target_masks):
+    # refactored from original implementation
+    def dice_loss(self, inputs: Tensor, labels: Tensor, num_masks: int, pixel_masks: Tensor) -> Tensor:
+        r"""
+        Compute the DICE loss, similar to generalized IOU for masks as follows:
+
+        $$ \mathcal{L}_{\text{dice}(x, y) = 1 - \frac{2 * x \cap y }{x \cup y + 1}} $$
+
+        In practice, since `labels` is a binary mask, (only 0s and 1s), dice can be computed as follow
+
+        $$ \mathcal{L}_{\text{dice}(x, y) = 1 - \frac{2 * x * y }{x + y + 1}} $$
+
+        Args:
+            inputs (`torch.Tensor`):
+                A tensor representing a mask.
+            labels (`torch.Tensor`):
+                A tensor with the same shape as inputs. Stores the binary classification labels for each element in inputs
+                (0 for the negative class and 1 for the positive class).
+            num_masks (`int`):
+                The number of masks present in the current batch, used for normalization.
+
+        Returns:
+            `torch.Tensor`: The computed loss.
+        """
+        pixel_masks = pixel_masks.flatten(1)
+        probs = inputs.sigmoid().flatten(1)
+        probs = probs * pixel_masks
+        labels = labels * pixel_masks
+
+        numerator = 2 * (probs * labels).sum(-1)
+        denominator = probs.sum(-1) + labels.sum(-1)
+        loss = 1 - (numerator + 1) / (denominator + 1)
+        loss = loss.sum() / num_masks
+        return loss
+
+
+    # refactored from original implementation
+    def sigmoid_focal_loss(
+        self, inputs: Tensor, labels: Tensor, num_masks: int, pixel_masks: Tensor, alpha: float = 0.25, gamma: float = 2
+    ) -> Tensor:
+        r"""
+        Focal loss proposed in [Focal Loss for Dense Object Detection](https://arxiv.org/abs/1708.02002) originally used in
+        RetinaNet. The loss is computed as follows:
+
+        $$ \mathcal{L}_{\text{focal loss} = -(1 - p_t)^{\gamma}\log{(p_t)} $$
+
+        where \\(CE(p_t) = -\log{(p_t)}}\\), CE is the standard Cross Entropy Loss
+
+        Please refer to equation (1,2,3) of the paper for a better understanding.
+
+        Args:
+            inputs (`torch.Tensor`):
+                A float tensor of arbitrary shape.
+            labels (`torch.Tensor`):
+                A tensor with the same shape as inputs. Stores the binary classification labels for each element in inputs
+                (0 for the negative class and 1 for the positive class).
+            num_masks (`int`):
+                The number of masks present in the current batch, used for normalization.
+            alpha (float, *optional*, defaults to 0.25):
+                Weighting factor in range (0,1) to balance positive vs negative examples.
+            gamma (float, *optional*, defaults to 2.0):
+                Exponent of the modulating factor \\(1 - p_t\\) to balance easy vs hard examples.
+
+        Returns:
+            `torch.Tensor`: The computed loss.
+        """
+        criterion = nn.BCEWithLogitsLoss(reduction="none")
+        probs = inputs.sigmoid()
+        cross_entropy_loss = criterion(inputs, labels)
+        p_t = probs * labels + (1 - probs) * (1 - labels)
+        loss = cross_entropy_loss * ((1 - p_t) ** gamma)
+
+        if alpha >= 0:
+            alpha_t = alpha * labels + (1 - alpha) * (1 - labels)
+            loss = alpha_t * loss
+
+        pixel_masks = pixel_masks.flatten(1)
+        masked_loss = loss * pixel_masks
+        loss_mean = masked_loss.sum(dim=1) / pixel_masks.sum(dim=1)
+        final_loss = loss_mean.sum() / num_masks
+        return final_loss
+
+    def compute_loss_mask(self, pred_masks, target_masks, pixel_masks):
         num_masks = len(target_masks)
         # upsample predictions to the target size, we have to add one dim to use interpolate
         pred_masks = nn.functional.interpolate(
             pred_masks[:, None], size=target_masks.shape[-2:], mode="bilinear", align_corners=False
         )
-        pred_masks = pred_masks[:, 0].flatten(1)
+        pred_masks = pred_masks.flatten(1)
         target_masks = target_masks.flatten(1)
         losses = {
-            "loss_mask": sigmoid_focal_loss(pred_masks, target_masks, num_masks),
-            "loss_dice": dice_loss(pred_masks, target_masks, num_masks),
+            "loss_mask": self.sigmoid_focal_loss(pred_masks, target_masks, num_masks, pixel_masks),
+            "loss_dice": self.dice_loss(pred_masks, target_masks, num_masks, pixel_masks),
         }
         return losses
 
-    def forward(self, pred_masks, target_masks, target_slices):
+    def forward(self, pred_masks, target_masks, target_slices, pixel_masks):
         if self.matcher is not None:
             indices = self.matcher(pred_masks, target_masks, target_slices)
             source_idx, target_idx = self._get_permutation_idx(indices)
             pred_masks = pred_masks[source_idx] # actually do nothing, matcher only permuted the target idx
             target_masks = target_masks[target_idx]
-        loss_dict = self.compute_loss_mask(pred_masks, target_masks)
+        loss_dict = self.compute_loss_mask(pred_masks, target_masks, pixel_masks)
         return loss_dict
 
 class MaskDecoderModel(DecoderModel):
@@ -209,6 +290,18 @@ class MaskDecoderModel(DecoderModel):
                 hidden_states
             )
         return _visual_hidden_states
+
+    def _expand_pixel_masks(self, metas, ref_mask):
+        pixel_masks = torch.stack(metas['pixel_masks']) # [bs, h, w]
+
+        expanded_masks = []
+        for mask, ref in zip(pixel_masks, ref_mask):
+            if ref.sum() == 0: continue
+            h, w = mask.shape
+            mask = mask.unsqueeze(0).expand(ref.sum(), h, w)
+            expanded_masks.append(mask)
+        expanded_masks = torch.cat(expanded_masks)
+        return expanded_masks
 
     def _max_by_axis(self, sizes: List[List[int]]) -> List[int]:
         maxes = sizes[0]
@@ -301,6 +394,7 @@ class MaskDecoderModel(DecoderModel):
                 pred_masks = masks_queries_logits[ref_mask, :]
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
+                pixel_masks = self._expand_pixel_masks(metas, ref_mask)
             except Exception as e:
                 print(e)
                 metas['type'] = 'mask'
@@ -311,7 +405,7 @@ class MaskDecoderModel(DecoderModel):
             if ref_mask.sum() > 0 and target_masks is not None:
                 target_masks, _ = self._pad_images_to_max_in_batch(target_masks)
                 target_masks = target_masks.to(pred_masks.device).to(pred_masks.dtype)
-                loss_dict = self.criteria(pred_masks, target_masks, target_slices)
+                loss_dict = self.criteria(pred_masks, target_masks, target_slices, pixel_masks)
                 weight_dict = {
                     "loss_mask": self.config.mask_loss_coefficient,
                     "loss_dice": self.config.dice_loss_coefficient}
