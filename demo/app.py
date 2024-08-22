@@ -17,7 +17,7 @@ from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACE
 from xtuner.utils.constants import MASKS_PLACEHOLDER
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import okapi_collate_fn
-from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box,expand2square
+from xtuner.dataset.utils import box_xywh_to_xyxy,de_norm_box_xyxy,visualize_box,expand2square,denorm_box_xywh_square2origin
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
@@ -25,26 +25,7 @@ from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
 
-def denormalize_bbox_to_corners(box, image_width, image_height):
-    norm_x, norm_y, norm_w, norm_h = box
-    # 计算中心点的原始坐标
-    x_center = norm_x * image_width
-    y_center = norm_y * image_height
 
-    # 计算原始的宽度和高度
-    width = norm_w * image_width
-    height = norm_h * image_height
-
-    # 计算左上角和右下角坐标
-    xmin = x_center - (width / 2)
-    ymin = y_center - (height / 2)
-    xmax = x_center + (width / 2)
-    ymax = y_center + (height / 2)
-
-    denorm_box = (xmin,ymin,xmax,ymax)
-
-    # 返回反归一化后的坐标
-    return denorm_box
 
 
 def choose_system(task_name):
@@ -263,13 +244,8 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     return "", chatbot, state, prompt_image_list,radio,input_image
 
 
-def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k,input_image,output_image):
+def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k):
 
-    if input_image is not None:
-        if isinstance(input_image,dict):
-            input_image = input_image['image']
-    input_image = expand2square(Image.fromarray(input_image),background_color=0)
-    input_image = input_image.resize((336,336))
 
     if radio == "":
         raise gr.Error("You must set a valid task first!")
@@ -301,27 +277,39 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k,
         boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
         masks_output = output['decoder_outputs']['mask']['preds'][0].float().cpu().numpy().tolist()
 
-        if boxes_output != []:
-            boxes_denorm = []
-            for box in boxes_output:
-                box_xyxy = box_xywh_to_xyxy(box,w=input_image.width,h=input_image.height)
-                box_denorm = de_norm_box_xyxy(box_xyxy,w=input_image.width,h=input_image.height)
-                # box_denorm = denormalize_bbox_to_corners(box,input_image.width,input_image.height)
-                boxes_denorm.append(box_denorm)
-            output_image = visualize_box(input_image,boxes_denorm)
+        state['boxes_output'] = boxes_output
+        state['masks_output'] = masks_output
 
-        elif masks_output != []:
-            pass
-        
-    
     for character in bot_message:
         chatbot[-1][1] += character
         time.sleep(0.005)
-        yield chatbot,output_image
-
-
+        yield chatbot
     
-    return chatbot,output_image
+    return chatbot
+
+def submit_step3(state,input_image,output_image):
+
+    if input_image is not None:
+        if isinstance(input_image,dict):
+            input_image = input_image['image']
+    input_image = Image.fromarray(input_image)    
+
+    boxes_output = state['boxes_output']
+    masks_output = state['masks_output']
+
+    if boxes_output != []:
+        boxes_denorm = []
+        for box in boxes_output:
+            box_denorm = denorm_box_xywh_square2origin(box,input_image.width,input_image.height)
+            boxes_denorm.append(box_denorm)
+        output_image = visualize_box(input_image,boxes_denorm)
+    elif masks_output != []:
+        pass
+
+    output_image = Image.fromarray(output_image).resize((600,330))
+
+    return output_image
+
 
 def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,chatbot,output_image,task_state):
     return None,None,{'point':None},[],[],None,{
@@ -329,7 +317,9 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
                                         'input_data':SingleInferDataset(),
                                         'input_data_okapi':BUILDER.build(cfg.infer_dataset),
                                         'dataloader': None,
-                                        'prompt_input':None}
+                                        'prompt_input':None,
+                                        'boxes_output':[],
+                                        'masks_output':[]}
 theme = gr.themes.Default()
 
 # title_markdown = ("""
@@ -387,7 +377,9 @@ with gr.Blocks(
     task_state = gr.State(value={'previous_system':None,
                                  'input_data':SingleInferDataset(),
                                  'input_data_okapi':BUILDER.build(cfg.infer_dataset),
-                                 'dataloader': None})
+                                 'dataloader': None,
+                                 'boxes_output':[],
+                                 'masks_output':[]})
     example_list_image = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],
         [os.path.join(os.path.dirname(__file__), "assets/fishing.jpg")],
@@ -652,29 +644,45 @@ with gr.Blocks(
                         [input_text_1,input_img_1,chatbot,radio_1,task_state,prompt_image_list],
                         [input_text_1,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider,input_img_1,output_image],
-                        [chatbot,output_image]
+                        [chatbot,task_state,prompt_image_list,radio_1,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot]
+                        ).then(
+                        submit_step3,
+                        [task_state,input_img_1,output_image],
+                        [output_image]
                         )
     submit_button_2.click(submit_step1,
                         [input_text_2,input_img_2, chatbot,radio_2,task_state,prompt_image_list,point_mask],
                         [input_text_2,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider,input_img_2,output_image],
-                        [chatbot,output_image]
+                        [chatbot,task_state,prompt_image_list,radio_2,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot]
+                        ).then(
+                        submit_step3,
+                        [task_state,input_img_2,output_image],
+                        [output_image]
                         )
     submit_button_3.click(submit_step1,
                         [input_text_3,input_img_3,chatbot,radio_3,task_state,prompt_image_list],
                         [input_text_3,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider,input_img_3,output_image],
-                        [chatbot,output_image]
+                        [chatbot,task_state,prompt_image_list,radio_3,temp_slider,top_p_slider,top_k_slider],
+                        [chatbot]
+                        ).then(
+                        submit_step3,
+                        [task_state,input_img_3,output_image],
+                        [output_image]
                         )
     submit_button_4.click(submit_step1,
                         [input_text_4,input_img_4,chatbot,radio_4,task_state,prompt_image_list],
                         [input_text_4,chatbot,task_state,prompt_image_list]).then(
                         submit_step2,
-                        [chatbot,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider,input_img_4,output_image],
-                        [chatbot,output_image]
+                        [chatbot,task_state,prompt_image_list,radio_4,temp_slider,top_p_slider,top_k_slider,],
+                        [chatbot]
+                        ).then(
+                        submit_step3,
+                        [task_state,input_img_4,output_image],
+                        [output_image]
                         )
 
 
