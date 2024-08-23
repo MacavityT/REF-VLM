@@ -28,7 +28,7 @@ def okapi_collate_fn(instances: Sequence[Dict],
     data_dict['conversations']  = conversations
 
     dynamic_keys = [
-        'decode_units', 'visual_prompts', 
+        'decode_units', 'visual_prompts',
         'decode_labels', 'decode_seqs'
     ]
     for key in dynamic_keys:
@@ -42,7 +42,7 @@ def okapi_collate_fn(instances: Sequence[Dict],
                 contents.append(None)
         data_dict[key] = contents    
 
-    image_info_keys = ['image_path', 'ori_height', 'ori_width']
+    image_info_keys = ['image_path', 'ori_height', 'ori_width', 'pixel_masks']
     for key in image_info_keys:
         data_dict[key] = [example[key] for example in instances]
 
