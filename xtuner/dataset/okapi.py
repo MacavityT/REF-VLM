@@ -400,55 +400,55 @@ class OkapiDataset(Dataset):
             raise ValueError('Error in get data process')
 
         # #region debug
-        ori_path = 'vis_origin.jpg'
-        shutil.copy(data_dict['image_path'], ori_path)
+        # ori_path = 'vis_origin.jpg'
+        # shutil.copy(data_dict['image_path'], ori_path)
 
-        image = data_dict['pixel_values'].numpy().transpose((1, 2, 0))
-        image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        image = image.astype(np.uint8)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        res_path = 'vis_normed.jpg'
-        cv2.imwrite(res_path, image)
+        # image = data_dict['pixel_values'].numpy().transpose((1, 2, 0))
+        # image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        # image = image.astype(np.uint8)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # res_path = 'vis_normed.jpg'
+        # cv2.imwrite(res_path, image)
 
-        if 'decode_labels' in data_dict.keys():
-            if 'mask' in data_dict['decode_labels'].keys():
-                masks = data_dict['decode_labels']['mask']
-                for j,mask in enumerate(masks):
-                    vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
-                    save_path = f'decode_label_mask_{j}.jpg'
-                    cv2.imwrite(save_path, vis_mask)
-            if 'box' in data_dict['decode_labels'].keys():
-                boxes = data_dict['decode_labels']['box']
-                width = image.shape[0]
-                height = image.shape[1]
-                for k,box in enumerate(boxes):
-                    denorm_box = de_norm_box_xyxy(box,width,height)
-                    vis_box = visualize_box_single(image.copy(), denorm_box)
-                    save_path = f'decode_labels_box_{k}.jpg'
-                    cv2.imwrite(save_path, vis_box)
+        # if 'decode_labels' in data_dict.keys():
+        #     if 'mask' in data_dict['decode_labels'].keys():
+        #         masks = data_dict['decode_labels']['mask']
+        #         for j,mask in enumerate(masks):
+        #             vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #             save_path = f'decode_label_mask_{j}.jpg'
+        #             cv2.imwrite(save_path, vis_mask)
+        #     if 'box' in data_dict['decode_labels'].keys():
+        #         boxes = data_dict['decode_labels']['box']
+        #         width = image.shape[0]
+        #         height = image.shape[1]
+        #         for k,box in enumerate(boxes):
+        #             denorm_box = de_norm_box_xyxy(box,width,height)
+        #             vis_box = visualize_box_single(image.copy(), denorm_box)
+        #             save_path = f'decode_labels_box_{k}.jpg'
+        #             cv2.imwrite(save_path, vis_box)
 
-        if 'visual_prompts' in data_dict.keys():
-            vpts = data_dict['visual_prompts']
-            for i,vpt in enumerate(vpts):
-                vis_vpt = visualize_mask_single(image, vpt, alpha=1.0, beta=1.0)
-                save_path = f'vis_vpt_{i}.jpg'
-                cv2.imwrite(save_path, vis_vpt)
+        # if 'visual_prompts' in data_dict.keys():
+        #     vpts = data_dict['visual_prompts']
+        #     for i,vpt in enumerate(vpts):
+        #         vis_vpt = visualize_mask_single(image, vpt, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_vpt_{i}.jpg'
+        #         cv2.imwrite(save_path, vis_vpt)
 
-        if 'masks' in data_dict['target'].keys():
-            masks = data_dict['target']['masks']
-            for j,mask in enumerate(masks):
-                vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
-                save_path = f'vis_mask_{j}.jpg'
-                cv2.imwrite(save_path, vis_mask)
+        # if 'masks' in data_dict['target'].keys():
+        #     masks = data_dict['target']['masks']
+        #     for j,mask in enumerate(masks):
+        #         vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_mask_{j}.jpg'
+        #         cv2.imwrite(save_path, vis_mask)
         
-        if 'boxes' in data_dict['target'].keys():
-            boxes = data_dict['target']['boxes']
-            width = image.shape[0]
-            height = image.shape[1]
-            for k,box in enumerate(boxes):
-                denorm_box = de_norm_box_xyxy(box,width,height)
-                vis_box = visualize_box_single(image.copy(), denorm_box)
-                save_path = f'vis_box_{k}.jpg'
-                cv2.imwrite(save_path, vis_box)
+        # if 'boxes' in data_dict['target'].keys():
+        #     boxes = data_dict['target']['boxes']
+        #     width = image.shape[0]
+        #     height = image.shape[1]
+        #     for k,box in enumerate(boxes):
+        #         denorm_box = de_norm_box_xyxy(box,width,height)
+        #         vis_box = visualize_box_single(image.copy(), denorm_box)
+        #         save_path = f'vis_box_{k}.jpg'
+        #         cv2.imwrite(save_path, vis_box)
         # #endregion
         return data_dict
