@@ -300,7 +300,8 @@ class MaskDecoderModel(DecoderModel):
             h, w = mask.shape
             mask = mask.unsqueeze(0).expand(ref.sum(), h, w)
             expanded_masks.append(mask)
-        expanded_masks = torch.cat(expanded_masks)
+        if expanded_masks != []:
+            expanded_masks = torch.cat(expanded_masks)
         return expanded_masks
 
     def _max_by_axis(self, sizes: List[List[int]]) -> List[int]:
@@ -394,7 +395,7 @@ class MaskDecoderModel(DecoderModel):
                 pred_masks = masks_queries_logits[ref_mask, :]
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
-                pixel_masks = self._expand_pixel_masks(metas, ref_mask)
+                pixel_masks = self._expand_pixel_masks(metas, ref_mask)     # if metas are all vqa and box detection tasks
             except Exception as e:
                 print(e)
                 metas['type'] = 'mask'
