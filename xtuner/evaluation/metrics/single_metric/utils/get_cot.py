@@ -1,5 +1,5 @@
 import re
-
+from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
 
 
 def get_caption_text(text):

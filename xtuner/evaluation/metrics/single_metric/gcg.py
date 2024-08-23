@@ -148,11 +148,14 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 else:
                     for i, box in enumerate(pred_boxes):
                         coco_pred_file.append({"image_id": image_id, "category_id": 1, "bbox": box, "score": 1.0})
+
+            self.results.append((decode_pred, target))
+            
         # Save gcg_coco_predictions
         with open(f"{self.prefix}_{self.type}.json", 'w') as f:
             json.dump(coco_pred_file, f)
             
-        self.results.append((decode_pred, target))
+            
 
 
     def compute_metrics(self, results: list) -> dict:

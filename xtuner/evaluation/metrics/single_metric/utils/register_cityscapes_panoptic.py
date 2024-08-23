@@ -11,7 +11,9 @@ from detectron2.utils.file_io import PathManager
 
 from . import openseg_classes
 
-CITYSCAPES_CATEGORIES = openseg_classes.get_cityscapes_categories_with_prompt_eng()
+
+CITYSCAPES_CLASS_PATH = os.path.join(os.path.dirname(__file__),'cityscapes_with_prompt_eng.txt')
+CITYSCAPES_CATEGORIES = openseg_classes.get_cityscapes_categories_with_prompt_eng(CITYSCAPES_CLASS_PATH)
 
 """
 This file contains functions to register the Cityscapes panoptic dataset to the DatasetCatalog.

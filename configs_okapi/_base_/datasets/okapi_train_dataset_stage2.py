@@ -38,13 +38,6 @@ grand_re_cap = dict(
     cfg=train_all_dataset['grand_c'],
 )
 
-grand_det_seg = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['grand_d_s'],
-)
 
 grand_cond_d = dict(
     type='SubSet',
@@ -141,9 +134,10 @@ dataset_s2 = [
 
     # grand
     grand_re_cap,
-    grand_det_seg,
     grand_cond_d,
-    grand_cond_s,
+    train_all_dataset['grand_d'],
+    train_all_dataset['grand_s'],
+    train_all_dataset['grand_cond_s'],
     train_all_dataset['grand_re_det'],
     train_all_dataset['grand_re_seg'],
     train_all_dataset['grand_c_d'],

@@ -136,13 +136,12 @@ def main():
             model.visual_sync_tuner.save_pretrained(
                 visual_sync_tuner_path, max_shard_size=args.max_shard_size)
             
-    #taiyan TODO: 完成decoder保存流程
-    # if hasattr(model, 'decoder'):
-    #     decoder_path = osp.join(args.save_dir, 'decoder')
-    #     print(f'Saving decoder to {decoder_path}')
-    #     for name, decoder in model.decoder.item():
-    #         model.decoder.save_pretrained(
-    #             projector_path, max_shard_size=args.max_shard_size)
+    if hasattr(model, 'visual_decoder'):
+        if model.visual_decoder is not None:
+            for name, decoder in model.visual_decoder.items():
+                visual_decoder_path = osp.join(args.save_dir, f'{name}_decoder')
+                print(f'Saving {name}_decoder to {visual_decoder_path}')
+                decoder.save_pretrained(visual_decoder_path, max_shard_size=args.max_shard_size)
 
     shutil.copyfile(args.config, osp.join(args.save_dir, 'xtuner_config.py'))
     print('All done!')

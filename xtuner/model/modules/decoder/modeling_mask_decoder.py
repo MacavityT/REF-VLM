@@ -300,6 +300,8 @@ class MaskDecoderModel(DecoderModel):
             h, w = mask.shape
             mask = mask.unsqueeze(0).expand(ref.sum(), h, w)
             expanded_masks.append(mask)
+        if len(expanded_masks) == 0:
+            return None
         expanded_masks = torch.cat(expanded_masks)
         return expanded_masks
 
@@ -398,8 +400,8 @@ class MaskDecoderModel(DecoderModel):
             except Exception as e:
                 print(e)
                 metas['type'] = 'mask'
-                metas['ref_mask_filter'] = ref_mask
-                save_wrong_data(f"wrong_ref", metas)
+                metas['ref_mask_filter'] = ref_mask 
+                save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = mask')
 
             if ref_mask.sum() > 0 and target_masks is not None:

@@ -9,6 +9,7 @@ from mmengine.logging import print_log
 from typing import Dict, Any, Union, Sequence,List
 from mmengine.registry.root import METRICS
 from enum import Enum
+from pycocotools import mask as mask_utils
 from sentence_transformers import SentenceTransformer, util
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog, build_detection_test_loader
@@ -45,7 +46,7 @@ class SEGComputeMetrics(BaseComputeMetrics):
                 the model.  
             {'generate_ids': generate ids}
         """
-        
+        coco_pred_file = []
         for i,(sample, gt) in enumerate(zip(data_samples,data_batch['data'])):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
@@ -58,8 +59,11 @@ class SEGComputeMetrics(BaseComputeMetrics):
             matches_target = get_matches_from_text(target)
             
             # TODO: change the format
-            pred_mask = sample['masks']   # torch.Tensor
-            pred_mask_with_queries = torch.zeros(1, self.num_queries, *pred_mask[0].shape) 
+            pred_masks = sample['masks'].cpu().numpy()   # torch.Tensor
+            gt_masks = gt['masks'].cpu().numpy()
+            decode_pred['pred_masks'] = pred_masks
+            target['gt_masks'] = gt_masks
+
             image_path = gt['image_path']
             image_name = os.path.basename(image_path)
             image_id = image_name.split('.')[0]
@@ -68,44 +72,66 @@ class SEGComputeMetrics(BaseComputeMetrics):
                 'image_id': image_id,
             }
             pred_mask_length = sum([int(pred[1]) for pred in matches_pred])
-            assert len(pred_mask) == pred_mask_length,  \
-                f"pred mask num: {len(pred_mask)} does not equal to llm's output num: {pred_mask_length}"
-            pred_mask_with_queries[0,:pred_mask_length] = pred_mask
-            is_void = torch.ones(1, self.num_queries, 1)
-            is_void[0,:pred_mask_length,0] = torch.zeros(1,pred_mask_length,1)
-            is_void = is_void.cuda()
-
-            cnt = 0
-            batch_cosine_scores = []
+            assert len(pred_masks) == pred_mask_length,  \
+                f"pred mask num: {len(pred_masks)} does not equal to llm's output num: {pred_mask_length}"
+            
+            dt_labels = []
             for i in len(matches_pred):
                 cur_pred_label = matches_pred[i][0]
-                cur_pred_num = int(matches_pred)[i][1]
-                cur_pred_mask = pred_mask_with_queries[cnt:cur_pred_num]
-
-                cnt += cur_pred_num
-
-                # calculate cosine similarity
-                outputs_embeddings = self.bert_model.encode(cur_pred_label, convert_to_tensor=True)
-                cosine_scores = util.cos_sim(outputs_embeddings, self.class_sentence_embeddings)
-                final_cosine_scores = []
-                cur_idx = 0
-                for num_t in self.region_test_num_templates:
-                    final_cosine_scores.append(
-                        cosine_scores[:, cur_idx: cur_idx + num_t].max(-1).values)
-                    cur_idx += num_t
-                final_pred_logits = torch.stack(final_cosine_scores, dim=-1)
+                cur_pred_num = int(matches_pred[i][1])
                 for _ in range(cur_pred_num):
-                    batch_cosine_scores.append(final_pred_logits)
+                    dt_labels.append(cur_pred_label)
+            
+            gt_labels = []
+            for i in len(matches_target):
+                cur_gt_label = matches_target[i][0]
+                cur_gt_num = int(matches_target[i][1])
+                for _ in range(cur_gt_num):
+                    gt_labels.append(cur_gt_label)
 
-            region_cosine_scores = torch.concat(batch_cosine_scores, dim=0)
-            cls_results = region_cosine_scores.unsqueeze(dim=0)  
-            mask_cls_probs = torch.cat([
-                cls_results.softmax(-1) * (1.0 - is_void),  # [1,queries,class_num+1]
-                is_void], dim=-1)
-            mask_cls_results = torch.log(mask_cls_probs + 1e-8)
-            mask_pred_results = pred_mask_with_queries.cuda()
+            decode_pred['dt_labels'] = dt_labels
+            target['gt_labels'] = gt_labels
+                      
+            if self.type == 'class':
+
+                text_sims = np.zeros((len(dt_labels), len(self.processor.test_class_names)))
+                for i, dt_label in enumerate(dt_labels):
+                    for j, gt_label in enumerate(self.processor.test_class_names):
+                        if isinstance(gt_label,str):
+                            text_sims[i, j] = self.processor.text_similarity_bert(dt_label,gt_label)
+                        elif isinstance(gt_label,list):
+                            max_similarity = 0
+                            for single_label in gt_label:
+                                similarity = self.processor.text_similarity_bert(dt_label,single_label)
+                                if similarity > max_similarity:
+                                    max_similarity = similarity
+                            text_sims[i, j] = max_similarity
+                        else:
+                            raise NotImplementedError
+                scores, ids = text_sims.max(1)
+                pred_class_names = [self.processor.test_class_names[index] for index in ids]
+
+                if self.mask:
+                    for i, mask in enumerate(pred_masks):
+                        score = scores[i]
+                        class_name = pred_class_names[i]
+                        rle_mask = mask_utils.encode(mask)
+                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
+                                            "segmentation": rle_mask, "score": score})
+               
+                decode_pred['scores'] = scores
+                decode_pred['pred_classes'] = pred_class_names
+
+            elif self.type == 'whole':
+                if self.mask:
+                    for i, mask in enumerate(pred_masks):
+                        rle_mask = mask_utils.encode(mask)
+                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
+     
 
             processed_results = []
+            mask_pred_results = pred_masks
+            mask_cls_results = text_sims
             for mask_cls_result, mask_pred_result in zip(mask_cls_results, mask_pred_results):
                 processed_results.append({})
                 # semantic segmentation inference
@@ -126,6 +152,12 @@ class SEGComputeMetrics(BaseComputeMetrics):
                 processed_results[-1]["instances"] = instance_r
 
             self.task_evaluator.process(batch_input,processed_results)  # gt: image_id, file_name
+            self.results.append((decode_pred, target))
+        # Save gcg_coco_predictions
+        with open(f"{self.prefix}_{self.type}.json", 'w') as f:
+            json.dump(coco_pred_file, f)
+            
+
 
 
     def compute_metrics(self, results: list) -> dict:

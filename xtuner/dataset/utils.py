@@ -428,14 +428,16 @@ def masks_expand2square(masks):
     return expanded_masks
 
 def mask_square2origin(mask, origin_width, origin_height):
+    # mask shape: [H,W]
     target_size = max(origin_width, origin_height)
     
     mask = F.interpolate(
-        mask, 
+        mask.unsqueeze(0).unsqueeze(0), 
         size=(target_size, target_size), 
         mode='bilinear', 
         align_corners=False
     )
+    mask = mask[0,0]
     if origin_width == origin_height:
         return mask
 
@@ -636,18 +638,57 @@ def visualize_point(image, points):
     result = visualize_mask(image, points)
     return result
 
-def visualize_box(image, boxes, line_thickness=2):
+def visualize_box(image, boxes, line_thickness=2,labels=None):
     if isinstance(image, Image.Image):
         image = np.array(image)
     if not isinstance(boxes, list):
         boxes = [boxes]
     
-    for box in boxes:
+    for i,box in enumerate(boxes):
         x1, y1, x2, y2 = box
-        left_top = tuple((x1, y1))
-        right_bottom = tuple((x2, y2))
+        left_top = tuple((int(x1), int(y1)))
+        right_bottom = tuple((int(x2), int(y2)))
         line_color = tuple(random.randint(0, 255) for _ in range(3)) 
         cv2.rectangle(image, left_top, right_bottom, line_color, line_thickness)
+        if labels is not None:
+            label = labels[i]
+            draw_label_type(image,box,label,line_color)
+    
+    return image
+
+def draw_label_type(draw_img,bbox,label,label_color):
+    labelSize = cv2.getTextSize(label + '0', cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+    bbox = [int(point) for point in bbox]
+    if bbox[1] - labelSize[1] - 3 < 0:
+        cv2.rectangle(draw_img,
+                      (bbox[0], bbox[1] + 2),
+                      (bbox[0] + labelSize[0], bbox[1] + labelSize[1] + 3),
+                      color=label_color,
+                      thickness=-1
+                      )
+        cv2.putText(draw_img, label,
+                    (bbox[0], bbox[1] + labelSize[1] + 3),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 0),
+                    thickness=1
+                    )
+    else:
+        cv2.rectangle(draw_img,
+                      (bbox[0], bbox[1] - labelSize[1] - 3),
+                      (bbox[0] + labelSize[0], bbox[1] - 3),
+                      color=label_color,
+                      thickness=-1
+                      )
+        cv2.putText(draw_img, label,
+                    (bbox[0], bbox[1] - 3),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 0),
+                    thickness=1
+                    )
+
+        
 
 def convert_bbox(bbox):
     """

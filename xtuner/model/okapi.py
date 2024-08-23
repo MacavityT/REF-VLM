@@ -122,22 +122,22 @@ class OkapiModel(BaseModel):
                 visual_encoder).to(self.llm.dtype)
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
-                    projector)
+                    projector).to(self.llm.dtype)
             else:
                 self.projector = None
             if vpt_encoder is not None and 'type' in vpt_encoder:
                 self.vpt_encoder = self._build_from_cfg_or_module(
-                    vpt_encoder)
+                    vpt_encoder).to(self.llm.dtype)
             else:
                 self.vpt_encoder = None
             if visual_sync_tuner is not None and 'type' in visual_sync_tuner:
                 self.visual_sync_tuner = self._build_from_cfg_or_module(
-                    visual_sync_tuner)
+                    visual_sync_tuner).to(self.llm.dtype)
             else:
                 self.visual_sync_tuner = None
             if moe_adapter is not None and 'type' in moe_adapter:
                 self.moe_adapter = self._build_from_cfg_or_module(
-                    moe_adapter)
+                    moe_adapter).to(self.llm.dtype)
             else:
                 self.moe_adapter = None
 
@@ -147,7 +147,7 @@ class OkapiModel(BaseModel):
                 for decoder_type, decoder_config in visual_decoder.items():
                     if 'type' in decoder_config:
                         self.visual_decoder[decoder_type] = \
-                            self._build_from_cfg_or_module(decoder_config)
+                            self._build_from_cfg_or_module(decoder_config).to(self.llm.dtype)
 
         self.llm.config.use_cache = False
         dispatch_modules(self.llm)
@@ -747,8 +747,9 @@ class OkapiModel(BaseModel):
         decoder_outputs = modules_outputs.get('visual_decoder', None)
 
         results = dict()
-        results['generate_ids'] = llm_outputs.sequences
-        results['decoder_outputs'] = decoder_outputs
+        results['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
+        # {'box':{'loss':, 'preds':(List[Tensor])[batch]}, 'mask':(List[Tensor])}
+        results['decoder_outputs'] = decoder_outputs 
         return results
 
     def compute_loss_llm(self, logits, labels):

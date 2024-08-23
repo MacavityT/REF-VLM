@@ -251,11 +251,23 @@ class BoxDecoderModel(DecoderModel):
                 pred_boxes = boxes_queries_logits[ref_mask, :]
                 target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
                 target_slices = self.get_label_slices(metas, ref_mask)
+            
+                if ref_mask.sum() > 0 and target_boxes is not None:
+                    target_boxes = torch.stack(
+                        target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)
+                    loss_dict = self.criteria(pred_boxes, target_boxes, target_slices)
+                    weight_dict = {
+                        "loss_bbox": self.config.bbox_loss_coefficient,
+                        "loss_giou": self.config.giou_loss_coefficient}
+                    loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+                else:
+                    loss = pred_boxes.sum() * 0.0
+
             except Exception as e:
                 print(e)
                 metas['type'] = 'box'
                 metas['ref_mask_filter'] = ref_mask
-                save_wrong_data(f"wrong_ref", metas)
+                save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = box')
             
             if ref_mask.sum() > 0 and target_boxes is not None:

@@ -57,17 +57,18 @@ def sort_objects(objects,filter=True,filter_num=10):
     return objects
 
 
-def delete_objects(objects,filter_num):
+def delete_objects(objects,filter_num=None):
     for object in objects:
         object['segmentation'] = decode(object['segmentation'])
         area = object['segmentation'].sum().item()
         object['area'] = area
-    objects = sorted(objects, key=lambda x: x['area'],reverse=True)
-
-    for i,item in enumerate(objects):
-        if i > filter_num-1:
-            del objects[i]
-    objects = sorted(objects, key=lambda x: x['id'],reverse=False)
+    
+    if filter_num is not None:
+        objects = sorted(objects, key=lambda x: x['area'],reverse=True)
+        residual = len(objects) - filter_num
+        for _ in range(residual):
+            del objects[-1]
+        objects = sorted(objects, key=lambda x: x['id'],reverse=False)
 
     return objects
 
@@ -334,71 +335,6 @@ class GranDDataset(MInstrDataset):
 
         return ret
     
-    def detection_segmentation(self,ret,objects,floating_objects,template_name=None):
-        if not isinstance(self.template_name,List):
-            question = self.get_template()
-        else:
-            assert template_name is not None
-            question = self.get_template_from_dict(template_name)
-        
-        if self.use_floating_objects:
-            objects = objects + floating_objects
-        
-        boxes_or_masks = []
-        cls_names = []
-        box_mask_seq = []
-        caption_new = ''
-        for i,object in enumerate(objects):
-            if template_name == 'DET':
-                boxes_or_masks.append(object['bbox'])
-                type = 'boxes'
-                task = {'task_name':'detection','element':['phrase'],'use_unit':True}
-                unit = ['box']
-                seq_name = 'boxes_seq'
-                place_holder = BOXES_PLACEHOLDER
-            elif template_name == 'SEG':
-                boxes_or_masks.append(object['segmentation'])
-                type = 'masks'
-                task = {'task_name':'segmentation','element':['phrase'],'use_unit':True}
-                unit = ['mask']
-                seq_name = 'masks_seq'
-                place_holder = MASKS_PLACEHOLDER
-            else:
-                raise "Please select valid template: DET or SEG!"
-
-            cls_name = ', '.join(object['labels'])
-            cls_name = cls_name.replace('_',' ')
-            if cls_name in cls_names:  # some class may have two or more boxes
-                previous_seq = cls_names.index(cls_name)
-                box_mask_seq[previous_seq].append(i)
-                caption_new = caption_new.replace(f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}",f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{place_holder}")
-            else:
-                seq = [i]
-                cls_names.append(cls_name)
-                box_mask_seq.append(seq)
-                caption_new = caption_new + PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder + ', '
-
-        conversations = [
-                    {
-                        'from':'system',
-                        'value':[{'task':task,'unit':unit}]
-                    },
-                    {
-                        'from': 'human',
-                        'value': question,
-                    },
-                    {
-                        'from': 'gpt',
-                        'value': caption_new,
-                        seq_name: box_mask_seq
-                    }
-                ]
-        
-        ret['target'] = {type:boxes_or_masks}
-        ret['conversations'] = conversations
-
-        return ret
-
     def grounding_detection_segmentation(self,task,ret,objects,ratio,template_name=None,random_select=False,length=None):
 
         if task == 'detection':
@@ -1032,8 +968,7 @@ class GranDDataset(MInstrDataset):
 
         return ret
     
-    # TODO： 如果是空的话就应该变成一个caption的任务
-    def seg_det(self,ret,objects,floating_objects,ratio):
+    def det(self,ret,objects,floating_objects,ratio):
         if self.use_floating_objects:
             objects = objects + floating_objects
 
@@ -1047,29 +982,14 @@ class GranDDataset(MInstrDataset):
                 'conversations_det':None,
             }
         }
-        seg_dict = {
-            'type': 'masks',
-            'seq_name':'masks_seq',
-            'place_holder': MASKS_PLACEHOLDER,
-            'masks': [],
-            'mask_caption': '',
-            'conversations':{
-                'conversations_seg':None,
-            }
-        }
 
-        objects = delete_objects(objects,20)
+        objects = delete_objects(objects,80)
         box_mask_seq = []
         cls_captions_boxes = []
-        cls_captions_masks = []
         cls_names = []
         for i,object in enumerate(objects):
-            box = resize_box(object['bbox'],width=ret['image']['width'],
-                             height=ret['image']['height'],ratio=ratio)
-            mask = resize_mask(object['segmentation'],width=ret['image']['width'],
-                             height=ret['image']['height'],ratio=ratio)
+            box = object['bbox']
             det_dict['bboxes'].append(box)
-            seg_dict['masks'].append(mask)
             if 'label' in object.keys():
                 cls_name = object['label']
             else:
@@ -1082,6 +1002,69 @@ class GranDDataset(MInstrDataset):
                 # generate detection & segmentation captions
                 cls_captions_boxes[previous_seq] = cls_captions_boxes[previous_seq].replace(f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}",
                                                                           f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{det_dict['place_holder']}")
+
+            else:
+                seq = [i]
+                cls_names.append(cls_name)
+                box_mask_seq.append(seq)
+                # generate detection & segmentation captions
+                box_caption = PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder']
+                cls_captions_boxes.append(box_caption)
+
+            
+
+        # construct detection_segmentation template and conversations
+        question_det = self.get_template()
+        det_dict['box_caption'] = ', '.join(cls_captions_boxes)
+        det_dict['conversations']['conversations_det'] = [
+                             {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
+                             {'from': 'human','value': question_det},
+                             {'from': 'gpt','value': det_dict['box_caption'], det_dict['seq_name']: box_mask_seq}]
+
+        ret['target'] = {det_dict['type']:det_dict['bboxes']}
+        ret['conversations'] = det_dict['conversations']['conversations_det'] 
+
+
+        return ret
+
+    
+    # TODO： 如果是空的话就应该变成一个caption的任务
+    def seg(self,ret,objects,floating_objects,ratio):
+        if self.use_floating_objects:
+            objects = objects + floating_objects
+
+        seg_dict = {
+            'type': 'masks',
+            'seq_name':'masks_seq',
+            'place_holder': MASKS_PLACEHOLDER,
+            'masks': [],
+            'mask_caption': '',
+            'conversations':{
+                'conversations_seg':None,
+            }
+        }
+
+
+        objects = delete_objects(objects,20)
+
+
+        box_mask_seq = []
+        cls_captions_masks = []
+        cls_names = []
+        for i,object in enumerate(objects):
+            mask = resize_mask(object['segmentation'],width=ret['image']['width'],
+                             height=ret['image']['height'],ratio=ratio)
+            seg_dict['masks'].append(mask)
+            if 'label' in object.keys():
+                cls_name = object['label']
+            else:
+                cls_name = object['labels'][0]
+            cls_name = cls_name.replace("_"," ")
+
+            if cls_name in cls_names:  # some class may have two or more boxes
+                previous_seq = cls_names.index(cls_name)
+                box_mask_seq[previous_seq].append(i)
+                # generate detection & segmentation captions
                 cls_captions_masks[previous_seq] = cls_captions_masks[previous_seq].replace(f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}",
                                                                           f"{cls_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{seg_dict['place_holder']}")
 
@@ -1090,34 +1073,25 @@ class GranDDataset(MInstrDataset):
                 cls_names.append(cls_name)
                 box_mask_seq.append(seq)
                 # generate detection & segmentation captions
-                box_caption = PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + det_dict['place_holder']
                 mask_caption = PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + seg_dict['place_holder']
-                cls_captions_boxes.append(box_caption)
                 cls_captions_masks.append(mask_caption)
             
 
         # construct detection_segmentation template and conversations
-        question_det = self.get_template_from_dict('DET')
-        question_seg = self.get_template_from_dict('SEG')
-        det_dict['box_caption'] = ', '.join(cls_captions_boxes)
+        question_seg = self.get_template()
         seg_dict['mask_caption'] = ','.join(cls_captions_masks)
         ret['image']['width'] = int(ret['image']['width']*ratio)
         ret['image']['height'] = int(ret['image']['height']*ratio)
-        det_dict['conversations']['conversations_det'] = [
-                             {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
-                             {'from': 'human','value': question_det},
-                             {'from': 'gpt','value': det_dict['box_caption'], det_dict['seq_name']: box_mask_seq}]
         seg_dict['conversations']['conversations_seg'] = [
                              {'from': 'system', 'value': [{'task':{'task_name':'segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]},
                              {'from': 'human','value': question_seg},
                              {'from': 'gpt','value': seg_dict['mask_caption'], seg_dict['seq_name']: box_mask_seq}]
-        rand_num = random.choice([0,1])
-        if rand_num == 0:
-            ret['target'] = {det_dict['type']:det_dict['bboxes']}
-            ret['conversations'] = det_dict['conversations']['conversations_det'] 
-        elif rand_num == 1:
-            ret['target'] = {seg_dict['type']:seg_dict['masks']}
-            ret['conversations'] = seg_dict['conversations']['conversations_seg']
+        
+
+
+        
+        ret['target'] = {seg_dict['type']:seg_dict['masks']}
+        ret['conversations'] = seg_dict['conversations']['conversations_seg']
 
         return ret
     
@@ -1140,12 +1114,12 @@ class GranDDataset(MInstrDataset):
 
         elif self.version == 'd':
             task = 'detection'
-            ret = self.detection_segmentation(task,ret,objects,floating_objects)
+            ret = self.det(ret,objects,floating_objects,ratio)
             return ret
         
         elif self.version == 's':
             task = 'segmentation'
-            ret = self.detection_segmentation(task,ret,objects,floating_objects)
+            ret = self.seg(ret,objects,floating_objects,ratio)
             return ret            
         
         elif self.version == 'cond_d':
@@ -1187,10 +1161,6 @@ class GranDDataset(MInstrDataset):
             task = 'segmentation'
             ret = self.caption_detection_segmentation(task,ret,objects,floating_objects,captions,ratio,random_select=False)
             return ret  
-        
-        elif self.version == 'd_s':
-            ret = self.seg_det(ret,objects,floating_objects,ratio)
-            return ret
         
         elif self.version == 'mix':
             ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length,ratio=ratio)

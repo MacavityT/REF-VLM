@@ -312,8 +312,11 @@ class OkapiDataset(Dataset):
             # image
             if data_dict.get('image', None) is not None:
                 image_info = data_dict['image']
-                image_path = image_info['path']
-                image_meta = self.image_process(image_path)
+                if 'path' in image_info.keys():
+                    image = image_info['path']
+                elif 'value' in image_info.keys():
+                    image = image_info['value']
+                image_meta = self.image_process(image)
                 data_dict['pixel_values'] = image_meta['pixel_values']
                 data_dict['ori_width'] = image_meta['ori_width']
                 data_dict['ori_height'] = image_meta['ori_height']
@@ -385,6 +388,7 @@ class OkapiDataset(Dataset):
 
             # decode seqs
             if data_dict.get('decode_seqs', None) is not None:
+                
                 decode_seqs = self.decode_seqs_process(
                     data_dict['decode_seqs']
                 )
@@ -412,6 +416,23 @@ class OkapiDataset(Dataset):
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # res_path = 'vis_normed.jpg'
         # cv2.imwrite(res_path, image)
+
+        # if 'decode_labels' in data_dict.keys():
+        #     if 'mask' in data_dict['decode_labels'].keys():
+        #         masks = data_dict['decode_labels']['mask']
+        #         for j,mask in enumerate(masks):
+        #             vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #             save_path = f'decode_label_mask_{j}.jpg'
+        #             cv2.imwrite(save_path, vis_mask)
+        #     if 'box' in data_dict['decode_labels'].keys():
+        #         boxes = data_dict['decode_labels']['box']
+        #         width = image.shape[0]
+        #         height = image.shape[1]
+        #         for k,box in enumerate(boxes):
+        #             denorm_box = de_norm_box_xyxy(box,width,height)
+        #             vis_box = visualize_box_single(image.copy(), denorm_box)
+        #             save_path = f'decode_labels_box_{k}.jpg'
+        #             cv2.imwrite(save_path, vis_box)
 
         # if 'visual_prompts' in data_dict.keys():
         #     vpts = data_dict['visual_prompts']
