@@ -544,7 +544,7 @@ class OkapiModel(BaseModel):
             data['pixel_values'].to(self.visual_encoder.dtype),
             output_hidden_states=True)
         selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
-        metas['visual_hidden_states'] = selected_feats
+        metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
 
         if self.vpt_encoder is None:
             pixel_values = self.projector(selected_feats)
@@ -658,7 +658,7 @@ class OkapiModel(BaseModel):
         if self.visual_decoder is not None:
             visual_decoder_outputs = dict()
             if rec_outputs is None:
-                visual_hidden_states = [metas['visual_hidden_states']]
+                visual_hidden_states = metas['visual_hidden_states']
             else:
                 # pyramid outputs
                 visual_hidden_states = rec_outputs['hidden_states']

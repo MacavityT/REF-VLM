@@ -223,7 +223,6 @@ class MaskDecoderModel(DecoderModel):
         self.config = config
         
         # pixel decoder
-        self.in_proj_visual_feats = nn.Linear(config.encoder_input_dim[-1], config.d_model)
         self.pixel_decoder = MaskFormerPixelDecoder(
             in_features=config.encoder_input_dim[-1],
             feature_size=config.fpn_feature_size,
