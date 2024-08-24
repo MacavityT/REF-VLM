@@ -315,12 +315,10 @@ def expand2square(pil_img, background_color):
 
 def get_pixel_mask(image, origin_width, origin_height):
     height, width = image.shape[-2:]
-    if height != width:
+    if height != width or origin_height == origin_width:
         return torch.ones((height, width)).to(torch.bool)
 
     mask = torch.zeros((height, width)).to(torch.bool)
-    if origin_width == origin_height:
-        return mask
     if origin_width > origin_height:
         ratio = origin_height / origin_width
         real_height = width * ratio
