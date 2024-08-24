@@ -46,8 +46,9 @@ class COCOREMDataset(MInstrDataset):
     def createIndex(self):
         # create index
         print('creating index...')
-        self.anns, self.cats, = {}, {}
-        self.imgs = defaultdict(list)
+        self.anns, self.cats = {}, {}
+        self.imgToAnns = defaultdict(list)
+        self.imgs = []
         if 'annotations' in self.dataset:
             for ann in self.dataset['annotations']:
                 self.imgToAnns[ann['image_id']].append(ann)
@@ -62,6 +63,9 @@ class COCOREMDataset(MInstrDataset):
                 self.cats[cat['id']] = cat
 
         print('index created!')
+
+    def __len__(self):
+        return len(self.imgs)
         
     
     def replace_categories(self, category_id):
@@ -81,7 +85,7 @@ class COCOREMDataset(MInstrDataset):
         id = info['id']
         annotations = self.imgToAnns[id]
         for annotation in annotations:
-            rleObjs = mask_utils.frPyObjects(annotation["segmentation"], info["width"], info["height"])
+            rleObjs = mask_utils.frPyObjects(annotation["segmentation"], info["height"], info["width"])
             mask = decode(rleObjs)
             masks.append(mask)
             type = self.replace_categories(annotation['category_id'])

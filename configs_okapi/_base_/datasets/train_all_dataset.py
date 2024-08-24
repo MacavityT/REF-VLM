@@ -99,7 +99,7 @@ train_all_dataset = dict(
         map_placeholders=dict(
             output=["<masks>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
+        offline_processed_text_folder='',
     ),
     kitti=dict(
         type='KITTIDataset',

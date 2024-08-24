@@ -417,6 +417,12 @@ class OkapiDataset(Dataset):
         # res_path = 'vis_normed.jpg'
         # cv2.imwrite(res_path, image)
 
+        # if 'pixel_masks' in data_dict.keys():
+        #     pixel_mask = data_dict['pixel_masks']
+        #     vis_pixel_mask = visualize_mask_single(image, pixel_mask.cpu().numpy(), alpha=1.0, beta=1.0)
+        #     save_path = f'pixel_mask.jpg'
+        #     cv2.imwrite(save_path, vis_pixel_mask)
+
         # if 'decode_labels' in data_dict.keys():
         #     if 'mask' in data_dict['decode_labels'].keys():
         #         masks = data_dict['decode_labels']['mask']

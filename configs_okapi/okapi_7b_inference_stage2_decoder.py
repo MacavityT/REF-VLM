@@ -25,7 +25,7 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 cot_weight = 1
 vrt_weight = 1
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0813_iter40500'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0824_rem'
 
 
 projector = dict(
@@ -46,11 +46,11 @@ visual_sync_tuner = dict(
     trust_remote_code=True,
 )
 
-box_decoder = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
-    trust_remote_code=True,
-)
+# box_decoder = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
+#     trust_remote_code=True,
+# )
 
 mask_decoder = dict(
     type=AutoModel.from_pretrained,
@@ -95,6 +95,6 @@ model = dict(
     vpt_encoder=vpt_encoder,
     visual_sync_tuner=visual_sync_tuner,
     visual_decoder=dict(
-        box=box_decoder,
+        # box=box_decoder,
         mask=mask_decoder
     ))
