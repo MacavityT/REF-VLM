@@ -7,7 +7,6 @@ class SyncTunerConfig(PretrainedConfig):
 
     def __init__(
         self,
-        use_in_pred=True,
         num_layers=3,
         num_queries=256,
         d_input=4096,
@@ -19,7 +18,6 @@ class SyncTunerConfig(PretrainedConfig):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.use_in_pred = use_in_pred
         self.num_layers = num_layers
         self.num_queries = num_queries
         self.d_input = d_input

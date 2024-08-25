@@ -109,24 +109,21 @@ class SyncTunerFPNModel(nn.Module):
         x = self.in_proj(x)
         hidden_states = [x]
 
-        if mode == 'loss' or self.config.use_in_pred:
-            x = self.positional_encoding(x)
-            for layer in self.layers:
-                x = layer(x)
-                hidden_states.append(x)
-                x = self.upsample(x)
-            
-            # Just applied layernorm after last upsample
-            # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
-            # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
-            # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
-            last_hidden_state = self.last_norm(x)
-            hidden_states.append(last_hidden_state)
+        x = self.positional_encoding(x)
+        for layer in self.layers:
+            x = layer(x)
+            hidden_states.append(x)
+            x = self.upsample(x)
+        
+        # Just applied layernorm after last upsample
+        # For example, input feature with shape of [16, 16, C],  C = 4096 and d_model = 1024.
+        # Then hidden_states with[[16, 16, 4096], [16, 16, 1024], [32, 32, 1024], [64, 64, 1024], [128, 128, 1024]].
+        # But the last feature [128, 128, 1024] is only upsampled [64, 64, 1024] features with layernorm.
+        last_hidden_state = self.last_norm(x)
+        hidden_states.append(last_hidden_state)
 
-        rec_pred = None
-        if mode == 'loss':
-            rec_pred = self.rec_head(last_hidden_state)
-
+        # reconsturction image
+        rec_pred = self.rec_head(last_hidden_state)
         return dict(
             pred_images = rec_pred,
             hidden_states = hidden_states,
