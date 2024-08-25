@@ -253,4 +253,5 @@ class SyncTunerModel(PreTrainedModel):
         return dict(
             loss = loss,
             hidden_states = hidden_states,
+            preds = pred_images
         )

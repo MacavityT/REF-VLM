@@ -738,16 +738,19 @@ class OkapiModel(BaseModel):
             pad_side='right'
         )
 
-        # get decoders outputs
-        modules_outputs = self.modules_forward_pipeline(
+        # get pipeline outputs
+        pipeline_outputs = self.modules_forward_pipeline(
             hidden_states=hidden_states, 
             metas=metas, 
             mode='predict'
         )
-        decoder_outputs = modules_outputs.get('visual_decoder', None)
+        sync_tuner_outputs = pipeline_outputs.get('visual_sync_tuner', None)
+        decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
         results = dict()
         results['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
+        # {'preds': Tensor}
+        results['sync_tuner_outputs'] = sync_tuner_outputs
         # {'box':{'loss':, 'preds':(List[Tensor])[batch]}, 'mask':(List[Tensor])}
         results['decoder_outputs'] = decoder_outputs 
         return results
