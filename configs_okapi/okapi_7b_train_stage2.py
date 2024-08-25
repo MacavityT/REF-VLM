@@ -85,7 +85,6 @@ model = dict(
         use_projector=False
     ),
     visual_sync_tuner=dict(
-        use_in_pred=True,
         num_layers=3,
         num_queries=vrt_length,
         d_input=4096,
