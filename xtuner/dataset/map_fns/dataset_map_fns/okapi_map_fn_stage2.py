@@ -238,7 +238,7 @@ def target_map_fn(example):
         result['decode_labels'] = decode_labels
     return result
 
-def conversation_map_fn(example, vrt_len=64, ref_len=1):
+def conversation_map_fn(example, vrt_len=64, ref_len=1, use_cot=True):
     messages = example['conversations']
 
     system_list = []
@@ -284,7 +284,8 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
 
         elif msg['from'] == 'gpt':
             output = msg['value']
-            if output is not None and output != '':
+            if output is None: output = ''
+            if output != '' and use_cot:
                 if map_placeholders:
                     output_placeholders = map_placeholders.get('output', [])
                     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
@@ -316,8 +317,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
                 else:
                     cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
                 output = cot + output
-            else:
-                output = ''
+
             conversation.append({'input': input, 'output': output})
             input = ''
         else:
@@ -332,13 +332,13 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1):
     return {'conversation': res_conversation}
 
 
-def okapi_map_fn_stage2(example, vrt_len=256, ref_len=1):
+def okapi_map_fn_stage2(example, vrt_len=256, ref_len=1, use_cot=True):
     messages = example['conversations']
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt
         example['conversations'] = example['conversations'][1:]
 
     res = target_map_fn(example)
-    conversation = conversation_map_fn(example, vrt_len, ref_len)
+    conversation = conversation_map_fn(example, vrt_len, ref_len, use_cot)
     res.update(conversation)
     return res
