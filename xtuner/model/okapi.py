@@ -617,18 +617,6 @@ class OkapiModel(BaseModel):
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
 
-        ref_hidden_states, ref_attention_masks = None, None
-        ref_used_module = [self.moe_adapter, self.visual_decoder]
-        if any(module is not None for module in ref_used_module):
-            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-                hidden_states,
-                metas=metas,
-                mode=mode
-            )
-        if ref_hidden_states is None:
-            # only in predict process
-            return results
-
         # visual sync tuner
         rec_outputs = None
         if self.visual_sync_tuner is not None:
@@ -642,7 +630,19 @@ class OkapiModel(BaseModel):
                 metas=metas,
                 mode=mode
             )
-            results['visual_sync_tuner'] = rec_outputs
+            results['visual_sync_tuner'] = rec_outputs        
+
+        ref_hidden_states, ref_attention_masks = None, None
+        ref_used_module = [self.moe_adapter, self.visual_decoder]
+        if any(module is not None for module in ref_used_module):
+            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
+                hidden_states,
+                metas=metas,
+                mode=mode
+            )
+        if ref_hidden_states is None:
+            # only in predict process
+            return results
 
         # moe adapter
         moe_outputs = None
@@ -747,12 +747,25 @@ class OkapiModel(BaseModel):
         sync_tuner_outputs = pipeline_outputs.get('visual_sync_tuner', None)
         decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
-        results = dict()
-        results['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
+        results_dict = dict()
+        results_dict['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
         # {'preds': Tensor}
-        results['sync_tuner_outputs'] = sync_tuner_outputs
+        results_dict['sync_tuner_outputs'] = sync_tuner_outputs
         # {'box':{'loss':, 'preds':(List[Tensor])[batch]}, 'mask':(List[Tensor])}
-        results['decoder_outputs'] = decoder_outputs 
+        results_dict['decoder_outputs'] = decoder_outputs
+
+        results = []
+        box_batch = None
+        mask_batch = None
+        if decoder_outputs is not None:
+            box_batch = decoder_outputs['box']['preds']
+            mask_batch = decoder_outputs['mask']['preds']
+            for generate_id, box_output, mask_output in zip(llm_outputs.sequences, box_batch, mask_batch):
+                results.append({'generate_ids':generate_id,'decoder_outputs':{'masks':mask_output,'boxes':box_output}})
+        else:
+            results = [{'generate_ids':generate_id, 'decoder_outputs':None} for generate_id in llm_outputs.sequences]
+
+
         return results
 
     def compute_loss_llm(self, logits, labels):

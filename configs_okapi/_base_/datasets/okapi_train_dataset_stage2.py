@@ -13,23 +13,6 @@ gc = dict(
     cfg=train_all_dataset['gc'],
 )
 
-caption = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['caption'],
-)
-
-
-reg = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['reg'],
-)
-
 grand_re_cap = dict(
     type='SubSet',
     portion=1/2,
@@ -55,21 +38,7 @@ grand_cond_s = dict(
     cfg=train_all_dataset['grand_cond_s'],
 )
 
-grand_re_det = dict(
-    type='SubSet',
-    portion=1/2,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['grand_re_det'],
-)
 
-grand_re_seg = dict(
-    type='SubSet',
-    portion=1/2,
-    do_shuffle=True,
-    seed=42,
-    cfg=train_all_dataset['grand_re_seg'],
-)
 
 dataset_s1 = [
 
@@ -81,6 +50,9 @@ dataset_s1 = [
     train_all_dataset['rec'],
     train_all_dataset['caption'],
     train_all_dataset['reg'],
+    train_all_dataset['res_refcoco'],
+    train_all_dataset['res_refcocoa'],
+    train_all_dataset['res_refcocog'],
 
     # vqa v2
     train_all_dataset['vqav2_train'],
@@ -135,9 +107,9 @@ dataset_s2 = [
     # grand
     grand_re_cap,
     grand_cond_d,
+    grand_cond_s,
     train_all_dataset['grand_d'],
     train_all_dataset['grand_s'],
-    train_all_dataset['grand_cond_s'],
     train_all_dataset['grand_re_det'],
     train_all_dataset['grand_re_seg'],
     train_all_dataset['grand_c_d'],

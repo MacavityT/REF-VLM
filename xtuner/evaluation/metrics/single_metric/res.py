@@ -1,12 +1,16 @@
 import json
 import sys
+import re
 import torch
+import torch.nn.functional as F
 import numpy as np
 import logging
 from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
+from xtuner.utils import IGNORE_INDEX
+from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from enum import Enum
 from ..okapi_metric import BaseComputeMetrics
 
@@ -112,21 +116,45 @@ class RESComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         
-        for sample, gt in zip(data_samples,data_batch['data']['labels']):
+        for sample, gt_text, gt_masks in zip(data_samples,data_batch['data']['labels'],data_batch['data']['decode_labels']):
             # TODO: change the process
-            decode_pred = sample
-            target = gt
-                
-            self.results.append((decode_pred, target))
+            decode_pred_string = sample['generate_ids']
 
+            decode_pred_string = self.decode_generate_ids(ids=decode_pred_string,skip_special_tokens=False)
+            target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
+            target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
+
+            target_masks = torch.tensor(gt_masks['mask']).float()
+            if sample['decoder_outputs'] is not None:
+                decode_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
+                decode_masks = F.interpolate(decode_masks.float().unsqueeze(0),
+                                             size=(target_masks.shape[1],target_masks.shape[2]),
+                                                   mode='bilinear', 
+                                                   align_corners=False).squeeze(0)
+            else:
+                decode_masks = torch.zeros_like(target_masks).float()
+
+            decode_pred = {'text':decode_pred_string,'masks':decode_masks}
+            target = {'text':target_string,'masks':target_masks}
+            
+            if self.stage == 2:
+                decode_pred_string = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred_string, flags=re.DOTALL)
+                target_string = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target_string, flags=re.DOTALL)
+            target_string = target_string.replace('</s>','').strip()
+            decode_pred_string = decode_pred_string.replace('</s>','').strip()
+
+            if self.save_dir is not None:
+                self.save_outputs(decode_pred_string,target_string,f"{self.prefix}")
+
+            self.results.append((decode_pred, target))
     
     def compute_metrics(self, results: list) -> dict:
 
         preds = []
         targets = []
         for i, (pred, target) in enumerate(results):
-            preds.append(pred)
-            targets.append(target)
+            preds.append(pred['masks'])
+            targets.append(target['masks'])
         
         metrics = self.calculate_metric(preds,targets)
         
@@ -144,17 +172,16 @@ class RESComputeMetrics(BaseComputeMetrics):
             intersect, union_, _ = intersectionAndUnionGPU(
                 prediction.contiguous().clone(), target.contiguous(), 2, ignore_index=255
             )
-            intersection += intersect
-            union += union_
-            accuracy_iou += intersect / (union_ + 1e-5)
+            intersection = intersect
+            union = union_
+            accuracy_iou = intersect / (union_ + 1e-5)
             # handles no-object targets
             accuracy_iou[union_ == 0] += 1.0
-
-        intersection, union = intersection.cpu().numpy(), union.cpu().numpy()
-        accuracy_iou = accuracy_iou.cpu().numpy() / targets.shape[0]
-        trackers["intersection"].update(intersection)
-        trackers["union"].update(union)
-        trackers["gIoU"].update(accuracy_iou, n=targets.shape[0])
+            intersection, union = intersection.cpu().numpy(), union.cpu().numpy()
+            trackers["intersection"].update(intersection)
+            trackers["union"].update(union)
+            accuracy_iou = accuracy_iou.cpu().numpy() / target.shape[0]
+            trackers["gIoU"].update(accuracy_iou, n=target.shape[0])
 
         for meter in trackers.values():
             meter.all_reduce()

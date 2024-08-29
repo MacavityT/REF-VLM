@@ -3,6 +3,9 @@ rec_test_common_cfg = dict(
     template_name=r'REC',
     image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
     max_dynamic_size=None,
+    map_placeholders=dict(
+        output=["<boxes>"],
+    )
 )
 
 test_rec_variant = dict(

@@ -690,7 +690,7 @@ def draw_label_type(draw_img,bbox,label,label_color):
 
 def convert_bbox(bbox):
     """
-    Convert bounding box from (x, y, w, h) to (xmin, xmax, ymin, ymax).
+    Convert bounding box from (x, y, w, h) to (xmin, ymin, xmax, ymax).
 
     Parameters:
     x (int or float): The x-coordinate of the center.
@@ -699,7 +699,7 @@ def convert_bbox(bbox):
     h (int or float): The height of the bounding box.
 
     Returns:
-    tuple: A tuple containing (xmin, xmax, ymin, ymax).
+    tuple: A tuple containing (xmin, ymin, xmax, ymax).
     """
     x, y, w, h = bbox
     xmin = x

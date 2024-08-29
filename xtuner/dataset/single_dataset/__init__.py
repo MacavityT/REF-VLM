@@ -28,3 +28,4 @@ from .nyu import NYUDataset
 from .hrwsi import HRWSIDataset
 from .coco_keypoints import COCOKeypointsDataset,COCOKeypointsRECDataset
 from .okvqa import OKVQADataset
+from .res import RESDataset
