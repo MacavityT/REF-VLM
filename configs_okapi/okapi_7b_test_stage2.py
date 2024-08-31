@@ -11,6 +11,8 @@ from xtuner.evaluation.metrics.single_metric import (
     PopeComputeMetrics,
     RECComputeMetrics,
     RESComputeMetrics,
+    GCGComputeMetrics,
+    DETComputeMetrics,
 )
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
@@ -33,7 +35,7 @@ max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
 visual_hidden_size = 1024
-vrt_length = 256
+vrt_length = 0
 ref_length = 1
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
@@ -43,7 +45,7 @@ ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 
 eval_type = 'reg'
-prefix = 'res'
+prefix = 'coco_det'
 chunk = 8
 
 save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0826_novrt_8/eval15000'
@@ -203,6 +205,34 @@ elif prefix == 'res':
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['res_refcoco_testa'],
+            )
+    ]
+
+elif prefix == 'gcg_box':
+    test_evaluator = dict(
+        type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=False, prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/300,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['flickr_eval_with_box'],
+            )
+    ]
+
+elif prefix == 'coco_det':
+    test_evaluator = dict(
+        type=DETComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/100,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['coco_2017_box_val'],
             )
     ]
 

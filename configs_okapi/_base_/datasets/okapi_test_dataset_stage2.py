@@ -18,6 +18,7 @@ with read_base():
     from .test_pope_variant import test_pope_variant
     from .test_point_variant import test_point_variant
     from .test_res_variant import test_res_variant
+    from .test_cocodet_variant import test_cocodet_variant
 
 test_cfg = dict(type='TestLoop')
 
@@ -55,6 +56,7 @@ test_all_dataset = dict(
     **test_pope_variant,
     **test_point_variant,
     **test_res_variant,
+    **test_cocodet_variant,
 )
 
 

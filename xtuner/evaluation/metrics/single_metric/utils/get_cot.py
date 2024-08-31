@@ -7,7 +7,8 @@ def get_caption_text(text):
     cleaned_text = re.sub(pattern, "", text, flags=re.DOTALL)
     cleaned_text = re.sub(r"\n+", "", cleaned_text)
     cleaned_text = re.sub(r"<\/?Phrase>", "", cleaned_text)
-    cleaned_text = re.sub(r"\(<Unit>(box|mask)<\/Unit>\[\d+\]<REF>\)", "", cleaned_text)
+    cleaned_text = re.sub(r'\s*\([^)]*\)\s*', ' ', cleaned_text)
+    cleaned_text = re.sub(r'\s{2,}', ' ', cleaned_text)
     cleaned_text.strip()
     return cleaned_text
 

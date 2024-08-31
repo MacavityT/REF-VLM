@@ -28,12 +28,11 @@ from ..okapi_metric import BaseComputeMetrics
 
 
 @METRICS.register_module()
-class GCGComputeMetrics(BaseComputeMetrics):
-    def __init__(self, *args, eval_type, mask, **kwargs):
+class DETComputeMetrics(BaseComputeMetrics):
+    def __init__(self, *args, eval_type, **kwargs):
         super().__init__(*args, **kwargs)
         self.processor = SEGDETProcessor(task=self.prefix)
         self.eval_type = eval_type
-        self.mask = mask   # output bbox or masks
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -61,43 +60,27 @@ class GCGComputeMetrics(BaseComputeMetrics):
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
 
+            last_ref_index = decode_pred_string.rfind('<REF> )')
+            decode_pred_string = decode_pred_string[:last_ref_index + len('<REF> )')]
             matches_pred = get_matches_from_text(decode_pred_string)
             matches_target = get_matches_from_text(target_string)
 
 
-            # get caption text
-            pred_caption = get_caption_text(decode_pred_string)
-            target_caption = get_caption_text(target_string)
-
             image_name = os.path.basename(image_path)
             image_id = image_name.split('.')[0]
 
-            # TODO: change the format ,add caption
-            if self.mask:
-                target_masks = torch.tensor(gt_boxes_masks['mask']).float()
-                if sample['decoder_outputs'] is not None:
-                    pred_boxes_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
-                    pred_boxes_masks = F.interpolate(pred_boxes_masks.float().unsqueeze(0),
-                                                size=(target_masks.shape[1],target_masks.shape[2]),
-                                                    mode='bilinear', 
-                                                    align_corners=False).squeeze(0)
-                else:
-                    pred_boxes_masks = torch.zeros_like(target_masks).float()
-                    matches_pred = [('None',1)]
+            if sample['decoder_outputs'] is not None:
+                pred_boxes_masks = sample['decoder_outputs']['boxes'].float().cpu().numpy().tolist()
+                pred_boxes_masks = [box_xywh_to_xyxy(decode_box) for decode_box in pred_boxes_masks]
             else:
-                if sample['decoder_outputs'] is not None:
-                    pred_boxes_masks = sample['decoder_outputs']['boxes'].float().cpu().numpy().tolist()
-                    pred_boxes_masks = [box_xywh_to_xyxy(decode_box) for decode_box in pred_boxes_masks]
-                else:
-                    # process unlimited generation
-                    pred_boxes_masks = torch.zeros((1,4)).numpy().tolist()
-                    matches_pred = [('None',1)]
-                    pred_caption = ''
+                # process unlimited generation
+                pred_boxes_masks = torch.zeros((1,4)).numpy().tolist()
+                matches_pred = [('None',1)]
 
-                decode_pred['pred_boxes'] = pred_boxes_masks
-                target_boxes = torch.tensor(gt_boxes_masks['box']).float().cpu().numpy().tolist()
-                target_boxes = [box_xywh_to_xyxy(target_box) for target_box in target_boxes]
-                target['gt_boxes'] = target_boxes
+            decode_pred['pred_boxes'] = pred_boxes_masks
+            target_boxes = torch.tensor(gt_boxes_masks['box']).float().cpu().numpy().tolist()
+            target_boxes = [box_xywh_to_xyxy(target_box) for target_box in target_boxes]
+            target['gt_boxes'] = target_boxes
 
             pred_box_mask_length = sum([int(pred[1]) for pred in matches_pred])
             assert len(pred_boxes_masks) == pred_box_mask_length,  \
@@ -105,28 +88,27 @@ class GCGComputeMetrics(BaseComputeMetrics):
             
             dt_labels = []
             for i in range(len(matches_pred)):
-                cur_pred_label = matches_pred[i][0]
+                cur_pred_label = matches_pred[i][0].strip()
                 cur_pred_num = int(matches_pred[i][1])
                 for _ in range(cur_pred_num):
                     dt_labels.append(cur_pred_label)
             
             gt_labels = []
             for i in range(len(matches_target)):
-                cur_gt_label = matches_target[i][0]
+                cur_gt_label = matches_target[i][0].strip()
                 cur_gt_num = int(matches_target[i][1])
                 for _ in range(cur_gt_num):
                     gt_labels.append(cur_gt_label)
 
             decode_pred['dt_labels'] = dt_labels
-            decode_pred['caption'] = pred_caption
             target['gt_labels'] = gt_labels
-            target['caption'] = target_caption
+
                       
             if self.eval_type == 'class':
 
-                text_sims = np.zeros((len(dt_labels), len(gt_labels)))
+                text_sims = np.zeros((len(dt_labels), len(self.processor.test_class_names)))
                 for i, dt_label in enumerate(dt_labels):
-                    for j, gt_label in enumerate(gt_labels):
+                    for j, gt_label in enumerate(self.processor.test_class_names):
                         if isinstance(gt_label,str):
                             text_sims[i, j] = self.processor.text_similarity_bert(dt_label,gt_label)
                         elif isinstance(gt_label,list):
@@ -138,22 +120,15 @@ class GCGComputeMetrics(BaseComputeMetrics):
                             text_sims[i, j] = max_similarity
                         else:
                             raise NotImplementedError
-                scores, ids = text_sims.max(1)
-                pred_class_names = [gt_labels[index] for index in ids] 
+                scores = text_sims.max(1)
+                ids = text_sims.argmax(1)
+                pred_class_names = [self.processor.test_class_names[index] for index in ids]
 
-                if self.mask:
-                    for i, mask in enumerate(pred_boxes_masks):
-                        score = scores[i]
-                        class_name = pred_class_names[i]
-                        rle_mask = mask_utils.encode(mask)
-                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
-                                            "segmentation": rle_mask, "score": score})
-                else:
-                    for i, box in enumerate(pred_boxes_masks):
-                        score = scores[i]
-                        class_name = pred_class_names[i]
-                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
-                                            "bbox": box, "score": score})                    
+                for i, box in enumerate(pred_boxes_masks):
+                    score = np.clip(scores[i],0,1)
+                    class_name = pred_class_names[i]
+                    coco_pred_file.append({"image_id": image_id, "category_id": self.processor.convert_cls_to_id(class_name), 
+                                        "bbox": box, "score": score})                    
                 decode_pred['scores'] = scores
                 decode_pred['pred_classes'] = pred_class_names
 
@@ -170,12 +145,10 @@ class GCGComputeMetrics(BaseComputeMetrics):
             
         # Save gcg_coco_predictions
         with open(os.path.join(self.save_dir,f"{self.prefix}_{self.eval_type}.json"), 'a') as f:
-            # json.dump(coco_pred_file, f)
             json_line = json.dumps(coco_pred_file)
             f.write(json_line+'\n')
             f.close()
             
-
 
     def compute_metrics(self, results: list) -> dict:
 
@@ -185,28 +158,12 @@ class GCGComputeMetrics(BaseComputeMetrics):
             preds.append(pred)
             targets.append(target)
         
-        miou = self.processor.evaluate_box_mask_miou(preds,targets,self.eval_type,self.mask)
-        recall = self.processor.evaluate_recall_with_mapping(preds,targets,self.mask)
+        miou = self.processor.evaluate_box_mask_miou(preds,targets,self.eval_type,mask=False)
+        recall = self.processor.evaluate_recall_with_mapping(preds,targets,global_softmax=True)
         
-        preds_labels = {i: [{"caption": x['caption']}] for i, x in enumerate(preds)}
-        targets_labels = {i: [{"caption": x['caption']}] for i, x in enumerate(targets)}
-
-
-        tokenizer = PTBTokenizer()
-        targets_labels  = tokenizer.tokenize(targets_labels)
-        preds_labels = tokenizer.tokenize(preds_labels)
-        cider_score, meteor_score, bleu_score = Cider(), Meteor(), Bleu(4)
-        cider_rst, _ = cider_score.compute_score(targets_labels, preds_labels)
-        meteor_rst, _ = meteor_score.compute_score(targets_labels, preds_labels)
-        blue_rst, _ = bleu_score.compute_score(targets_labels,preds_labels)
-
         metrics = {
-            "CIDEr": cider_rst*100,
-            "Meteor": meteor_rst*100,
-            "BLEU4": blue_rst,
             'miou': miou,
             'recall': recall,
         }
 
         return metrics
-

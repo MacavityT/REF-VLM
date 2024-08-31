@@ -435,6 +435,7 @@ class OkapiDataset(Dataset):
         #         width = image.shape[0]
         #         height = image.shape[1]
         #         for k,box in enumerate(boxes):
+        #             box = box_xywh_to_xyxy(box)
         #             denorm_box = de_norm_box_xyxy(box,width,height)
         #             vis_box = visualize_box_single(image.copy(), denorm_box)
         #             save_path = f'decode_labels_box_{k}.jpg'

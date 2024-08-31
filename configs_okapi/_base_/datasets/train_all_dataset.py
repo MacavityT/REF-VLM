@@ -91,14 +91,27 @@ train_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
         offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
     ),
-    coco_rem=dict(
+    coco_rem_mask=dict(
         type='COCOREMDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/instances_trainrem.json',
         image_folder=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/train2017',
+        task_type='mask',
         template_name=r'SEG',
         placeholders=('<image>',),
         map_placeholders=dict(
             output=["<masks>"],
+        ),
+        offline_processed_text_folder='',
+    ),
+    coco_rem_box=dict(
+        type='COCOREMDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/instances_trainrem.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/train2017',
+        task_type='box',
+        template_name=r'DET',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<boxes>"],
         ),
         offline_processed_text_folder='',
     ),
