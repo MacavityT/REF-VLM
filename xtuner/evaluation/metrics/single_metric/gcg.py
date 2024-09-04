@@ -25,7 +25,39 @@ from .utils.get_cot import get_matches_from_text, get_caption_text
 from ..okapi_metric import BaseComputeMetrics
 
 
+def coco_encode_rle(uncompressed_rle):
+    h, w = uncompressed_rle["size"]
+    rle = mask_utils.frPyObjects(uncompressed_rle, h, w)
+    rle["counts"] = rle["counts"].decode("utf-8")  # Necessary to serialize with json
+    return rle
 
+def mask_to_rle_pytorch(tensor: torch.Tensor):
+    """
+    Encodes masks to an uncompressed RLE, in the format expected by
+    pycoco tools.
+    """
+    # Put in fortran order and flatten h,w
+    b, h, w = tensor.shape
+    tensor = tensor.permute(0, 2, 1).flatten(1)
+
+    # Compute change indices
+    diff = tensor[:, 1:] ^ tensor[:, :-1]
+    change_indices = diff.nonzero()
+
+    # Encode run length
+    out = []
+    for i in range(b):
+        cur_idxs = change_indices[change_indices[:, 0] == i, 1]
+        cur_idxs = torch.cat(
+            [torch.tensor([0], dtype=cur_idxs.dtype, device=cur_idxs.device), cur_idxs + 1,
+             torch.tensor([h * w], dtype=cur_idxs.dtype, device=cur_idxs.device), ]
+        )
+        btw_idxs = cur_idxs[1:] - cur_idxs[:-1]
+        counts = [] if tensor[i, 0] == 0 else [0]
+        counts.extend(btw_idxs.detach().cpu().tolist())
+        out.append({"size": [h, w], "counts": counts})
+
+    return out
 
 @METRICS.register_module()
 class GCGComputeMetrics(BaseComputeMetrics):
@@ -47,6 +79,9 @@ class GCGComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         
+        if 'decode_labels' not in data_batch['data'].keys():
+            return None
+
         coco_pred_file = []
         for sample, gt_text, gt_boxes_masks,image_path in zip(data_samples,data_batch['data']['labels'],
                                                    data_batch['data']['decode_labels'],
@@ -60,7 +95,8 @@ class GCGComputeMetrics(BaseComputeMetrics):
             target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
-
+            # last_ref_index = decode_pred_string.rfind('<REF> )')
+            # decode_pred_string = decode_pred_string[:last_ref_index + len('<REF> )')]
             matches_pred = get_matches_from_text(decode_pred_string)
             matches_target = get_matches_from_text(target_string)
 
@@ -82,7 +118,7 @@ class GCGComputeMetrics(BaseComputeMetrics):
                                                     mode='bilinear', 
                                                     align_corners=False).squeeze(0)
                 else:
-                    pred_boxes_masks = torch.zeros_like(target_masks).float()
+                    pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()
                     matches_pred = [('None',1)]
             else:
                 if sample['decoder_outputs'] is not None:
@@ -105,14 +141,14 @@ class GCGComputeMetrics(BaseComputeMetrics):
             
             dt_labels = []
             for i in range(len(matches_pred)):
-                cur_pred_label = matches_pred[i][0]
+                cur_pred_label = matches_pred[i][0].strip()
                 cur_pred_num = int(matches_pred[i][1])
                 for _ in range(cur_pred_num):
                     dt_labels.append(cur_pred_label)
             
             gt_labels = []
             for i in range(len(matches_target)):
-                cur_gt_label = matches_target[i][0]
+                cur_gt_label = matches_target[i][0].strip()
                 cur_gt_num = int(matches_target[i][1])
                 for _ in range(cur_gt_num):
                     gt_labels.append(cur_gt_label)
@@ -159,21 +195,23 @@ class GCGComputeMetrics(BaseComputeMetrics):
 
             elif self.eval_type == 'whole':
                 if self.mask:
-                    for i, mask in enumerate(pred_boxes_masks):
-                        rle_mask = mask_utils.encode(mask)
+                    mask_encode = mask_to_rle_pytorch(pred_boxes_masks.int())
+                    for i, mask_encode_single in enumerate(mask_encode):
+                        rle_mask = coco_encode_rle(mask_encode_single)
                         coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
                 else:
                     for i, box in enumerate(pred_boxes_masks):
                         coco_pred_file.append({"image_id": image_id, "category_id": 1, "bbox": box, "score": 1.0})
 
             self.results.append((decode_pred, target))
-            
+            self.save_outputs(pred_caption,target_caption,f"{self.prefix}_{self.eval_type}_caption")
+
         # Save gcg_coco_predictions
         with open(os.path.join(self.save_dir,f"{self.prefix}_{self.eval_type}.json"), 'a') as f:
-            # json.dump(coco_pred_file, f)
             json_line = json.dumps(coco_pred_file)
             f.write(json_line+'\n')
             f.close()
+
             
 
 

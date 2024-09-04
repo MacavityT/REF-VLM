@@ -79,7 +79,8 @@ dataset_s2 = [
     train_all_dataset['llavag_gcg'],
     
     # png
-    train_all_dataset['png_gcg'],
+    # train_all_dataset['png_gcg'],
+    train_all_dataset['openpsg'],
 
     # instruct
     train_all_dataset['instruct'],

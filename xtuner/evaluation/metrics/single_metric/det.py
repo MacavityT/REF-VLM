@@ -46,6 +46,9 @@ class DETComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         
+        if 'decode_labels' not in data_batch['data'].keys():
+            return None
+
         coco_pred_file = []
         for sample, gt_text, gt_boxes_masks,image_path in zip(data_samples,data_batch['data']['labels'],
                                                    data_batch['data']['decode_labels'],

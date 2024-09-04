@@ -101,8 +101,9 @@ def intersectionAndUnionGPU(output, target, K, ignore_index=255):
 # TODO: need to fix, because our model has decoders, bboxes do not generate in llm words
 @METRICS.register_module()
 class RESComputeMetrics(BaseComputeMetrics):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dataset_name, **kwargs):
         super().__init__(*args, **kwargs)
+        self.dataset_name = dataset_name
 
     def process(self, data_batch:Any, data_samples:Sequence[dict]) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -144,7 +145,7 @@ class RESComputeMetrics(BaseComputeMetrics):
             decode_pred_string = decode_pred_string.replace('</s>','').strip()
 
             if self.save_dir is not None:
-                self.save_outputs(decode_pred_string,target_string,f"{self.prefix}")
+                self.save_outputs(decode_pred_string,target_string,f"{self.prefix}_{self.dataset_name}")
 
             self.results.append((decode_pred, target))
     

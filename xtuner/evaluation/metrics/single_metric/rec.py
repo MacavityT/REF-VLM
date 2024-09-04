@@ -15,8 +15,9 @@ from ..okapi_metric import BaseComputeMetrics
 # TODO: need to fix, because our model has decoders, bboxes do not generate in llm words
 @METRICS.register_module()
 class RECComputeMetrics(BaseComputeMetrics):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dataset_name, **kwargs):
         super().__init__(*args, **kwargs)
+        self.dataset_name = dataset_name
 
     def process(self, data_batch:Any, data_samples:Any) -> None:
         """Process one batch of data samples and predictions. The processed
@@ -61,7 +62,7 @@ class RECComputeMetrics(BaseComputeMetrics):
             target_string += str(target_boxes.float().cpu().numpy().tolist())
 
             if self.save_dir is not None:
-                self.save_outputs(decode_pred_string,target_string,f"{self.prefix}")
+                self.save_outputs(decode_pred_string,target_string,f"{self.prefix}_{self.dataset_name}")
 
             self.results.append((decode_pred, target))
 
@@ -89,7 +90,10 @@ class RECComputeMetrics(BaseComputeMetrics):
             for pred_box, target_box in zip(pred_boxes,target_boxes):
                 # normalized box value is too small, so that the area is 0.
                 ious = box_iou(pred_box * 1000, target_box * 1000)
-                ious = torch.einsum('i i -> i', ious)  # take diag elem
+                try:
+                    ious = torch.einsum('i i -> i', ious)  # take diag elem
+                except:
+                    ious = ious.max()
                 # NOTE: please note iou only calculate for success target
                 iou = ious.mean().item()
                 all_corrects += (ious > 0.5).sum().item()

@@ -29,3 +29,5 @@ from .hrwsi import HRWSIDataset
 from .coco_keypoints import COCOKeypointsDataset,COCOKeypointsRECDataset
 from .okvqa import OKVQADataset
 from .res import RESDataset
+from .coco_gcg_test import COCOGCG
+from .openpsg import OpenPSGDataset
