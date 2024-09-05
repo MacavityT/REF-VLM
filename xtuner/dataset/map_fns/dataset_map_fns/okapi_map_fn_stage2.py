@@ -293,7 +293,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1, use_cot=True):
                         p_names, u_names, u_counts = get_cot_elements(output, output_placeholders)
                         cot_content = ''
                         for cls_name, unit_name, tgt_num in zip(p_names, u_names, u_counts):
-                            cot_content += f'- Name: {cls_name} Unit: { BOU_TOKEN + UNIT_MAP[unit_name] + EOU_TOKEN} Num: {tgt_num}\n'
+                            cot_content += f'- Name: {cls_name} Unit: {UNIT_MAP[unit_name]} Num: {tgt_num}\n'
                         
                         cot = f"{BOT_TOKEN}\nUnit decode (True). Class name, target unit and number:\n{cot_content}{EOT_TOKEN}\n"
                     else:

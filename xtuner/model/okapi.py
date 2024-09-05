@@ -29,9 +29,9 @@ from xtuner.utils.constants import (
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,
-    IMAGE_TOKEN_INDEX,
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
     VISUAL_REFERENCE_TOKEN,
-    VISUAL_REPRESENTATION_TOKEN,
 )
 from xtuner.tools.utils import get_random_available_port
 from torch.nn import CrossEntropyLoss, MSELoss
@@ -46,6 +46,14 @@ DECODER_MODEL_CLASS = {
     'mask': MaskDecoderModel
 }
 
+TOKEN_MASK_IDS = {
+    'ref_masks': 1,
+    'bou_masks': 2,
+    'eou_masks': 3,
+    'bop_masks': 4,
+    'eop_masks': 5,
+}
+
 class OkapiModel(BaseModel):
 
     def __init__(self,
@@ -54,15 +62,13 @@ class OkapiModel(BaseModel):
                  visual_encoder=None,
                  vpt_encoder=None,
                  projector=None,
-                 visual_sync_tuner=None,
-                 moe_adapter=None,
+                 ref_adapter=None,
                  visual_decoder=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
                  freeze_projector=False,
                  freeze_vpt_encoder=False,
-                 freeze_visual_sync_tuner=False,
-                 freeze_moe_adapter=False,
+                 freeze_ref_adapter=False,
                  freeze_visual_decoder=False,
                  visual_select_layer=-2,
                  pretrained_pth=None,
@@ -78,8 +84,7 @@ class OkapiModel(BaseModel):
         self.freeze_visual_encoder = freeze_visual_encoder
         self.freeze_projector = freeze_projector
         self.freeze_vpt_encoder = freeze_vpt_encoder
-        self.freeze_visual_sync_tuner = freeze_visual_sync_tuner
-        self.freeze_moe_adapter = freeze_moe_adapter
+        self.freeze_ref_adapter = freeze_ref_adapter
         self.freeze_visual_decoder = freeze_visual_decoder
         self.cutoff_len = cutoff_len
         self.loss_coefficient = loss_coefficient
@@ -96,7 +101,8 @@ class OkapiModel(BaseModel):
                 BOU_TOKEN, EOU_TOKEN, 
                 BOV_TOKEN, EOV_TOKEN,
                 VISUAL_REFERENCE_TOKEN,
-                VISUAL_REPRESENTATION_TOKEN,
+                PHRASE_ST_PLACEHOLDER_STAGE2,
+                PHRASE_ED_PLACEHOLDER_STAGE2
             ]
             self.token_ids = {}
             for token in tokens_in_labels:
@@ -130,16 +136,11 @@ class OkapiModel(BaseModel):
                     vpt_encoder).to(self.llm.dtype)
             else:
                 self.vpt_encoder = None
-            if visual_sync_tuner is not None and 'type' in visual_sync_tuner:
-                self.visual_sync_tuner = self._build_from_cfg_or_module(
-                    visual_sync_tuner).to(self.llm.dtype)
+            if ref_adapter is not None and 'type' in ref_adapter:
+                self.ref_adapter = self._build_from_cfg_or_module(
+                    ref_adapter).to(self.llm.dtype)
             else:
-                self.visual_sync_tuner = None
-            if moe_adapter is not None and 'type' in moe_adapter:
-                self.moe_adapter = self._build_from_cfg_or_module(
-                    moe_adapter).to(self.llm.dtype)
-            else:
-                self.moe_adapter = None
+                self.ref_adapter = None
 
             self.visual_decoder = nn.ModuleDict()
             if visual_decoder is not None:
@@ -165,15 +166,10 @@ class OkapiModel(BaseModel):
             vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.llm.dtype)
-        if self.visual_sync_tuner is None and visual_sync_tuner is not None:
-            sync_tuner_config = SyncTunerConfig(**visual_sync_tuner)
-            assert sync_tuner_config.num_queries > 0, 'vrt length error!'
-            self.visual_sync_tuner = SyncTunerModel(sync_tuner_config).to(
-                self.llm.dtype)
-        if moe_adapter is not None and \
-            'type' not in moe_adapter:
-            moe_adapter_config = MoEAdapterConfig(**moe_adapter)
-            self.moe_adapter = MoEAdapterModel(moe_adapter_config).to(
+        if ref_adapter is not None and \
+            'type' not in ref_adapter:
+            ref_adapter_config = REFAdapterConfig(**ref_adapter)
+            self.ref_adapter = REFAdapterModel(ref_adapter_config).to(
                 self.llm.dtype)
         if visual_decoder is not None:
             assert isinstance(visual_decoder, dict)
@@ -196,12 +192,9 @@ class OkapiModel(BaseModel):
         if self.freeze_vpt_encoder and \
             self.vpt_encoder is not None:
             self.vpt_encoder.requires_grad_(False)
-        if self.freeze_visual_sync_tuner and \
-            self.visual_sync_tuner is not None:
-            self.visual_sync_tuner.requires_grad_(False)
-        if self.freeze_moe_adapter and \
-            self.moe_adapter is not None:
-            self.moe_adapter.requires_grad_(False)
+        if self.freeze_ref_adapter and \
+            self.ref_adapter is not None:
+            self.ref_adapter.requires_grad_(False)
         if self.freeze_visual_decoder and \
             self.visual_decoder is not None:
             self.visual_decoder.requires_grad_(False)
@@ -221,10 +214,8 @@ class OkapiModel(BaseModel):
             self.projector.enable_input_require_grads()
             if self.vpt_encoder is not None:
                 self.vpt_encoder.enable_input_require_grads()
-            if self.visual_sync_tuner is not None:
-                self.visual_sync_tuner.enable_input_require_grads()
-            if self.moe_adapter is not None:
-                self.moe_adapter.enable_input_require_grads()
+            if self.ref_adapter is not None:
+                self.ref_adapter.enable_input_require_grads()
             
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
@@ -288,10 +279,8 @@ class OkapiModel(BaseModel):
         self.projector.gradient_checkpointing_enable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_enable()
-        if self.visual_sync_tuner is not None:
-            self.visual_sync_tuner.gradient_checkpointing_enable()
-        if self.moe_adapter is not None:
-            self.moe_adapter.gradient_checkpointing_enable()
+        if self.ref_adapter is not None:
+            self.ref_adapter.gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -302,15 +291,12 @@ class OkapiModel(BaseModel):
         self.projector.gradient_checkpointing_disable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_disable()
-        if self.visual_sync_tuner is not None:
-            self.visual_sync_tuner.gradient_checkpointing_disable()
-        if self.moe_adapter is not None:
-            self.moe_adapter.gradient_checkpointing_disable()
+        if self.ref_adapter is not None:
+            self.ref_adapter.gradient_checkpointing_disable()
 
     def init_weights(self):
         pass
 
-    #taiyan TODO:  check correctness
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         to_return = OrderedDict()
@@ -340,15 +326,11 @@ class OkapiModel(BaseModel):
         to_return.update(
             {k: v
              for k, v in state_dict.items() if 'vpt_encoder.' in k})
-        # Step 5. Visual SyncTuner
+        # Step 5. REFAdapter
         to_return.update(
             {k: v
-             for k, v in state_dict.items() if 'visual_sync_tuner.' in k})
-        # Step 6. MoEAdapter
-        to_return.update(
-            {k: v
-             for k, v in state_dict.items() if 'moe_adapter.' in k})
-        # Step 7. Visual Decoders
+             for k, v in state_dict.items() if 'ref_adapter.' in k})
+        # Step 6. Visual Decoders
         to_return.update(
             {k: v
              for k, v in state_dict.items() if 'visual_decoder.' in k})
@@ -464,48 +446,230 @@ class OkapiModel(BaseModel):
         
         return visual_feats, visual_prompts
     
-    def prepare_vrt_feats(self, hidden_states, metas, mode='loss'):
-        vrt_masks = metas.get('vrt_masks', None)
-        if vrt_masks.sum() == 0 and mode != 'loss':
-            return None
-        
-        vrt_hidden_states = []
-        num_queries = self.visual_sync_tuner.config.num_queries
-        dim_feats = hidden_states.shape[-1]
-        for feats, mask in zip(hidden_states, vrt_masks):
-            vrt_feats = feats[mask, :]
-            if vrt_feats.shape[0] > 0:
-                assert vrt_feats.shape[0] == num_queries
-                vrt_hidden_states.append(vrt_feats)
-            else:
-                # prepare fake features for all mode (for locating batch features in prediction mode)
-                fake_feats = torch.zeros(
-                    num_queries, 
-                    dim_feats
-                    ).to(hidden_states.device).to(hidden_states.dtype)
-                vrt_hidden_states.append(fake_feats)
-        vrt_hidden_states = torch.stack(vrt_hidden_states)
-        return vrt_hidden_states
+    def prepare_decode_feats(self, hidden_states, metas, mode='loss'):
+        '''
+        return: 
+            all_phrase_feats: List[List[Tensor]], len(phrase_feats) = batch_size, len(phrase_feats[0]) = 'num of groups in batch'
+            all_unit_feats: List[List[Tensor]]
+            all_ref_feats: List[List[Tensor]]
+        '''
 
+        def _match_token_pairs(start_indices, end_indices):
+            # get start and end placeholder pairs
+            pairs = []
+            stack = []
+            combined = [(index, 'start') for index in start_indices] + \
+                [(index, 'end') for index in end_indices]
+            combined.sort()
+
+            for index, type_ in combined:
+                if type_ == 'start':
+                    stack.append(index)
+                elif type_ == 'end':
+                    if stack:
+                        st_index = stack.pop()
+                        pairs.append((st_index, index))
+            return pairs
+
+        token_masks = metas.get('token_masks', None)
+        all_phrase_feats = []
+        all_unit_feats = []
+        all_ref_feats = []
+        all_decode_groups = []
+        for batch_idx, feats in enumerate(hidden_states):
+            token_mask = token_masks[batch_idx]
+            # ref token hidden states
+            ref_indices = torch.where(token_mask == TOKEN_MASK_IDS['ref_masks'])[0].tolist()
+            if len(ref_indices) == 0:
+                empty_feats = feats[0:0, :]
+                all_phrase_feats.append([empty_feats])
+                all_unit_feats.append([empty_feats])
+                all_ref_feats.append([empty_feats])
+                continue
+
+            # phrase token hidden states
+            bop_indices = torch.where(token_mask == TOKEN_MASK_IDS['bop_masks'])[0].tolist()
+            eop_indices = torch.where(token_mask == TOKEN_MASK_IDS['eop_masks'])[0].tolist()
+            phrase_pairs = _match_token_pairs(bop_indices, eop_indices)
+
+            # unit token hidden states
+            bou_indices = torch.where(token_mask == TOKEN_MASK_IDS['bou_masks'])[0].tolist()
+            eou_indices = torch.where(token_mask == TOKEN_MASK_IDS['eou_masks'])[0].tolist()
+            unit_pairs = _match_token_pairs(bou_indices, eou_indices)
+
+            if mode == 'loss':
+                # not equal and not cutoff situation
+                if (len(bop_indices) != len(eop_indices)) and (len(bop_indices) - 1 != len(eop_indices)):
+                    print_log(f"Warning: Error Phrase indices num in batch_idx = {batch_idx}, "
+                              f"BOP num = {len(bop_indices)}, EOP num = {len(eop_indices)}")
+                if (len(bou_indices) != len(eou_indices)) and (len(bou_indices) - 1 != len(eou_indices)):
+                    print_log(f"Warning: Error Unit indices num in batch_idx = {batch_idx}, "
+                              f"BOU num = {len(bop_indices)}, EOU num = {len(eop_indices)}")
+
+            # match 'phrase-unit-ref(s)' pairs
+            # first, sort all indices
+            combined_indices = [(pair[1], pair[0], 'phrase') for pair in phrase_pairs] + \
+                [(pair[1], pair[0], 'unit') for pair in unit_pairs] + \
+                [(idx, -1, 'ref') for idx in ref_indices]
+            combined_indices.sort(reverse=True)
+            # second, init 3 pointers
+            p_pointers = []
+            u_pointers = []
+            r_pointers = []
+            for pointer, (_, _, type_) in enumerate(combined_indices):
+                if type_ == 'phrase':
+                    p_pointers.append(pointer)
+                elif type_ == 'unit':
+                    u_pointers.append(pointer)
+                elif type_ == 'ref':
+                    r_pointers.append(pointer)
+            # third, 
+            decode_groups_reversed = []
+            cur_group = None
+            def _update_cur_group(ref_index, phrase_pair=None, unit_pair=None):
+                '''
+                Note: All inputs are reversed
+                '''
+                nonlocal cur_group
+                if phrase_pair is None:
+                    phrase_pair = [0, 0]
+                if unit_pair is None:
+                    unit_pair = [0, 0]
+                if cur_group is None:
+                    cur_group = dict(
+                    phrase_pair = phrase_pair,
+                    unit_pair = unit_pair,
+                    ref_index = [ref_index]
+                    )
+                else:
+                    cur_group['phrase_pair'] = phrase_pair
+                    cur_group['unit_pair'] = unit_pair
+                    cur_group['ref_index'].append(ref_index)
+                return cur_group
+            
+            for pointer in r_pointers:
+                while len(p_pointers) > 0 and \
+                    (combined_indices[p_pointers[0]][0] > combined_indices[pointer][0]):
+                    p_pointers.pop(0)
+                while len(u_pointers) > 0 and \
+                    (combined_indices[u_pointers[0]][0] > combined_indices[pointer][0]):
+                    u_pointers.pop(0)
+
+                ref_index = combined_indices[pointer][0]
+                # Notice that the pointers are reversed
+                # case1: no any p&u tokens after ref tokens, refs will be appended at the end.
+                if len(p_pointers) == 0 and len(u_pointers) == 0:
+                    cur_group = _update_cur_group(ref_index=ref_index)
+                    continue
+                # case2: no any p tokens after ref tokens, refs will be appended when next pointer is u_pointer
+                elif len(p_pointers) == 0 and len(u_pointers) != 0:
+                    unit_pair = combined_indices[u_pointers[0]][:-1]
+                    cur_group = _update_cur_group(
+                        unit_pair=unit_pair,
+                        ref_index=ref_index
+                    )
+
+                    if (pointer + 1) == u_pointers[0]:
+                        decode_groups_reversed.append(cur_group)
+                        cur_group = None
+                # case3: no any u tokens after ref tokens, refs will be appended when next pointer is p_pointer
+                elif len(u_pointers) == 0 and len(p_pointers) != 0:
+                    phrase_pair = combined_indices[p_pointers[0]][:-1]
+                    cur_group = _update_cur_group(
+                        phrase_pair=phrase_pair,
+                        ref_index=ref_index
+                    )
+
+                    if (pointer + 1) == p_pointers[0]:
+                        decode_groups_reversed.append(cur_group)
+                        cur_group = None
+                # case4: there are p&u tokens after ref tokens
+                else:
+                    if (pointer + 1) == u_pointers[0]:
+                        unit_pair = combined_indices[u_pointers[0]][:-1]
+                        # case4.1: standard form, phrase-unit-refs
+                        if (pointer + 2) == p_pointers[0]:
+                            phrase_pair = combined_indices[p_pointers[0]][:-1]
+                            cur_group = _update_cur_group(
+                                phrase_pair = phrase_pair,
+                                unit_pair = unit_pair,
+                                ref_index = ref_index
+                            )
+                        # case4.2: unit-refs
+                        else:
+                            cur_group = _update_cur_group(
+                                unit_pair=unit_pair,
+                                ref_index=ref_index
+                            )
+                        decode_groups_reversed.append(cur_group)
+                        cur_group = None
+                    # case4.3: next pointer is p_pointer, phrase-refs
+                    elif (pointer + 1) == p_pointers[0]:
+                        phrase_pair = combined_indices[p_pointers[0]][:-1]
+                        cur_group = _update_cur_group(
+                            phrase_pair=phrase_pair,
+                            ref_index=ref_index
+                        )
+
+                        decode_groups_reversed.append(cur_group)
+                        cur_group = None
+                    # case4.4: next token is ref
+                    else:
+                        cur_group = _update_cur_group(ref_index=ref_index)
+
+            # last pointer
+            if cur_group is not None:
+                decode_groups_reversed.append(cur_group)
+
+            # finally, reverse back the goup
+            for group in decode_groups_reversed:
+                for key, value in group.items():
+                    group[key] = value[::-1]
+            decode_groups = decode_groups_reversed[::-1]
+            
+            phrase_feats = []
+            unit_feats = []
+            ref_feats = []
+            for group in decode_groups:
+                p_start, p_end = group['phrase_pair']
+                u_start, u_end = group['unit_pair']
+                # non-phrase pairs, init as [0, 0]
+                if p_start == p_end: 
+                    p_end = p_start - 1
+                # non-unit pairs, init as [0, 0]
+                if u_start == u_end: 
+                    u_end = u_start - 1
+                
+                ref_index = group['ref_index']
+                phrase_feats.append(feats[p_start:p_end+1, :])
+                unit_feats.append(feats[u_start:u_end+1, :])
+                ref_feats.append(feats[ref_index, :])
+        
+            all_phrase_feats.append(phrase_feats)
+            all_unit_feats.append(unit_feats)
+            all_ref_feats.append(ref_feats)
+            all_decode_groups.append(decode_groups)
+
+        return dict(
+            phrase_feats = all_phrase_feats,
+            unit_feats = all_unit_feats,
+            ref_feats = all_ref_feats,
+            decode_groups = all_decode_groups
+        )
+    
     def prepare_ref_feats(self, hidden_states, metas, mode='loss'):
-        ref_masks = metas.get('ref_masks', None)
+        token_masks = metas.get('token_masks', None)
+        ref_masks = token_masks == TOKEN_MASK_IDS['ref_masks']
         if ref_masks.sum() == 0 and mode != 'loss':
             return None, None
 
-        moe_num_queries = 0
-        if self.moe_adapter is not None:
-            moe_num_queries = self.moe_adapter.config.num_queries
-
-        max_decoder_num_queries = 0
+        max_num_queries = 0
         if self.visual_decoder is not None:
             decoder_num_queries = []
             for decoder in self.visual_decoder.values():
                 decoder_num_queries.append(decoder.config.num_queries)
-            max_decoder_num_queries = max(decoder_num_queries)
-            if moe_num_queries != 0:
-                assert max_decoder_num_queries <= moe_num_queries
+            max_num_queries = max(decoder_num_queries)
 
-        max_num_queries = max(moe_num_queries, max_decoder_num_queries)
         if max_num_queries == 0:
             return None, None
 
@@ -524,21 +688,33 @@ class OkapiModel(BaseModel):
             ref_attention_masks[batch_idx, :ref_feats_len] = True
         return ref_hidden_states, ref_attention_masks
 
+    def prepare_token_masks(self, ids):
+        mask_tokens = dict(
+            ref_masks = VISUAL_REFERENCE_TOKEN,
+            bou_masks = BOU_TOKEN,
+            eou_masks = EOU_TOKEN,
+            bop_masks = PHRASE_ST_PLACEHOLDER_STAGE2,
+            eop_masks = PHRASE_ED_PLACEHOLDER_STAGE2
+        )
+        token_masks = torch.zeros_like(ids, dtype=torch.uint8)
+        for batch_idx, ids in enumerate(ids):
+            for type, token in mask_tokens.items():
+                mask = ids == self.token_ids[token]
+                token_masks[batch_idx, mask] = TOKEN_MASK_IDS[type]
+        return token_masks
+
     def forward(self, data, data_samples=None, mode='loss'):
         metas = dict()
         meta_keys = [
-            'ori_image', 'image_path',
-            'ori_height', 'ori_width',
+            # 'pixel_values', 'image_path',
+            # 'ori_height', 'ori_width',
             'decode_labels', 'decode_units',
             'decode_seqs', 'conversations',
             'pixel_masks'
         ]
         assert 'pixel_values' in data, "pixel_values must in data dict."
         for key in meta_keys:
-            if key == 'ori_image':
-                metas[key] = data.get('pixel_values', None)
-            else:
-                metas[key] = data.get(key, None)
+            metas[key] = data.get(key, None)
 
         visual_outputs = self.visual_encoder(
             data['pixel_values'].to(self.visual_encoder.dtype),
@@ -562,21 +738,12 @@ class OkapiModel(BaseModel):
 
         # prepare data for train/predict
         try:
-            # vrt and ref mask
-            vrt_masks = []
-            ref_masks = []
-            input_ids = data['input_ids']
-            for ids in input_ids:
-                vrt_mask = ids == self.token_ids[VISUAL_REPRESENTATION_TOKEN]
-                ref_mask = ids == self.token_ids[VISUAL_REFERENCE_TOKEN]
-                vrt_masks.append(vrt_mask.bool())
-                ref_masks.append(ref_mask.bool())
-            data['vrt_masks'] = vrt_masks
-            data['ref_masks'] = ref_masks
-
+            if mode == 'loss':
+                data['token_masks'] = self.prepare_token_masks(data['input_ids'])
+            
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
-                trim = ['input_ids', 'vrt_masks', 'ref_masks']
+                trim = ['input_ids']
                 remove = ['labels', 'attention_mask', 'position_ids']
                 for key in trim:
                     value = data.get(key, None)
@@ -592,8 +759,8 @@ class OkapiModel(BaseModel):
                     if value.shape[1] > self.cutoff_len:
                         data[key] = value[:, :self.cutoff_len]
             
-            metas['vrt_masks'] = data.pop('vrt_masks')
-            metas['ref_masks'] = data.pop('ref_masks')
+            if mode == 'loss':
+                metas['token_masks'] = data.pop('token_masks')
         except Exception as e:
             print(e)
             file_prefix = f"wrong_prepare_data"
@@ -616,65 +783,58 @@ class OkapiModel(BaseModel):
     
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
+        if self.visual_decoder is None:
+            return results
 
-        ref_hidden_states, ref_attention_masks = None, None
-        ref_used_module = [self.moe_adapter, self.visual_decoder]
-        if any(module is not None for module in ref_used_module):
+        if self.ref_adapter is not None:
+            decode_feats = self.prepare_decode_feats(
+                hidden_states,
+                metas=metas,
+                mode=mode
+            )
+            # all empty features
+            if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
+                                          for feats in decode_feats['ref_feats']]):
+                return results
+        else:
             ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
                 hidden_states,
                 metas=metas,
                 mode=mode
             )
-        if ref_hidden_states is None:
-            # only in predict process
-            return results
+            if mode == 'predict' and ref_hidden_states is None:
+                return results
 
-        # visual sync tuner
-        rec_outputs = None
-        if self.visual_sync_tuner is not None:
-            vrt_hidden_states = self.prepare_vrt_feats(
-                hidden_states=hidden_states,
+        # ref adapter
+        ref_outputs = None
+        if self.ref_adapter is not None:
+            ref_outputs = self.ref_adapter(
+                decode_feats['phrase_feats'],
+                decode_feats['unit_feats'],
+                decode_feats['ref_feats'],
                 metas=metas,
                 mode=mode
             )
-            rec_outputs = self.visual_sync_tuner(
-                vrt_hidden_states,
-                metas=metas,
-                mode=mode
-            )
-            results['visual_sync_tuner'] = rec_outputs
-
-        # moe adapter
-        moe_outputs = None
-        if self.moe_adapter is not None:
-            moe_outputs = self.moe_adapter(
-                ref_hidden_states,
-                # ref_attention_masks,
-                mode=mode
-            )
-            results['moe_adapter'] = moe_outputs
+            results['ref_adapter'] = ref_outputs
         
         # decoders
         if self.visual_decoder is not None:
             visual_decoder_outputs = dict()
-            if rec_outputs is None:
-                visual_hidden_states = metas['visual_hidden_states']
-            else:
-                # pyramid outputs
-                visual_hidden_states = rec_outputs['hidden_states']
+            visual_hidden_states = metas['visual_hidden_states']
 
-            if moe_outputs is None:
+            if ref_outputs is None:
                 decode_hidden_states = ref_hidden_states
             else:
                 # last layer output
-                decode_hidden_states = moe_outputs['hidden_states'][-1]
+                ref_hidden_states = ref_outputs['ref_hidden_states']
+                ref_mask = ref_outputs['ref_mask']
             
             for type, decoder in self.visual_decoder.items():
                 decode_outputs = decoder(
                     visual_hidden_states,
-                    decode_hidden_states,
+                    ref_hidden_states,
                     visual_mask=None,
-                    ref_mask=ref_attention_masks,
+                    ref_mask=ref_mask,
                     metas=metas,
                     mode=mode
                 )
@@ -693,9 +853,9 @@ class OkapiModel(BaseModel):
                     target_size).to(dtype).to(device)
                 cur_length = special_token_masks.shape[1]
                 if pad_side == 'left':
-                    padded_special_token_masks[:, :cur_length] = special_token_masks
-                elif pad_side == 'right':
                     padded_special_token_masks[:, -cur_length:] = special_token_masks
+                elif pad_side == 'right':
+                    padded_special_token_masks[:, :cur_length] = special_token_masks
                 else:
                     raise ValueError('only support left or right side')
             else:
@@ -720,22 +880,22 @@ class OkapiModel(BaseModel):
             hidden_states.append(last_layer_feats)
         hidden_states = torch.cat(hidden_states, dim=1)
 
+        #TODO: 增加token masks
         # prepare special token masks for modules
-        vrt_masks = metas.get('vrt_masks', None)
-        metas['vrt_masks'] = _pad_special_token_masks(
-            special_token_masks=vrt_masks,
-            target_size=hidden_states.shape[:-1],
-            pad_side='left'
-        )
+        token_masks = metas.get('token_masks', None)
+        if token_masks is not None:
+            # pad left because no unit in anwsers
+            bou_masks = token_masks == TOKEN_MASK_IDS['bou_masks']
 
         # remove last generated token (the last one usually is </s>)
         # in all situations, the last token will not used for inference (</s> or cutoff as max_length)
+        # pad left because no ref in prompts
         ref_masks = llm_outputs.sequences[:, :-1] == \
             self.token_ids[VISUAL_REFERENCE_TOKEN]
         metas['ref_masks'] = _pad_special_token_masks(
             special_token_masks=ref_masks,
             target_size=hidden_states.shape[:-1],
-            pad_side='right'
+            pad_side='left'
         )
 
         # get pipeline outputs
@@ -744,13 +904,10 @@ class OkapiModel(BaseModel):
             metas=metas, 
             mode='predict'
         )
-        sync_tuner_outputs = pipeline_outputs.get('visual_sync_tuner', None)
         decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
         results = dict()
         results['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
-        # {'preds': Tensor}
-        results['sync_tuner_outputs'] = sync_tuner_outputs
         # {'box':{'loss':, 'preds':(List[Tensor])[batch]}, 'mask':(List[Tensor])}
         results['decoder_outputs'] = decoder_outputs 
         return results
@@ -826,16 +983,6 @@ class OkapiModel(BaseModel):
             metas=metas, 
             mode='loss'
         )
-        rec_outputs = modules_outputs.get('visual_sync_tuner', None)
-        if rec_outputs is not None:
-            loss_dict['rec'] = rec_outputs['loss']
-            cost_dict['rec_cost'] = rec_outputs['loss']
-        
-        moe_outputs = modules_outputs.get('moe_adapter', None)
-        if moe_outputs is not None:
-            loss_dict['moe'] = moe_outputs['loss']
-            cost_dict['moe_cost'] = moe_outputs['loss']
-        
         decoder_outputs = modules_outputs.get('visual_decoder', None)
         if decoder_outputs is not None:
             for type, outputs in decoder_outputs.items():

@@ -1,0 +1,276 @@
+# Copyright (c) OpenMMLab. All rights reserved.
+import torch
+import torch.nn as nn
+import warnings
+from typing import List, Optional, Tuple, Union
+from transformers import PreTrainedModel
+from transformers.activations import ACT2FN
+from torch.utils.checkpoint import checkpoint
+
+from .configuration_ref_adapter import REFAdapterConfig
+
+class PositionalEncoding(nn.Module):
+    
+    def __init__(self, d_model, dropout=0.1, max_len=256):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(10000.0)) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe, persistent=False)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
+    
+class REFAdapterDecoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+        super(REFAdapterDecoderLayer, self).__init__()
+        
+        # Self-attention layer
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        
+        # Cross-attention layer (attends to encoder output)
+        self.cross_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+        
+        # FFN
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, d_model)
+        )
+
+        # Layer norm
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.norm3 = nn.LayerNorm(d_model)
+        
+        # Dropout
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, 
+                tgt_key_padding_mask=None, memory_key_padding_mask=None):
+        
+        # Self-attention block
+        tgt2 = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask,
+                              key_padding_mask=tgt_key_padding_mask)[0]
+        tgt = tgt + self.dropout1(tgt2)
+        tgt = self.norm1(tgt)
+        
+        # Cross-attention block
+        tgt2 = self.cross_attn(tgt, memory, memory, attn_mask=memory_mask,
+                                   key_padding_mask=memory_key_padding_mask)[0]
+        tgt = tgt + self.dropout2(tgt2)
+        tgt = self.norm2(tgt)
+        
+        # Feedforward block
+        tgt2 = self.ffn(tgt)
+        tgt = tgt + self.dropout3(tgt2)
+        tgt = self.norm3(tgt)
+        
+        return tgt
+
+
+class REFAdapterDecoder(PreTrainedModel):
+
+    def __init__(self, config: REFAdapterConfig):
+        super().__init__(config)
+        self.config = config
+        num_queries_text = config.phrase_max_length + config.unit_max_length
+        num_queries_ref = config.ref_max_length
+        d_input = config.d_input
+        d_model = config.d_model
+        n_heads = config.n_heads
+        dropout = config.dropout
+        d_ffn = config.d_ffn
+
+        if d_input != d_model:
+            self.in_proj = nn.Linear(d_input, d_model)
+        self.text_positional_encoding = PositionalEncoding(
+            d_model, 
+            dropout=0, 
+            max_len=num_queries_text
+        )
+        self.ref_positional_encoding = PositionalEncoding(
+            d_model, 
+            dropout=0, 
+            max_len=num_queries_ref
+        )
+        self.layers = nn.ModuleList()
+        for _ in range(config.num_layers):
+            self.layers.append(
+                REFAdapterDecoderLayer(
+                    d_model,
+                    n_heads,
+                    d_ffn,
+                    dropout
+                )
+            )
+        self.last_norm = nn.LayerNorm(d_model)
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def forward(self,
+        ref_hidden_states,
+        text_hidden_states, 
+        attention_mask=None, 
+        mode='loss'
+    ):
+        if self.config.d_input != self.config.d_model:
+            ref_hidden_states = self.in_proj(ref_hidden_states)
+            text_hidden_states = self.in_proj(text_hidden_states)
+        
+        ref_hidden_states = self.ref_positional_encoding(ref_hidden_states)
+        text_hidden_states = self.text_positional_encoding(text_hidden_states)
+
+        hidden_states = ref_hidden_states
+        all_hidden_states = ()
+        for layer in self.layers:
+            all_hidden_states += (hidden_states,)
+            hidden_states = layer(
+                tgt=hidden_states,
+                memory=text_hidden_states,
+                tgt_mask=attention_mask
+            )
+
+        # add hidden states from the last decoder layer
+        last_hidden_states = self.last_norm(hidden_states)
+        all_hidden_states += (last_hidden_states,)
+        
+        return dict(
+            last_hidden_states = last_hidden_states,
+            hidden_states = all_hidden_states
+        )
+
+
+class REFAdapterModel(PreTrainedModel):
+    _auto_class = 'AutoModel'
+    config_class = REFAdapterConfig
+    base_model_prefix = 'model'
+    supports_gradient_checkpointing = True
+
+    def __init__(self, config: REFAdapterConfig):
+        super().__init__(config)
+        self.config = config
+        self.model = REFAdapterDecoder(config)
+        self.post_init()
+
+    def enable_input_require_grads(self):
+        
+        def make_inputs_require_grad(module, input, output):
+            if isinstance(output, dict):
+                for key in output.keys():
+                    if isinstance(output[key], torch.Tensor):
+                        output[key].requires_grad_(True)
+            else:
+                output.requires_grad_(True)
+        
+        self.model.register_forward_hook(make_inputs_require_grad)
+
+    def _set_gradient_checkpointing(self, module, value=False):
+        if isinstance(module, REFAdapterModel):
+            module.gradient_checkpointing = value
+
+    def pad_sequences(self, sequences, target_length):
+        padded_sequences = []
+        for seqs in sequences:
+            for feats in seqs:
+                length, dim = feats.shape
+                if length > target_length:
+                    padded_feats = feats[:target_length, :]
+                else:
+                    padded_feats = torch.zeros(
+                        (target_length, dim), 
+                        device=feats.device,
+                        dtype=feats.dtype
+                    )
+                    padded_feats[:length, :] = feats
+                padded_sequences.append(padded_feats)
+        padded_sequences = torch.stack(padded_sequences, dim=0)
+        return padded_sequences
+
+    def reform_sequences(self, ref_sequences, hidden_states):
+        batch_size = len(ref_sequences)
+        _, ref_pad_len, ref_dim = hidden_states.shape
+        counter = torch.zeros((batch_size, 2), dtype=torch.uint8)
+
+        for batch_idx, seqs in enumerate(ref_sequences):
+            num_seqs = len(seqs)
+            num_token = sum([feats.shape[0] for feats in seqs])
+            counter[batch_idx, 0] = num_seqs
+            counter[batch_idx, 1] = num_token
+
+        max_ref_num = counter[:, 1].max().item()
+        new_hidden_states = torch.zeros(
+            (batch_size, max_ref_num, ref_dim), 
+            dtype=hidden_states.dtype, 
+            device=hidden_states.device
+        )
+        hidden_states_mask = torch.zeros(
+            (batch_size, max_ref_num), 
+            dtype=torch.bool, 
+            device=hidden_states.device
+        )
+        start = 0
+        for batch_idx, batch_counter in enumerate(counter):
+            seqs = ref_sequences[batch_idx]
+            num_seqs = batch_counter[0]
+            num_token = batch_counter[1]
+
+            end = start + num_seqs
+            ref_mask = torch.zeros((num_seqs, ref_pad_len), dtype=torch.bool)
+            for idx, feats in enumerate(seqs):
+                ref_len = feats.shape[0]
+                ref_mask[idx, :ref_len] = True
+            
+            num_ref_in_batch = ref_mask.sum()
+            new_hidden_states[batch_idx, :num_ref_in_batch, :] = hidden_states[start:end][ref_mask]
+            hidden_states_mask[batch_idx, :num_ref_in_batch] = True
+        
+        return new_hidden_states, hidden_states_mask
+
+    def forward(
+        self, 
+        phrase_sequences, 
+        unit_sequences, 
+        ref_sequences,
+        metas, 
+        mode='loss'
+    ):
+        phrase_feats = self.pad_sequences(phrase_sequences, self.config.phrase_max_length)
+        unit_feats = self.pad_sequences(unit_sequences, self.config.unit_max_length)
+
+        text_feats = torch.cat([phrase_feats, unit_feats], dim=1)
+        ref_feats = self.pad_sequences(ref_sequences, self.config.ref_max_length)
+
+        if self.gradient_checkpointing and self.training:
+            outputs = checkpoint(
+                self.model, 
+                ref_feats,
+                text_feats,
+                None,
+                mode,
+                use_reentrant=True
+            )
+        else:
+            outputs = self.model(
+                ref_feats,
+                text_feats,
+                mode=mode
+            )
+        last_hidden_states = outputs['last_hidden_states']
+        
+        # re-organize hidden_states
+        hidden_states, hidden_states_mask = self.reform_sequences(ref_sequences, last_hidden_states)
+        return dict(
+            hidden_states = outputs['hidden_states'],
+            ref_hidden_states = hidden_states,
+            ref_mask = hidden_states_mask
+        )

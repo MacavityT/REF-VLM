@@ -165,6 +165,28 @@ class DecoderModel(PreTrainedModel):
 
         return inputs
 
+    def padding_ref_inputs(self, hidden_states, hidden_states_mask):
+        batch, length, dim = hidden_states.shape
+
+        if length > self.config.num_queries:
+            padded_hidden_states = hidden_states[:, :self.config.num_queries, :]
+            padded_mask = hidden_states_mask[:, :self.config.num_queries]
+        else:
+            padded_hidden_states = torch.zeros(
+                (batch, self.config.num_queries, dim),
+                device=hidden_states.device,
+                dtype=hidden_states.dtype
+            )
+            padded_mask = torch.zeros(
+                (batch, self.config.num_queries),
+                device=hidden_states.device,
+                dtype=torch.bool
+            )
+            padded_hidden_states[:, :length, :] = hidden_states
+            padded_mask[:, :length] = hidden_states_mask
+
+        return padded_hidden_states, padded_mask
+
     def get_label_slices(self, metas, ref_mask):
         decode_seqs = metas.get('decode_seqs', None)
         if decode_seqs is None:
