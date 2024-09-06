@@ -11,7 +11,7 @@ from .configuration_ref_adapter import REFAdapterConfig
 
 class PositionalEncoding(nn.Module):
     
-    def __init__(self, d_model, dropout=0.1, max_len=256):
+    def __init__(self, d_model, dropout=0.1, max_len=256, batch_first=False):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -20,7 +20,9 @@ class PositionalEncoding(nn.Module):
         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(10000.0)) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+        pe = pe.unsqueeze(0)
+        if not batch_first:
+            pe = pe.transpose(0, 1)
         self.register_buffer('pe', pe, persistent=False)
 
     def forward(self, x):
@@ -96,12 +98,14 @@ class REFAdapterDecoder(PreTrainedModel):
         self.text_positional_encoding = PositionalEncoding(
             d_model, 
             dropout=0, 
-            max_len=num_queries_text
+            max_len=num_queries_text,
+            batch_first=True
         )
         self.ref_positional_encoding = PositionalEncoding(
             d_model, 
             dropout=0, 
-            max_len=num_queries_ref
+            max_len=num_queries_ref,
+            batch_first=True
         )
         self.layers = nn.ModuleList()
         for _ in range(config.num_layers):
