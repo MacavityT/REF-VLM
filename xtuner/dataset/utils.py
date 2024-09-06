@@ -425,16 +425,18 @@ def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
 
-def mask_square2origin(mask, origin_width, origin_height):
+def mask_square2origin(mask, origin_width, origin_height, threshold=0):
     # mask shape: [H,W]
     target_size = max(origin_width, origin_height)
     mask = mask.float()
     mask = F.interpolate(
         mask.unsqueeze(0).unsqueeze(0), 
         size=(target_size, target_size), 
+        # mode='nearest'
         mode='bilinear', 
         align_corners=False
     )
+    mask = (mask > threshold).to(mask.dtype).to(mask.device)
     mask = mask[0,0]
     if origin_width == origin_height:
         return mask

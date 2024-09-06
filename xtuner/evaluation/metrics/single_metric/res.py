@@ -5,12 +5,14 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from PIL import Image
+import os
+import cv2
 import logging
 from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
-from xtuner.dataset.utils import mask_square2origin
+from xtuner.dataset.utils import mask_square2origin,visualize_mask
 from xtuner.utils import IGNORE_INDEX
 from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from enum import Enum
@@ -130,10 +132,11 @@ class RESComputeMetrics(BaseComputeMetrics):
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
             target_masks = torch.tensor(gt_masks['mask']).float()
-            target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
+            target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height,threshold=0.5) for target_mask in target_masks])
             if sample['decoder_outputs'] is not None:
-                decode_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
-                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in decode_masks])
+                # decode_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
+                decode_masks = sample['decoder_outputs']['masks']
+                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height,threshold=0.5) for decode_mask in decode_masks])
             else:
                 decode_masks = torch.zeros_like(target_masks).float()
 
@@ -150,6 +153,21 @@ class RESComputeMetrics(BaseComputeMetrics):
                 self.save_outputs(decode_pred_string,target_string,f"{self.prefix}_{self.dataset_name}")
 
             self.results.append((decode_pred, target))
+
+            image_name = os.path.basename(image_path)
+            image_id = image_name.split('.')[0]
+            decode_masks = [decode_mask for decode_mask in decode_masks.cpu().numpy()]
+            target_masks = [target_mask for target_mask in target_masks.cpu().numpy()]
+            vis_mask_pred = visualize_mask(image, decode_masks, alpha=1.0, beta=1.0)
+            vis_mask_target = visualize_mask(image, target_masks, alpha=1.0, beta=1.0)
+            pred_save_path = f'pred_{image_id}.jpg'
+            target_save_path = f'target_{image_id}.jpg'
+            save_dir = os.path.join(self.save_dir,f'{self.dataset_name}')
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
+            cv2.imwrite(os.path.join(save_dir,pred_save_path),vis_mask_pred)
+            cv2.imwrite(os.path.join(save_dir,target_save_path),vis_mask_target)
+
     
     def compute_metrics(self, results: list) -> dict:
 
