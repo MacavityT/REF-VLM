@@ -19,6 +19,7 @@ with read_base():
     from .train_png_variant import train_png_variant
     from .train_cocokeypoint_variant import train_cocokeypoints_variant
     from .train_reg_variant import train_reg_variant
+    from .train_res_variant import train_res_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -28,6 +29,15 @@ train_all_dataset = dict(
         template_name=r'flickr30k',
         map_placeholders=dict(
             output=["<boxes>"],
+        )
+    ),
+    flickr_seg=dict(
+        type='FlickrSegmentationDataset',
+        text_path=r'/data/Aaronzhu/GranD/GLaMM_data/GranD-f/annotations/train/flick30k_gcg_seg_train.jsonl',  
+        image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
+        template_name=r'flickr30k_SEG',
+        map_placeholders=dict(
+            output=["<masks>"],
         )
     ),
     rec=dict(
@@ -90,16 +100,39 @@ train_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
         offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
     ),
-    coco_rem=dict(
+    openpsg=dict(
+        type='OpenPSGDataset',
+        image_folder='/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
+        text_path='/data/Aaronzhu/GranD/GLaMM_data/GranD-f/annotations/train/OpenPsgGCG_train.json',
+        template_name=r"flickr30k_SEG",
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<masks>"],
+        ), 
+    ),
+    coco_rem_mask=dict(
         type='COCOREMDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/instances_trainrem.json',
         image_folder=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/train2017',
+        task_type='mask',
         template_name=r'SEG',
         placeholders=('<image>',),
         map_placeholders=dict(
             output=["<masks>"],
         ),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
+        offline_processed_text_folder='',
+    ),
+    coco_rem_box=dict(
+        type='COCOREMDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/instances_trainrem.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage1/COCO-ReM/train2017',
+        task_type='box',
+        template_name=r'DET',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<boxes>"],
+        ),
+        offline_processed_text_folder='',
     ),
     kitti=dict(
         type='KITTIDataset',
@@ -152,4 +185,5 @@ train_all_dataset = dict(
     **train_llavag_variant,
     **train_png_variant,
     **train_cocokeypoints_variant,
+    **train_res_variant,
 )

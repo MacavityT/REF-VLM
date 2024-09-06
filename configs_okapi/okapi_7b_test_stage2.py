@@ -9,6 +9,10 @@ from xtuner.evaluation.metrics.single_metric import (
     COTComputeMetrics,
     LabelsComputeMetrics,
     PopeComputeMetrics,
+    RECComputeMetrics,
+    RESComputeMetrics,
+    GCGComputeMetrics,
+    DETComputeMetrics,
 )
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
@@ -31,21 +35,24 @@ max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
 visual_hidden_size = 1024
-vrt_length = 256
+vrt_length = 0
 ref_length = 1
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
-cot_weight = 1
-vrt_weight = 1
+ref_box_num = 100
+ref_mask_num = 30
+ref_box_queries = ref_box_num * ref_length
+ref_mask_queries = ref_mask_num * ref_length
 
+dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
-prefix = 'pope_random'
+prefix = 'res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0807mask/eval63'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0826_novrt_8/eval46000'
 
 if prefix == 'okvqa':
-    test_evaluator = dict(
+    test_evaluator = dict( 
         type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
     test_dataset_args = [
         test_all_dataset['okvqa'],
@@ -173,6 +180,77 @@ elif prefix == 'reg_mask':
         test_all_dataset['reg_refcocog_umd_test_mask'],
     ]
 
+
+elif prefix == 'rec':
+    test_evaluator = dict(
+        type=RECComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset[f'{dataset_name}'],
+            )
+    ]
+
+elif prefix == 'res':
+    test_evaluator = dict(
+        type=RESComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset[f'{dataset_name}'],
+            )
+    ]
+
+elif prefix == 'gcg_box':
+    test_evaluator = dict(
+        type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=False, prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['flickr_eval_with_box'],
+            )
+    ]
+
+elif prefix == 'gcg_mask':
+    test_evaluator = dict(
+        type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=True, prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['cocogcg_val'],
+            )
+    ]
+
+elif prefix == 'coco_det':
+    test_evaluator = dict(
+        type=DETComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['coco_2017_box_val'],
+            )
+    ]
+
 elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
     test_evaluator = dict(
         type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)
@@ -225,7 +303,41 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=okapi_collate_fn))
 
-model = dict(
+# model = dict(
+#     type=OkapiModel,
+#     freeze_llm=True,
+#     tokenizer=tokenizer,
+#     freeze_visual_encoder=True,
+#     cutoff_len=cutoff_len,
+#     llm=dict(
+#         type=AutoModelForCausalLM.from_pretrained,
+#         pretrained_model_name_or_path=vicuna_7b_path,
+#         trust_remote_code=True),
+#     visual_encoder=clip_patch14_336['visual_encoder'],
+#     vpt_encoder=dict(
+#         strategy='pooling',
+#         patch_size=vpt_patch_size,
+#         num_patches = vpt_num_patches,
+#         visual_hidden_size=visual_hidden_size,
+#         use_mask_token=False,
+#         use_projector=False,
+#     ),
+#     visual_sync_tuner=dict(
+#         num_layers=3,
+#         num_queries=vrt_length,
+#         d_input=4096,
+#         d_model=512,
+#         d_ffn=2048,
+#         output_dim=3,
+#         num_heads=8,
+#         dropout=0.1,
+#         ratio=0.5
+#     ),
+#     cot_weight=cot_weight,
+#     vrt_weight=vrt_weight)
+
+
+model=dict(
     type=OkapiModel,
     freeze_llm=True,
     tokenizer=tokenizer,
@@ -241,19 +353,68 @@ model = dict(
         patch_size=vpt_patch_size,
         num_patches = vpt_num_patches,
         visual_hidden_size=visual_hidden_size,
-        use_mask_token=False,
-        use_projector=False,
+        use_mask_token=True,
+        use_projector=False
     ),
-    visual_sync_tuner=dict(
-        num_layers=3,
-        num_queries=vrt_length,
-        d_input=4096,
-        d_model=512,
-        d_ffn=2048,
-        output_dim=3,
-        num_heads=8,
-        dropout=0.1,
-        ratio=0.5
+    visual_decoder=dict(
+        box=dict(
+            use_group_matcher=True,
+            num_queries=ref_box_queries,
+            # quries_input_dim=256,
+            quries_input_dim=4096,
+            encoder_input_transform='resize_concat',
+            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
+            encoder_input_index=[8, 16, 23],    # [3, 2, 1], [-2, -2, -2]
+            encoder_input_dim=[1024, 1024, 1024],  # [512, 512, 512],
+            decoder_layers=6,
+            decoder_ffn_dim=2048,
+            decoder_attention_heads=8,
+            decoder_layerdrop=0.0,
+            activation_function="relu",
+            d_model=256,
+            dropout=0.1,
+            attention_dropout=0.0,
+            activation_dropout=0.0,
+            bbox_loss_coefficient=5,
+            giou_loss_coefficient=2,
+        ),
+        mask=dict(
+            use_group_matcher=True,
+            num_queries=ref_mask_queries,
+            # quries_input_dim=256,
+            quries_input_dim=4096,
+            encoder_input_transform='multiple_select',
+            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
+            encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            encoder_input_dim=[1024, 1024, 1024],
+            #region query decoder config
+            decoder_layers=6,
+            decoder_ffn_dim=2048,
+            decoder_attention_heads=8,
+            decoder_layerdrop=0.0,
+            pre_norm=False,
+            activation_function="relu",
+            d_model=256,
+            dropout=0.0,
+            attention_dropout=0.0,
+            activation_dropout=0.0,
+            #endregion
+            #region pixel decoder config
+            encoder_layers=6, 
+            fpn_feature_size=256,
+            mask_feature_size=256,
+            feature_strides=[4, 8, 16, 32],
+            common_stride=4,
+            encoder_feedforward_dim=1024,
+            mask_loss_coefficient=20,
+            dice_loss_coefficient=1,
+            #endregion
+        ),
     ),
-    cot_weight=cot_weight,
-    vrt_weight=vrt_weight)
+    loss_coefficient=dict(
+        llm=1,
+        rec=0.5,
+        moe=0.02,
+        box=0.5,
+        mask=0.5
+    ))

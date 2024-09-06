@@ -9,6 +9,9 @@ test_flickr_variant = dict(
         type='FlickrDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_eval.jsonl',
         template_name=r'flickr30k',
+        map_placeholders=dict(
+            output=["<boxes>"],
+        )
     ),
     flickr_eval_without_box=dict(
         **flickr_test_common_cfg,
@@ -21,6 +24,9 @@ test_flickr_variant = dict(
         type='FlickrDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_test.jsonl',
         template_name=r'flickr30k',
+        map_placeholders=dict(
+            output=["<boxes>"],
+        )
     ),
     flickr_test_without_box=dict(
         **flickr_test_common_cfg,

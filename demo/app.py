@@ -30,8 +30,15 @@ from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
 
-
-
+def denormalize_image(image):
+    OPENAI_CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073]
+    OPENAI_CLIP_STD = [0.26862954, 0.26130258, 0.27577711]
+    mean = torch.tensor(OPENAI_CLIP_MEAN).view(1, 3, 1, 1)
+    std = torch.tensor(OPENAI_CLIP_STD).view(1, 3, 1, 1)
+    denormalized_tensor = image.cpu() * std + mean
+    denormalized_tensor = denormalized_tensor[0].permute(1,2,0).detach().cpu().numpy()
+    output_denormalized_image = np.clip(denormalized_tensor * 255,0,255).astype(np.uint8)
+    return output_denormalized_image
 
 def choose_system(task_name):
     if task_name == 'VQA':
@@ -271,18 +278,25 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     input_str = decode_generate_ids(tokenizer,data_batch['data']['input_ids'],skip_special_tokens=False)
     print(f'input:{input_str}')
 
-    output_seq = decode_generate_ids(tokenizer,output['generate_ids'][0],skip_special_tokens=False)
+    output_seq = decode_generate_ids(tokenizer,output[0]['generate_ids'],skip_special_tokens=False)
     output_seq = output_seq.replace("<","\<").replace(">","\>")
     bot_message = output_seq
     print(output_seq)
     chatbot[-1][1] = ""
 
-    if output['decoder_outputs'] is not None:
-        if 'box' in output['decoder_outputs'].keys():
-            boxes_output = output['decoder_outputs']['box']['preds'][0].cpu().tolist()
+    # if output['sync_tuner_outputs'] is not None:
+    #     rec_output = output['sync_tuner_outputs']['preds'][0]
+    #     rec_output = rec_output.reshape(1,128,128,3)
+    #     rec_output = rec_output.permute(0,3,1,2)
+    #     rec_output = denormalize_image(rec_output)
+    #     Image.fromarray(rec_output).save("rec_image.jpg")
+
+    if output[0]['decoder_outputs'] is not None:
+        if output[0]['decoder_outputs']['boxes'] is not None:
+            boxes_output = output[0]['decoder_outputs']['boxes'].cpu().tolist()
             state['boxes_output'] = boxes_output
-        if 'mask' in output['decoder_outputs'].keys():
-            masks_output = output['decoder_outputs']['mask']['preds'][0].float().cpu().numpy().tolist()
+        if output[0]['decoder_outputs']['masks'] is not None:
+            masks_output = output[0]['decoder_outputs']['masks'].float().cpu().numpy().tolist()
             state['masks_output'] = masks_output
         try:
             labels = get_cot_elements(output_seq.replace("\\",""),['<REF>'])
@@ -300,7 +314,7 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     
     return chatbot
 
-def submit_step3(state,input_image,output_image,threshold=0.4):
+def submit_step3(state,input_image,output_image,threshold=0.5):
     output_image = None
     if input_image is not None:
         if isinstance(input_image,dict):
@@ -767,5 +781,5 @@ with gr.Blocks(
     )
 
 demo.queue().launch(
-    debug=True,server_port=6229,
+    debug=True,server_port=6296,
 )

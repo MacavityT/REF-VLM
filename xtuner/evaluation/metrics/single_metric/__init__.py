@@ -4,6 +4,7 @@ from .rec import RECComputeMetrics
 from .res import RESComputeMetrics
 from .gcg import GCGComputeMetrics
 from .seg import SEGComputeMetrics
+from .det import DETComputeMetrics
 from .vqa import VQAComputeMetrics
 from .cot import COTComputeMetrics
 from .labels import LabelsComputeMetrics
@@ -13,4 +14,4 @@ __all__ = ['ImgCapComputeMetrics','PopeComputeMetrics',
            'RECComputeMetrics','RESComputeMetrics',
            'GCGComputeMetrics', 'SEGComputeMetrics',
            'VQAComputeMetrics','COTComputeMetrics',
-           'LabelsComputeMetrics', 'UnitComputeMetrics']
+           'LabelsComputeMetrics', 'UnitComputeMetrics', 'DETComputeMetrics']

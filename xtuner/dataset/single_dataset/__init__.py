@@ -1,4 +1,4 @@
-from .flickr import FlickrParser, FlickrDataset, FlickrCaptionDataset
+from .flickr import FlickrParser, FlickrDataset, FlickrCaptionDataset,FlickrSegmentationDataset
 from .rec import RECDataset#, RECComputeMetrics
 from .reg import REGDataset, GCDataset
 from .caption import CaptionDataset
@@ -28,3 +28,6 @@ from .nyu import NYUDataset
 from .hrwsi import HRWSIDataset
 from .coco_keypoints import COCOKeypointsDataset,COCOKeypointsRECDataset
 from .okvqa import OKVQADataset
+from .res import RESDataset
+from .coco_gcg_test import COCOGCG
+from .openpsg import OpenPSGDataset

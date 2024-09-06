@@ -19,13 +19,12 @@ with read_base():
 max_length = 2048 - 576 
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-vrt_length = 256
+vrt_length = 0
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
-cot_weight = 1
-vrt_weight = 1
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0813_iter40500'
+
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_iter37500'
 
 
 projector = dict(
@@ -40,23 +39,23 @@ vpt_encoder = dict(
     trust_remote_code=True,
 )
 
-visual_sync_tuner = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=os.path.join(model_dir,'visual_sync_tuner'),
-    trust_remote_code=True,
-)
+# visual_sync_tuner = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=os.path.join(model_dir,'visual_sync_tuner'),
+#     trust_remote_code=True,
+# )
 
-box_decoder = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
-    trust_remote_code=True,
-)
+# box_decoder = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
+#     trust_remote_code=True,
+# )
 
-mask_decoder = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=os.path.join(model_dir,'mask_decoder'),
-    trust_remote_code=True,
-)
+# mask_decoder = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=os.path.join(model_dir,'mask_decoder'),
+#     trust_remote_code=True,
+# )
 
 
 
@@ -93,8 +92,9 @@ model = dict(
     visual_encoder=clip_patch14_336['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
-    visual_sync_tuner=visual_sync_tuner,
-    visual_decoder=dict(
-        box=box_decoder,
-        mask=mask_decoder
-    ))
+    # visual_sync_tuner=visual_sync_tuner,
+    # visual_decoder=dict(
+    #     box=box_decoder,
+    #     mask=mask_decoder
+    # )
+)

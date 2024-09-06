@@ -1,6 +1,7 @@
 import torch
 import re
 import os
+from typing import List
 from transformers import AutoTokenizer, AutoModel
 from sklearn.metrics.pairwise import cosine_similarity
 import json
@@ -230,8 +231,34 @@ class SEGDETProcessor:
 
         if self.task in ['ade_panoptic','ade_semantic','cityscapes_panoptic']:
             self.process_config()
+        elif "coco" in self.task:
+            self.test_class_ids = [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
+                18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
+                35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49,
+                50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+                64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+                82, 84, 85, 86, 87, 88, 89, 90
+            ]
+            self.test_class_names = [
+                'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+                'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
+                'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+                'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
+                'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag',
+                'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+                'sports ball', 'kite', 'baseball bat', 'baseball glove',
+                'skateboard', 'surfboard', 'tennis racket', 'bottle',
+                'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+                'banana', 'apple', 'sandwich', 'orange', 'broccoli',
+                'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+                'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+                'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+                'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
+                'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+            ]
 
-    def convert_cls_to_id(self,label_txt):
+    def convert_cls_txt_to_id(self,label_txt):
         label_dict = {}
         with open(label_txt,'r') as f:
             for line in f.readlines():
@@ -240,6 +267,11 @@ class SEGDETProcessor:
                     label_dict[class_name] = int(line[0])
             f.close()
         return label_dict
+    
+    def convert_cls_to_id(self,class_name):
+        if "coco" in self.task:
+            class_idx = self.test_class_names.index(class_name)
+            return self.test_class_ids[class_idx]
 
     def process_config(self):
         self.cfg = get_cfg()
@@ -355,6 +387,10 @@ class SEGDETProcessor:
     def compute_miou(self, dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks, type):
         # Computing mIoU between predicted masks and ground truth masks
         iou_matrix = np.zeros((len(pred_boxes_masks), len(gt_boxes_masks)))
+        if not isinstance(pred_boxes_masks,np.ndarray):
+            pred_boxes_masks = np.array(pred_boxes_masks)
+        if not isinstance(gt_boxes_masks,np.ndarray):
+            gt_boxes_masks = np.array(gt_boxes_masks)
         if pred_boxes_masks.shape[1] == 4:
             iou_matrix = box_iou(torch.tensor(pred_boxes_masks)*1000, torch.tensor(gt_boxes_masks)*1000).cpu().numpy()
         else:
@@ -452,7 +488,7 @@ class SEGDETProcessor:
         mean_miou = np.mean(mious) if mious else 0.0  # If list is empty, return 0.0
 
         # print(f"Mean IoU (mIoU) across all images: {mean_miou:.3f}")
-        return mean_miou, output
+        return mean_miou
     
     
     def find_best_matches(self, dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks):
@@ -461,7 +497,10 @@ class SEGDETProcessor:
         gt_labels = [[cls_name1,cls_name2],cls_names]
         '''
         # find best matches per image.
-
+        if not isinstance(pred_boxes_masks,np.ndarray):
+            pred_boxes_masks = np.array(pred_boxes_masks)
+        if not isinstance(gt_boxes_masks,np.ndarray):
+            gt_boxes_masks = np.array(gt_boxes_masks)
         best_matches = []
         # Compute pair - wise IoU
         if pred_boxes_masks.shape[1] == 4:
@@ -547,7 +586,7 @@ class SEGDETProcessor:
         return best_matches
 
     
-    def evaluate_recall_with_mapping(self, preds, targets, mask,global_softmax=False):
+    def evaluate_recall_with_mapping(self, preds, targets, mask, global_softmax=False):
 
         true_positives = 0
         actual_positives = 0

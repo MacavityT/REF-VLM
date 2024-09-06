@@ -796,18 +796,7 @@ class OkapiModel(BaseModel):
             if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
                                           for feats in decode_feats['ref_feats']]):
                 return results
-        else:
-            ref_hidden_states, ref_attention_masks = self.prepare_ref_feats(
-                hidden_states,
-                metas=metas,
-                mode=mode
-            )
-            if mode == 'predict' and ref_hidden_states is None:
-                return results
-
-        # ref adapter
-        ref_outputs = None
-        if self.ref_adapter is not None:
+            
             ref_outputs = self.ref_adapter(
                 decode_feats['phrase_feats'],
                 decode_feats['unit_feats'],
@@ -815,20 +804,23 @@ class OkapiModel(BaseModel):
                 metas=metas,
                 mode=mode
             )
+            ref_hidden_states = ref_outputs['ref_hidden_states']
+            ref_mask = ref_outputs['ref_mask']
             results['ref_adapter'] = ref_outputs
+        else:
+            ref_hidden_states, ref_mask = self.prepare_ref_feats(
+                hidden_states,
+                metas=metas,
+                mode=mode
+            )
+            if mode == 'predict' and ref_hidden_states is None:
+                return results
         
         # decoders
         if self.visual_decoder is not None:
             visual_decoder_outputs = dict()
             visual_hidden_states = metas['visual_hidden_states']
 
-            if ref_outputs is None:
-                decode_hidden_states = ref_hidden_states
-            else:
-                # last layer output
-                ref_hidden_states = ref_outputs['ref_hidden_states']
-                ref_mask = ref_outputs['ref_mask']
-            
             for type, decoder in self.visual_decoder.items():
                 decode_outputs = decoder(
                     visual_hidden_states,
@@ -906,10 +898,24 @@ class OkapiModel(BaseModel):
         )
         decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
-        results = dict()
-        results['generate_ids'] = llm_outputs.sequences  # [batch,token_id_length]
-        # {'box':{'loss':, 'preds':(List[Tensor])[batch]}, 'mask':(List[Tensor])}
-        results['decoder_outputs'] = decoder_outputs 
+        results = []
+        for batch_idx, generate_id in enumerate(llm_outputs.sequences):
+            decoder_output = None
+            if decoder_outputs is not None:
+                boxes = decoder_outputs['box']['preds'][batch_idx]
+                masks = decoder_outputs['mask']['preds'][batch_idx]
+                decoder_output = {
+                    'masks': masks, 
+                    'boxes': boxes
+                    }
+            
+            results.append(
+                {
+                    'generate_ids': generate_id, 
+                    'decoder_outputs': decoder_output
+                }
+            )
+
         return results
 
     def compute_loss_llm(self, logits, labels):

@@ -7,9 +7,11 @@ import json
 from torch.utils.data import Dataset
 from xtuner.registry import DATASETS
 from pycocotools.mask import decode
+from xtuner.dataset.utils import convert_bbox
 import pycocotools.mask as mask_utils
 from xtuner.utils.constants import (
     MASKS_PLACEHOLDER,
+    BOXES_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
@@ -31,9 +33,9 @@ def find_duplicate_indices(my_list):
 
 @DATASETS.register_module()
 class COCOREMDataset(MInstrDataset):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, task_type,**kwargs):
         super().__init__(*args, **kwargs)
-
+        self.task_type = task_type
         self.img_name =  os.listdir(self.image_folder)
         self.dataset = self.read_json()
         self.createIndex()
@@ -46,8 +48,9 @@ class COCOREMDataset(MInstrDataset):
     def createIndex(self):
         # create index
         print('creating index...')
-        self.anns, self.cats, = {}, {}
-        self.imgs = defaultdict(list)
+        self.anns, self.cats = {}, {}
+        self.imgToAnns = defaultdict(list)
+        self.imgs = []
         if 'annotations' in self.dataset:
             for ann in self.dataset['annotations']:
                 self.imgToAnns[ann['image_id']].append(ann)
@@ -62,6 +65,9 @@ class COCOREMDataset(MInstrDataset):
                 self.cats[cat['id']] = cat
 
         print('index created!')
+
+    def __len__(self):
+        return len(self.imgs)
         
     
     def replace_categories(self, category_id):
@@ -69,9 +75,9 @@ class COCOREMDataset(MInstrDataset):
         return category_name
     
     def build_caption(self, index):
-        masks = []
+        boxes_masks = []
         types = []
-        masks_seq = []
+        boxes_masks_seq = []
         info = self.imgs[index]
         img_info = {
             'path': os.path.join(self.image_folder,info['file_name']),
@@ -81,36 +87,55 @@ class COCOREMDataset(MInstrDataset):
         id = info['id']
         annotations = self.imgToAnns[id]
         for annotation in annotations:
-            rleObjs = mask_utils.frPyObjects(annotation["segmentation"], info["width"], info["height"])
-            mask = decode(rleObjs)
-            masks.append(mask)
+            if self.task_type == 'mask':
+                rleObjs = mask_utils.frPyObjects(annotation["segmentation"], info["height"], info["width"])
+                mask = decode(rleObjs)
+                boxes_masks.append(mask)
+            elif self.task_type == 'box':
+                box = list(convert_bbox(annotation['bbox']))
+                boxes_masks.append(box)
             type = self.replace_categories(annotation['category_id'])
             types.append(type)
 
         index_dict = find_duplicate_indices(types)
         caption = ''
         for i, key in enumerate(index_dict.keys()):
-            caption += (PHRASE_ST_PLACEHOLDER_STAGE2 + key + PHRASE_ED_PLACEHOLDER_STAGE2 +
-                        MASKS_PLACEHOLDER * len(index_dict[key]) + (',' if i < len(index_dict.keys()) - 1 else '.'))
-            masks_seq.append(index_dict[key])
-        return img_info, masks, caption, masks_seq
+            if self.task_type == 'mask':
+                caption += (PHRASE_ST_PLACEHOLDER_STAGE2 + key + PHRASE_ED_PLACEHOLDER_STAGE2 +
+                            MASKS_PLACEHOLDER * len(index_dict[key]) + (',' if i < len(index_dict.keys()) - 1 else '.'))
+            elif self.task_type == 'box':
+                caption += (PHRASE_ST_PLACEHOLDER_STAGE2 + key + PHRASE_ED_PLACEHOLDER_STAGE2 +
+                            BOXES_PLACEHOLDER * len(index_dict[key]) + (',' if i < len(index_dict.keys()) - 1 else '.'))
+            boxes_masks_seq.append(index_dict[key])
+        return img_info, boxes_masks, caption, boxes_masks_seq
     
     
         
     def build_conversations(self, index):
 
-        type = 'masks'
-        task = {'task_name':'segmentation','element':['phrase'],'use_unit':True}
-        unit = ['mask']
-        system = {'from':'system','value':[{'task':task,'unit':unit}]}
+
         question = self.get_template()
-        img_info,masks,caption,masks_seq = self.build_caption(index)
+        img_info,boxes_masks,caption,boxes_masks_seq = self.build_caption(index)
         human = {'from':'human','value':question}
-        answer = {'from':'gpt','value':caption,'masks_seq':masks_seq}
+
+        if self.task_type == 'mask':
+            answer = {'from':'gpt','value':caption,'masks_seq':boxes_masks_seq}
+            type = 'masks'
+            task = {'task_name':'segmentation','element':['phrase'],'use_unit':True}
+            unit = ['mask']
+            system = {'from':'system','value':[{'task':task,'unit':unit}]}
+        elif self.task_type == 'box':
+            answer = {'from':'gpt','value':caption,'boxes_seq':boxes_masks_seq}
+            type = 'boxes'
+            task = {'task_name':'detection','element':['phrase'],'use_unit':True}
+            unit = ['box']
+            system = {'from':'system','value':[{'task':task,'unit':unit}]}
+
+
         conversation = [system, human, answer]
         ret = {
             'image':img_info,
-            'target':{type: masks},
+            'target':{type: boxes_masks},
             'conversations':conversation
         }
         ret['map_placeholders'] = self.map_placeholders

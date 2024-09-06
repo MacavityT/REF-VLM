@@ -27,13 +27,12 @@ cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 15  # per_device
 dataloader_num_workers = 4
-vrt_length = 256
+vrt_length = 0
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
-cot_weight = 1
-vrt_weight = 1
+
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -43,6 +42,7 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
         args = dict(
+            use_cot=False,
             vrt_len=vrt_length, 
             ref_len=ref_length
         )
@@ -84,16 +84,16 @@ model = dict(
         use_mask_token=True,
         use_projector=False
     ),
-    visual_sync_tuner=dict(
-        num_layers=3,
-        num_queries=vrt_length,
-        d_input=4096,
-        d_model=512,
-        d_ffn=2048,
-        num_heads=8,
-        dropout=0.1,
-        ratio=0.5
-    ),
+    # visual_sync_tuner=dict(
+    #     num_layers=3,
+    #     num_queries=vrt_length,
+    #     d_input=4096,
+    #     d_model=512,
+    #     d_ffn=2048,
+    #     num_heads=8,
+    #     dropout=0.1,
+    #     ratio=0.5
+    # ),
     loss_coefficient=dict(
         llm=1.,
         rec=0.5,
