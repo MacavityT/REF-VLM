@@ -46,7 +46,7 @@ ref_mask_queries = ref_mask_num * ref_length
 
 dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
-prefix = 'gcg_mask'
+prefix = 'res'
 chunk = 8
 
 save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0826_novrt_8/eval46000'

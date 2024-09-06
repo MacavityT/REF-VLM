@@ -428,7 +428,7 @@ def masks_expand2square(masks):
 def mask_square2origin(mask, origin_width, origin_height):
     # mask shape: [H,W]
     target_size = max(origin_width, origin_height)
-    
+    mask = mask.float()
     mask = F.interpolate(
         mask.unsqueeze(0).unsqueeze(0), 
         size=(target_size, target_size), 

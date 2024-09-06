@@ -42,6 +42,7 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
         args = dict(
+            use_cot=False,
             vrt_len=vrt_length, 
             ref_len=ref_length
         )

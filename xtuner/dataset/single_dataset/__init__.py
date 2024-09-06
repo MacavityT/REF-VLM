@@ -1,4 +1,4 @@
-from .flickr import FlickrParser, FlickrDataset, FlickrCaptionDataset
+from .flickr import FlickrParser, FlickrDataset, FlickrCaptionDataset,FlickrSegmentationDataset
 from .rec import RECDataset#, RECComputeMetrics
 from .reg import REGDataset, GCDataset
 from .caption import CaptionDataset

@@ -3,7 +3,9 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 from tqdm import tqdm
-
+import json
+from collections import defaultdict
+from pycocotools.mask import decode
 from torch.utils.data import Dataset
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
@@ -355,4 +357,51 @@ class FlickrCaptionDataset(MInstrDataset):
                 ]
             }
             ret['map_placeholders'] = self.map_placeholders
+        return ret
+
+
+
+@DATASETS.register_module()
+class FlickrSegmentationDataset(MInstrDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+
+    def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
+
+        item = self.get_raw_item(index)
+        img_path = f"{item['image_id']}.jpg"
+        caption = item['sentence']
+
+        image = self.get_image(img_path)
+        question = self.get_template()
+        value = [{'task':{'task_name':'gcg_segmentation','element':['phrase','sentence'],'use_unit':True},'unit':['mask']}]
+
+        masks = []
+        for mask in item['masks']:
+            masks.append(decode(mask))
+
+        ret = {
+            'image': image,
+            'target': {'masks': masks},  # 'seg' /
+            'conversations': [
+                {
+                    'from': 'system',
+                    'value':value,
+                },
+                {
+                    'from': 'human',
+                    'value': question,
+                },
+                {
+                    'from': 'gpt',
+                    'value': caption,
+                    'masks_seq': item['masks_seq'],
+                }
+            ]
+        }
+        ret['map_placeholders'] = self.map_placeholders
+
         return ret

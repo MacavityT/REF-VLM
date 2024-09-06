@@ -32,7 +32,7 @@ grand_cond_d = dict(
 
 grand_cond_s = dict(
     type='SubSet',
-    portion=1/2,
+    portion=3/4,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_cond_s'],

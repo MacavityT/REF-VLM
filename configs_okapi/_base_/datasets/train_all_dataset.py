@@ -31,6 +31,15 @@ train_all_dataset = dict(
             output=["<boxes>"],
         )
     ),
+    flickr_seg=dict(
+        type='FlickrSegmentationDataset',
+        text_path=r'/data/Aaronzhu/GranD/GLaMM_data/GranD-f/annotations/train/flick30k_gcg_seg_train.jsonl',  
+        image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
+        template_name=r'flickr30k_SEG',
+        map_placeholders=dict(
+            output=["<masks>"],
+        )
+    ),
     rec=dict(
         type='RECDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',

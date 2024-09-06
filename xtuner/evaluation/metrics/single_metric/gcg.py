@@ -15,10 +15,10 @@ from pycocoevalcap.eval import COCOEvalCap
 from transformers import AutoTokenizer, AutoModel
 from sklearn.metrics.pairwise import cosine_similarity
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
-
+from PIL import Image
 
 from xtuner.utils.constants import IGNORE_INDEX
-from xtuner.dataset.utils import box_xywh_to_xyxy
+from xtuner.dataset.utils import box_xywh_to_xyxy,mask_square2origin
 from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
 from .utils.process import SEGDETProcessor
 from .utils.get_cot import get_matches_from_text, get_caption_text
@@ -86,6 +86,7 @@ class GCGComputeMetrics(BaseComputeMetrics):
         for sample, gt_text, gt_boxes_masks,image_path in zip(data_samples,data_batch['data']['labels'],
                                                    data_batch['data']['decode_labels'],
                                                    data_batch['data']['image_path']):
+            image = Image.open(image_path)
             # initialize the output
             decode_pred = {}
             target = {}
@@ -111,12 +112,10 @@ class GCGComputeMetrics(BaseComputeMetrics):
             # TODO: change the format ,add caption
             if self.mask:
                 target_masks = torch.tensor(gt_boxes_masks['mask']).float()
+                target_masks = torch.tensor(np.array([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]))
                 if sample['decoder_outputs'] is not None:
                     pred_boxes_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
-                    pred_boxes_masks = F.interpolate(pred_boxes_masks.float().unsqueeze(0),
-                                                size=(target_masks.shape[1],target_masks.shape[2]),
-                                                    mode='bilinear', 
-                                                    align_corners=False).squeeze(0)
+                    pred_boxes_masks = torch.tensor(np.array([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]))
                 else:
                     pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()
                     matches_pred = [('None',1)]

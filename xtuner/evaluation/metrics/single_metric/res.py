@@ -4,11 +4,13 @@ import re
 import torch
 import torch.nn.functional as F
 import numpy as np
+from PIL import Image
 import logging
 from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
+from xtuner.dataset.utils import mask_square2origin
 from xtuner.utils import IGNORE_INDEX
 from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
 from enum import Enum
@@ -117,21 +119,21 @@ class RESComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         
-        for sample, gt_text, gt_masks in zip(data_samples,data_batch['data']['labels'],data_batch['data']['decode_labels']):
-            # TODO: change the process
+        for sample, gt_text, gt_masks,image_path in zip(data_samples,
+                                                        data_batch['data']['labels'],
+                                                        data_batch['data']['decode_labels'],
+                                                        data_batch['data']['image_path']):
+            image = Image.open(image_path)
             decode_pred_string = sample['generate_ids']
-
             decode_pred_string = self.decode_generate_ids(ids=decode_pred_string,skip_special_tokens=False)
             target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
             target_masks = torch.tensor(gt_masks['mask']).float()
+            target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
             if sample['decoder_outputs'] is not None:
                 decode_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
-                decode_masks = F.interpolate(decode_masks.float().unsqueeze(0),
-                                             size=(target_masks.shape[1],target_masks.shape[2]),
-                                                   mode='bilinear', 
-                                                   align_corners=False).squeeze(0)
+                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in decode_masks])
             else:
                 decode_masks = torch.zeros_like(target_masks).float()
 
