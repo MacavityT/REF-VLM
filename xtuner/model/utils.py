@@ -143,8 +143,7 @@ def prepare_inputs_labels_for_multimodal(
         pixel_values: Optional[torch.FloatTensor] = None,
         vpt_count: Optional[List[int]] = None,
         vpt_feats: Optional[List[List[torch.FloatTensor]]] = None,
-        vrt_masks: Optional[List[torch.BoolTensor]] = None,
-        ref_masks: Optional[List[torch.BoolTensor]] = None,
+        token_masks: Optional[List[torch.IntTensor]] = None,
         **kwargs):
     if pixel_values is None:
         return {
@@ -154,8 +153,7 @@ def prepare_inputs_labels_for_multimodal(
             'past_key_values': past_key_values,
             'inputs_embeds': None,
             'labels': labels,
-            'vrt_masks': vrt_masks,
-            'ref_masks': ref_masks
+            'token_masks': token_masks,
         }
     
     assert not (vpt_count is None) ^ (vpt_feats is None)
@@ -166,8 +164,7 @@ def prepare_inputs_labels_for_multimodal(
     _labels = labels
     _position_ids = position_ids
     _attention_mask = attention_mask
-    _vrt_masks = vrt_masks
-    _ref_masks = ref_masks
+    _token_masks = token_masks
     if attention_mask is None:
         attention_mask = torch.ones_like(input_ids, dtype=torch.bool)
     else:
@@ -177,10 +174,8 @@ def prepare_inputs_labels_for_multimodal(
             0, input_ids.shape[1], dtype=torch.long, device=input_ids.device)
     if labels is None:
         labels = torch.full_like(input_ids, IGNORE_INDEX)
-    if vrt_masks is None:
-        vrt_masks = torch.full_like(input_ids, False)
-    if ref_masks is None:
-        ref_masks = torch.full_like(input_ids, False)
+    if token_masks is None:
+        token_masks = torch.full_like(input_ids, 0)
     # remove the padding using attention_mask -- TODO: double check
     input_ids = [
         cur_input_ids[cur_attention_mask]
@@ -190,19 +185,14 @@ def prepare_inputs_labels_for_multimodal(
         cur_labels[cur_attention_mask]
         for cur_labels, cur_attention_mask in zip(labels, attention_mask)
     ]
-    vrt_masks = [
+    token_masks = [
         cur_mask[cur_attention_mask]
-        for cur_mask, cur_attention_mask in zip(vrt_masks, attention_mask)
-    ]
-    ref_masks = [
-        cur_mask[cur_attention_mask]
-        for cur_mask, cur_attention_mask in zip(ref_masks, attention_mask)
+        for cur_mask, cur_attention_mask in zip(token_masks, attention_mask)
     ]
 
     new_inputs_embeds = []
     new_labels = []
-    new_vrt_masks = []
-    new_ref_masks = []
+    new_token_masks = []
     cur_image_idx = 0
     for batch_idx, cur_input_ids in enumerate(input_ids):
         num_vpt = (cur_input_ids == VISUAL_PROMPT_INDEX).sum()
@@ -225,8 +215,7 @@ def prepare_inputs_labels_for_multimodal(
                     [cur_inputs_embeds, cur_vpt_feats[0][0:0]], dim=0)
             new_inputs_embeds.append(cur_inputs_embeds)
             new_labels.append(labels[batch_idx])
-            new_vrt_masks.append(vrt_masks[batch_idx])
-            new_ref_masks.append(ref_masks[batch_idx])
+            new_token_masks.append(token_masks[batch_idx])
             cur_image_idx += 1
             continue
 
@@ -250,17 +239,14 @@ def prepare_inputs_labels_for_multimodal(
         cur_input_ids_noim = []
         cur_labels = labels[batch_idx]
         cur_labels_noim = []
-        cur_vrt_masks = vrt_masks[batch_idx]
-        cur_vrt_masks_noim = []
-        cur_ref_masks = ref_masks[batch_idx]
-        cur_ref_masks_noim = []
+        cur_token_masks = token_masks[batch_idx]
+        cur_token_masks_noim = []
         for i in range(len(traverse_indices) - 1):
             start = traverse_indices[i] + 1
             end = traverse_indices[i + 1]
             cur_input_ids_noim.append(cur_input_ids[start:end])
             cur_labels_noim.append(cur_labels[start:end])
-            cur_vrt_masks_noim.append(cur_vrt_masks[start:end])
-            cur_ref_masks_noim.append(cur_ref_masks[start:end])
+            cur_token_masks_noim.append(cur_token_masks[start:end])
 
         split_sizes = [x.shape[0] for x in cur_labels_noim]
         cur_inputs_embeds = llm.get_input_embeddings()(
@@ -269,15 +255,13 @@ def prepare_inputs_labels_for_multimodal(
             cur_inputs_embeds, split_sizes, dim=0)
         cur_new_inputs_embeds = []
         cur_new_labels = []
-        cur_new_vrt_masks = []
-        cur_new_ref_masks = []
+        cur_new_token_masks = []
 
         cur_vpt_idx = 0
         for i in range(len(all_indices) + 1):
             cur_new_inputs_embeds.append(cur_inputs_embeds_no_im[i])
             cur_new_labels.append(cur_labels_noim[i])
-            cur_new_vrt_masks.append(cur_vrt_masks_noim[i])
-            cur_new_ref_masks.append(cur_ref_masks_noim[i])
+            cur_new_token_masks.append(cur_token_masks_noim[i])
             if i == len(all_indices): break # append last slice and break
 
             vpt_append = vpt_flag[i]
@@ -293,29 +277,22 @@ def prepare_inputs_labels_for_multimodal(
                             IGNORE_INDEX,
                             device=cur_labels.device,
                             dtype=cur_labels.dtype))
-            cur_new_vrt_masks.append(
+            cur_new_token_masks.append(
                 torch.full((feats_slice.shape[0], ),
-                            False,
-                            device=cur_vrt_masks.device,
-                            dtype=cur_vrt_masks.dtype))
-            cur_new_ref_masks.append(
-                torch.full((feats_slice.shape[0], ),
-                            False,
-                            device=cur_vrt_masks.device,
-                            dtype=cur_vrt_masks.dtype))
+                            0,
+                            device=cur_token_masks.device,
+                            dtype=cur_token_masks.dtype))
 
         if (vpt_count is not None) and (vpt_count[batch_idx] == 0):
             cur_new_inputs_embeds.append(cur_vpt_feats[0][0:0])
 
         cur_new_inputs_embeds = torch.cat(cur_new_inputs_embeds)
         cur_new_labels = torch.cat(cur_new_labels)
-        cur_new_vrt_masks = torch.cat(cur_new_vrt_masks)
-        cur_new_ref_masks = torch.cat(cur_new_ref_masks)
+        cur_new_token_masks = torch.cat(cur_new_token_masks)
 
         new_inputs_embeds.append(cur_new_inputs_embeds)
         new_labels.append(cur_new_labels)
-        new_vrt_masks.append(cur_new_vrt_masks)
-        new_ref_masks.append(cur_new_ref_masks)
+        new_token_masks.append(cur_new_token_masks)
 
     # Combine them
     max_len = max(x.shape[0] for x in new_inputs_embeds)
@@ -332,19 +309,13 @@ def prepare_inputs_labels_for_multimodal(
     position_ids = torch.zeros((batch_size, max_len),
                                dtype=position_ids.dtype,
                                device=position_ids.device)
-    new_vrt_masks_padded = torch.full((batch_size, max_len),
-                                   False,
-                                   dtype=new_vrt_masks[0].dtype,
-                                   device=new_vrt_masks[0].device)
-    new_ref_masks_padded = torch.full((batch_size, max_len),
-                                   False,
-                                   dtype=new_ref_masks[0].dtype,
-                                   device=new_ref_masks[0].device)
+    new_token_masks_padded = torch.zeros((batch_size, max_len),
+                                   dtype=new_token_masks[0].dtype,
+                                   device=new_token_masks[0].device)
 
     for i, (cur_new_embed,
             cur_new_labels) in enumerate(zip(new_inputs_embeds, new_labels)):
-        cur_new_vrt_masks = new_vrt_masks[i]
-        cur_new_ref_masks = new_ref_masks[i]
+        cur_new_token_masks = new_token_masks[i]
         cur_len = cur_new_embed.shape[0]
         new_inputs_embeds_padded.append(
             torch.cat((cur_new_embed,
@@ -360,8 +331,7 @@ def prepare_inputs_labels_for_multimodal(
                 cur_len,
                 dtype=position_ids.dtype,
                 device=position_ids.device)
-            new_vrt_masks_padded[i, :cur_len] = cur_new_vrt_masks
-            new_ref_masks_padded[i, :cur_len] = cur_new_ref_masks
+            new_token_masks_padded[i, :cur_len] = cur_new_token_masks
 
     new_inputs_embeds = torch.stack(new_inputs_embeds_padded, dim=0)
 
@@ -378,15 +348,10 @@ def prepare_inputs_labels_for_multimodal(
     if _position_ids is None:
         position_ids = None
 
-    if _vrt_masks is None:
-        new_vrt_masks = None
+    if _token_masks is None:
+        new_token_masks = None
     else:
-        new_vrt_masks = new_vrt_masks_padded
-
-    if _ref_masks is None:
-        new_ref_masks = None
-    else:
-        new_ref_masks = new_ref_masks_padded
+        new_token_masks = new_token_masks_padded
 
     return {
         'input_ids': None,
@@ -395,8 +360,7 @@ def prepare_inputs_labels_for_multimodal(
         'past_key_values': past_key_values,
         'inputs_embeds': new_inputs_embeds,
         'labels': new_labels,
-        'vrt_masks': new_vrt_masks,
-        'ref_masks': new_ref_masks
+        'token_masks': new_token_masks,
     }
 
 

@@ -149,21 +149,6 @@ class SyncTunerModel(PreTrainedModel):
 
         self.model = SyncTunerFPNModel(config)
         self.criterion = MSELoss(reduction='mean')
-        # # self.image_pool = redis.StrictRedis(host='localhost', port=6379, db=0)
-        # if image_pool is not None:
-        #     with jsonlines.open(image_pool, 'r') as f:
-        #         self.image_pool_idx2path = [data for data in f]
-        #         self.image_pool_path2idx = {path: index for index, path in \
-        #             enumerate(self.image_pool_idx2path)}
-        # else:
-        #     self.image_pool_idx2path = None
-        #     self.image_pool_path2idx = None
-        
-        # self.register_buffer(
-        #     "image_pool_used_idx", 
-        #     torch.zeros(len(self.image_pool_idx2path)).bool(), 
-        #     persistent=False
-        # )
 
     def enable_input_require_grads(self):
         
@@ -182,23 +167,11 @@ class SyncTunerModel(PreTrainedModel):
             module.gradient_checkpointing = value
     
     def compute_loss_reconstruction(self, logits, metas):
-        targets = metas['ori_image']
+        targets = metas['super_pixel_values']
         image_path = metas['image_path']
         pixel_masks = torch.stack(metas['pixel_masks'])
 
         rec_flags = torch.zeros((logits.shape[0])).to(torch.bool)
-        # for path in image_path:
-            # if path == '':
-            #     rec_flag = False # fake image
-            # # elif self.image_pool.sismember("processed_images", path):
-            # elif self.image_pool_used_idx[self.image_pool_path2idx[path]]:
-            #     rec_flag = False
-            # else:
-            #     rec_flag = np.random.uniform(0, 1) < self.config.ratio
-            #     self.image_pool_used_idx[self.image_pool_path2idx[path]] = rec_flag
-            #     # if rec_flag:
-            #     #     # self.image_pool.sadd("processed_images", path)
-        
         for idx in range(logits.shape[0]):
             if image_path[idx] == '':
                 rec_flags[idx] = False

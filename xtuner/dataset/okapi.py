@@ -198,9 +198,7 @@ class OkapiDataset(Dataset):
                 print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
                 image_path = ''
                 image = np.zeros((336,336,3)).astype(np.uint8)
-
-        elif isinstance(image_path,np.ndarray):
-            image = image
+        elif isinstance(image_path, np.ndarray):
             image_path = ''
         image = Image.fromarray(image) # PIL.Image
         ori_width = image.size[0]
@@ -213,7 +211,7 @@ class OkapiDataset(Dataset):
             )
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
-            image = image.resize((336,336))
+            image = image.resize((336, 336))
             image_path = ''
             ori_width = 336
             ori_height = 336
@@ -317,10 +315,7 @@ class OkapiDataset(Dataset):
                 elif 'value' in image_info.keys():
                     image = image_info['value']
                 image_meta = self.image_process(image)
-                data_dict['pixel_values'] = image_meta['pixel_values']
-                data_dict['ori_width'] = image_meta['ori_width']
-                data_dict['ori_height'] = image_meta['ori_height']
-                data_dict['image_path'] = image_meta['image_path']
+                data_dict.update(image_meta)
             else:
                 if hasattr(self.image_processor, 'crop_size'):
                     crop_size = self.image_processor.crop_size
@@ -331,6 +326,7 @@ class OkapiDataset(Dataset):
                 data_dict['ori_height'] = crop_size['height']
                 data_dict['ori_width'] = crop_size['width']
                 data_dict['image_path'] = ''
+                data_dict['super_pixel_values'] = None
 
             data_dict['pixel_masks'] = get_pixel_mask(
                 data_dict['pixel_values'],

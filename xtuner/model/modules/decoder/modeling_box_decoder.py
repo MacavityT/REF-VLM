@@ -214,11 +214,12 @@ class BoxDecoderModel(DecoderModel):
         )
 
         # prepare learnable queries
-        ref_hidden_states = ref_hidden_states[:, :self.config.num_queries, :]
-        ref_mask = ref_mask[:, :self.config.num_queries]
-
         batch_size = ref_hidden_states.shape[0]
         ref_hidden_states = self.in_proj_queries(ref_hidden_states)
+        ref_hidden_states, ref_mask = self.padding_ref_inputs(
+            ref_hidden_states,
+            ref_mask
+        )
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         assert ref_hidden_states.shape == query_position_embeddings.shape
 
