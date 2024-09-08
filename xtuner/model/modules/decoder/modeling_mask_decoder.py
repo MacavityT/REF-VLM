@@ -342,6 +342,18 @@ class MaskDecoderModel(DecoderModel):
         metas=None,
         mode='loss'
     ):
+        # remove other unit decode tasks
+        decode_units = metas.get('decode_units', None)
+        if decode_units is not None:
+            batch_remove_mask = [unit != 'mask' for unit in decode_units]  
+            # remove batch which task not mask deocde
+            condition = torch.zeros_like(ref_mask).to(torch.bool)
+            condition[batch_remove_mask, :] = True 
+            ref_mask = ref_mask.masked_fill(condition, False)
+        
+        if mode != 'loss' and ref_mask.sum() == 0:
+            return None
+
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
         pixel_decoder_outputs = self.pixel_decoder(visual_hidden_states)
@@ -381,14 +393,6 @@ class MaskDecoderModel(DecoderModel):
         sequence_output = decoder_outputs[0]
         mask_embeddings = self.mask_embedder(sequence_output)
         masks_queries_logits = torch.einsum("bqc, bchw -> bqhw", mask_embeddings, pixel_embeddings)
-        
-        decode_units = metas.get('decode_units', None)
-        if decode_units is not None:
-            batch_remove_mask = [unit != 'mask' for unit in decode_units]  
-            # remove batch which task not mask deocde
-            condition = torch.zeros_like(ref_mask).to(torch.bool)
-            condition[batch_remove_mask, :] = True 
-            ref_mask = ref_mask.masked_fill(condition, False)
         
         loss = None
         if mode == 'loss':   

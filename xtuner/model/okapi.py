@@ -792,6 +792,7 @@ class OkapiModel(BaseModel):
                 metas=metas,
                 mode=mode
             )
+            results['decode_groups'] = decode_feats['decode_groups']
             # all empty features
             if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
                                           for feats in decode_feats['ref_feats']]):
@@ -806,7 +807,6 @@ class OkapiModel(BaseModel):
             )
             ref_hidden_states = ref_outputs['ref_hidden_states']
             ref_mask = ref_outputs['ref_mask']
-            results['ref_adapter'] = ref_outputs
         else:
             ref_hidden_states, ref_mask = self.prepare_ref_feats(
                 hidden_states,
@@ -837,22 +837,22 @@ class OkapiModel(BaseModel):
 
     @torch.no_grad()
     def predict(self, data, data_samples=None, metas=None):
-        def _pad_special_token_masks(special_token_masks, target_size, pad_side):
-            if special_token_masks is not None:
-                dtype = special_token_masks.dtype
-                device = special_token_masks.device
-                padded_special_token_masks = torch.zeros(
+        def _pad_token_masks(token_masks, target_size, pad_side):
+            if token_masks is not None:
+                dtype = token_masks.dtype
+                device = token_masks.device
+                padded_token_masks = torch.zeros(
                     target_size).to(dtype).to(device)
-                cur_length = special_token_masks.shape[1]
+                cur_length = token_masks.shape[1]
                 if pad_side == 'left':
-                    padded_special_token_masks[:, -cur_length:] = special_token_masks
+                    padded_token_masks[:, -cur_length:] = token_masks
                 elif pad_side == 'right':
-                    padded_special_token_masks[:, :cur_length] = special_token_masks
+                    padded_token_masks[:, :cur_length] = token_masks
                 else:
                     raise ValueError('only support left or right side')
             else:
-                padded_special_token_masks = None
-            return padded_special_token_masks
+                padded_token_masks = None
+            return padded_token_masks
 
         for key in data.keys():
             if data[key] is not None:
@@ -872,20 +872,13 @@ class OkapiModel(BaseModel):
             hidden_states.append(last_layer_feats)
         hidden_states = torch.cat(hidden_states, dim=1)
 
-        #TODO: 增加token masks
         # prepare special token masks for modules
-        token_masks = metas.get('token_masks', None)
-        if token_masks is not None:
-            # pad left because no unit in anwsers
-            bou_masks = token_masks == TOKEN_MASK_IDS['bou_masks']
-
         # remove last generated token (the last one usually is </s>)
         # in all situations, the last token will not used for inference (</s> or cutoff as max_length)
-        # pad left because no ref in prompts
-        ref_masks = llm_outputs.sequences[:, :-1] == \
-            self.token_ids[VISUAL_REFERENCE_TOKEN]
-        metas['ref_masks'] = _pad_special_token_masks(
-            special_token_masks=ref_masks,
+        # pad left because no decode token in prompts
+        token_masks = self.prepare_token_masks(llm_outputs.sequences[:, :-1])
+        metas['token_masks'] = _pad_token_masks(
+            token_masks=token_masks,
             target_size=hidden_states.shape[:-1],
             pad_side='left'
         )
@@ -896,22 +889,24 @@ class OkapiModel(BaseModel):
             metas=metas, 
             mode='predict'
         )
+        decode_groups = pipeline_outputs.get('decode_groups', None)
         decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
         results = []
         for batch_idx, generate_id in enumerate(llm_outputs.sequences):
-            decoder_output = None
+            prompt_length = llm_outputs.hidden_states[0][-1].shape[1]
+            decode_group = decode_groups[batch_idx]
+            decoder_output = dict()
             if decoder_outputs is not None:
-                boxes = decoder_outputs['box']['preds'][batch_idx]
-                masks = decoder_outputs['mask']['preds'][batch_idx]
-                decoder_output = {
-                    'masks': masks, 
-                    'boxes': boxes
-                    }
+                for type, output in decoder_outputs.items():
+                    decoder_output[type] = output['preds'][batch_idx] \
+                        if output is not None else None
             
             results.append(
                 {
-                    'generate_ids': generate_id, 
+                    'prompt_length': prompt_length,
+                    'generate_ids': generate_id,
+                    'decode_groups': decode_group,
                     'decoder_outputs': decoder_output
                 }
             )
