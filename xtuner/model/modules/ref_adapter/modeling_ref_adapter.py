@@ -14,6 +14,7 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=256, batch_first=False):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
+        self.batch_first = batch_first
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -26,9 +27,12 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe, persistent=False)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        if self.batch_first:
+            x = x + self.pe[:, :x.size(1), :]
+        else:
+            x = x + self.pe[:x.size(0), :, :]
         return self.dropout(x)
-    
+
 class REFAdapterDecoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
         super(REFAdapterDecoderLayer, self).__init__()
@@ -163,6 +167,9 @@ class REFAdapterModel(PreTrainedModel):
     def __init__(self, config: REFAdapterConfig):
         super().__init__(config)
         self.config = config
+        if config.packing:
+            self.register_buffer("split_ids", torch.arange(2).unsqueeze(1), persistent=False)
+            self.split_embedding = nn.Embedding(2, config.d_input)
         self.model = REFAdapterDecoder(config)
         self.post_init()
 
@@ -182,7 +189,7 @@ class REFAdapterModel(PreTrainedModel):
         if isinstance(module, REFAdapterModel):
             module.gradient_checkpointing = value
 
-    def pad_sequences(self, sequences, target_length):
+    def padding_sequences(self, sequences, target_length):
         padded_sequences = []
         for seqs in sequences:
             for feats in seqs:
@@ -199,8 +206,8 @@ class REFAdapterModel(PreTrainedModel):
                 padded_sequences.append(padded_feats)
         padded_sequences = torch.stack(padded_sequences, dim=0)
         return padded_sequences
-
-    def reform_sequences(self, ref_sequences, hidden_states):
+    
+    def reform_padded_sequences(self, ref_sequences, hidden_states):
         batch_size = len(ref_sequences)
         _, ref_pad_len, ref_dim = hidden_states.shape
         counter = torch.zeros((batch_size, 2), dtype=torch.uint8)
@@ -240,6 +247,78 @@ class REFAdapterModel(PreTrainedModel):
         
         return new_hidden_states, hidden_states_mask
 
+    def packing_sequences(self, sequences):
+        start_embedding, end_embedding = self.split_embedding(self.split_ids)
+        packed_sequences = []
+        packed_masks = []
+        max_feats_len = 0
+        for seqs in sequences:
+            new_feats = []
+            new_masks = []
+            for feats in seqs:
+                feats = torch.cat([start_embedding, feats, end_embedding], dim=0)
+                mask = torch.zeros((feats.shape[0]), device=feats.device, dtype=torch.bool)
+                mask[1:-1] = True
+                new_feats.append(feats)
+                new_masks.append(mask)
+            new_feats = torch.cat(new_feats, dim=0) # [L, C]
+            new_masks = torch.cat(new_masks, dim=0) # [L]
+            max_feats_len = max(new_feats.shape[0], max_feats_len)
+            packed_sequences.append(new_feats)
+            packed_masks.append(new_masks)
+
+        padded_packed_sequences = []
+        padded_packed_masks = []
+        for feats, masks in zip(packed_sequences, packed_masks):
+            padded_feats = torch.zeros(
+                (max_feats_len, feats.shape[1]),
+                device=feats.device,
+                dtype=feats.dtype 
+            )
+            padded_masks = torch.zeros(
+                (max_feats_len),
+                device=masks.device,
+                dtype=masks.dtype 
+            )
+            padded_feats[:feats.shape[0], :] = feats
+            padded_masks[:masks.shape[0]] = masks
+            padded_packed_sequences.append(padded_feats)
+            padded_packed_masks.append(padded_masks)
+        
+        padded_packed_sequences = torch.stack(padded_packed_sequences, dim=0)
+        padded_packed_masks = torch.stack(padded_packed_masks)
+        return padded_packed_sequences, padded_packed_masks
+
+    def reform_packed_sequences(self, hidden_states, masks):
+        new_hidden_states = []
+        max_length = 0
+        for feats, mask in zip(hidden_states, masks):
+            feats = feats[mask]
+            new_hidden_states.append(feats)
+            max_length = max(max_length, feats.shape[0])
+
+        ref_hidden_states = []
+        ref_masks = []
+        for feats in new_hidden_states:
+            padded_feats = torch.zeros(
+                (max_length, feats.shape[1]), 
+                dtype=feats.dtype,
+                device=feats.device
+            )
+            padded_masks = torch.zeros(
+                (max_length),
+                dtype=torch.bool,
+                device=feats.device
+            )
+            padded_feats[:feats.shape[0], :] = feats
+            padded_masks[:feats.shape[0]] = True
+            ref_hidden_states.append(padded_feats)
+            ref_masks.append(padded_masks)
+        
+        ref_hidden_states = torch.stack(ref_hidden_states, dim=0)
+        ref_masks = torch.stack(ref_masks)
+        return ref_hidden_states, ref_masks
+
     def forward(
         self, 
         phrase_sequences, 
@@ -248,11 +327,16 @@ class REFAdapterModel(PreTrainedModel):
         metas, 
         mode='loss'
     ):
-        phrase_feats = self.pad_sequences(phrase_sequences, self.config.phrase_max_length)
-        unit_feats = self.pad_sequences(unit_sequences, self.config.unit_max_length)
-
-        text_feats = torch.cat([phrase_feats, unit_feats], dim=1)
-        ref_feats = self.pad_sequences(ref_sequences, self.config.ref_max_length)
+        if self.config.packing:
+            phrase_feats, _ = self.packing_sequences(phrase_sequences)
+            unit_feats, _ = self.packing_sequences(unit_sequences)
+            text_feats = torch.cat([phrase_feats, unit_feats], dim=1)
+            ref_feats, ref_masks = self.packing_sequences(ref_sequences)
+        else:
+            phrase_feats = self.padding_sequences(phrase_sequences, self.config.phrase_max_length)
+            unit_feats = self.padding_sequences(unit_sequences, self.config.unit_max_length)
+            text_feats = torch.cat([phrase_feats, unit_feats], dim=1)
+            ref_feats = self.padding_sequences(ref_sequences, self.config.ref_max_length)
 
         if self.gradient_checkpointing and self.training:
             outputs = checkpoint(
@@ -272,7 +356,10 @@ class REFAdapterModel(PreTrainedModel):
         last_hidden_states = outputs['last_hidden_states']
         
         # re-organize hidden_states
-        hidden_states, hidden_states_mask = self.reform_sequences(ref_sequences, last_hidden_states)
+        if self.config.packing:
+            hidden_states, hidden_states_mask = self.reform_packed_sequences(last_hidden_states, ref_masks)
+        else:
+            hidden_states, hidden_states_mask = self.reform_padded_sequences(ref_sequences, last_hidden_states)
         return dict(
             hidden_states = outputs['hidden_states'],
             ref_hidden_states = hidden_states,
