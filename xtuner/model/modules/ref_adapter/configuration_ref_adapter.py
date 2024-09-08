@@ -16,6 +16,7 @@ class REFAdapterConfig(PretrainedConfig):
         dropout=0,
         d_ffn=2048,
         num_layers=3,
+        packing=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -28,4 +29,5 @@ class REFAdapterConfig(PretrainedConfig):
         self.n_heads = n_heads
         self.dropout = dropout
         self.d_ffn = d_ffn
-        self.num_layers = num_layers 
+        self.num_layers = num_layers
+        self.packing = packing
