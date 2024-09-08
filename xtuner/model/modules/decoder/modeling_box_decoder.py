@@ -205,6 +205,18 @@ class BoxDecoderModel(DecoderModel):
         metas=None,
         mode='loss'
     ):
+        # remove other unit decode tasks
+        decode_units = metas.get('decode_units', None)
+        if decode_units is not None:
+            batch_remove_mask = [unit != 'box' for unit in decode_units]  
+            # remove batch which task not mask deocde
+            condition = torch.zeros_like(ref_mask).to(torch.bool)
+            condition[batch_remove_mask, :] = True 
+            ref_mask = ref_mask.masked_fill(condition, False)
+        
+        if mode != 'loss' and ref_mask.sum() == 0:
+            return None
+
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
         visual_hidden_states = self.in_proj_visual_feats(visual_hidden_states)
@@ -237,14 +249,6 @@ class BoxDecoderModel(DecoderModel):
         )
         sequence_output = decoder_outputs[0]
         boxes_queries_logits = self.predictor(sequence_output).sigmoid()
-
-        decode_units = metas.get('decode_units', None)
-        if decode_units is not None:
-            batch_remove_mask = [unit != 'box' for unit in decode_units]  
-            # remove batch which task not box deocde 
-            condition = torch.zeros_like(ref_mask).to(torch.bool)
-            condition[batch_remove_mask, :] = True 
-            ref_mask = ref_mask.masked_fill(condition, False)
 
         loss = None
         if mode == 'loss':
