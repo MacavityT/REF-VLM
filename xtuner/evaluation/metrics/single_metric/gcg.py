@@ -115,6 +115,7 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 target_masks = torch.tensor(np.array([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]))
                 if sample['decoder_outputs'] is not None:
                     pred_boxes_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
+                    # pred_boxes_masks = sample['decoder_outputs']['masks']
                     pred_boxes_masks = torch.tensor(np.array([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]))
                 else:
                     pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()

@@ -136,12 +136,20 @@ def main():
             model.visual_sync_tuner.save_pretrained(
                 visual_sync_tuner_path, max_shard_size=args.max_shard_size)
             
+    if hasattr(model, 'ref_adapter'):
+        if model.ref_adapter is not None:
+            ref_adapter_path = osp.join(args.save_dir, 'ref_adapter')
+            print(f'Saving ref_adapter to {ref_adapter_path}')
+            model.ref_adapter.save_pretrained(
+                ref_adapter_path, max_shard_size=args.max_shard_size)
+            
     if hasattr(model, 'visual_decoder'):
         if model.visual_decoder is not None:
             for name, decoder in model.visual_decoder.items():
                 visual_decoder_path = osp.join(args.save_dir, f'{name}_decoder')
                 print(f'Saving {name}_decoder to {visual_decoder_path}')
                 decoder.save_pretrained(visual_decoder_path, max_shard_size=args.max_shard_size)
+
 
     shutil.copyfile(args.config, osp.join(args.save_dir, 'xtuner_config.py'))
     print('All done!')

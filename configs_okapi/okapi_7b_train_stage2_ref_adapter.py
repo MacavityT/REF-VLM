@@ -6,6 +6,8 @@ from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_template_map_fn_factory
 )
+# import os
+from transformers import AutoModel
 from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
@@ -23,7 +25,7 @@ with read_base():
 max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 15  # per_device
+batch_size = 16  # per_device
 dataloader_num_workers = 4
 vrt_length = 0  # 256
 vpt_num_patches = 9
@@ -35,6 +37,34 @@ ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 prompt_template = PROMPT_TEMPLATE.okapi
 
+
+# dataset grand det and seg
+dataset_args = [
+    train_all_dataset['flickr'],
+    train_all_dataset['rec'],
+    train_all_dataset['res_refcoco'],
+    train_all_dataset['res_refcocoa'],
+    train_all_dataset['res_refcocog'],
+    train_all_dataset['llavag_gcg'],
+    train_all_dataset['openpsg'],
+    train_all_dataset['interact_mask'],
+    train_all_dataset['interact_box'],
+    train_all_dataset['grit_d_offline'],
+    train_all_dataset['grit_cond_d_offline'],
+    train_all_dataset['grit_r_offline'],
+    train_all_dataset['grit_c_d_offline'],
+    grand_cond_d,
+    grand_cond_s,
+    train_all_dataset['grand_d'],
+    train_all_dataset['grand_s'],
+    train_all_dataset['grand_c_d'],
+    train_all_dataset['grand_c_s'],
+]
+for dataset in dataset_args:
+    if dataset['type'] == 'SubSet':
+        dataset['cfg'].setdefault('stage',2)
+    else:
+        dataset['stage'] = 2
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -62,60 +92,61 @@ train_dataloader = dict(
 
 val_cfg = None
 
+
 # config models
-pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
+# pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905/iter_11500.pth'
+
+
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_iter37500'
+projector = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/projector",
+    trust_remote_code=True,
+)
+
+vpt_encoder = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/vpt_encoder",
+    trust_remote_code=True,
+)
+
 
 model=dict(
     type=OkapiModel,
-    pretrained_pth=pretrained_pth,
-    freeze_llm=False,
+    # pretrained_pth=pretrained_pth,
+    freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
+    freeze_projector=True,
+    freeze_vpt_encoder=True,
     cutoff_len=cutoff_len,
     llm=dict(
         type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=vicuna_7b_path,
+        # pretrained_model_name_or_path=vicuna_7b_path,
+        pretrained_model_name_or_path=model_dir,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    vpt_encoder=dict(
-        strategy='pooling',
-        patch_size=vpt_patch_size,
-        num_patches = vpt_num_patches,
-        visual_hidden_size=visual_hidden_size,
-        use_mask_token=True,
-        use_projector=False
+    vpt_encoder=vpt_encoder,
+    projector=projector,
+    ref_adapter=dict(
+        phrase_max_length=80,
+        unit_max_length=20,
+        ref_max_length=80,
+        d_input=4096,
+        d_model=1024,
+        n_heads=8,
+        dropout=0.1,
+        d_ffn=2048,
+        num_layers=3,
     ),
-    # visual_sync_tuner=dict(
-    #     num_layers=3,
-    #     num_queries=vrt_length,
-    #     d_input=4096,
-    #     d_model=512,
-    #     d_ffn=2048,
-    #     num_heads=8,
-    #     dropout=0.1,
-    #     ratio=0.5
-    # ),
-    # moe_adapter=dict(
-    #     num_queries=ref_num_queries,
-    #     d_input=4096,
-    #     d_model=256,
-    #     n_heads=8,
-    #     dropout=0,
-    #     d_ffn=2048,
-    #     num_experts=8,
-    #     top_k=2,
-    #     num_layers=3,
-    # ),
     visual_decoder=dict(
         box=dict(
-            use_group_matcher=True,
-            num_queries=ref_box_queries,
-            # quries_input_dim=256,
-            quries_input_dim=4096,
+            num_queries=100,
+            quries_input_dim=1024,
+            # quries_input_dim=4096,
             encoder_input_transform='resize_concat',
-            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            encoder_input_index=[8, 16, 23],    # [3, 2, 1], [-2, -2, -2]
-            encoder_input_dim=[1024, 1024, 1024],  # [512, 512, 512],
+            encoder_input_index=[8, 16, 23], # clip-vit features
+            encoder_input_dim=[1024, 1024, 1024],
             decoder_layers=6,
             decoder_ffn_dim=2048,
             decoder_attention_heads=8,
@@ -129,13 +160,11 @@ model=dict(
             giou_loss_coefficient=2,
         ),
         mask=dict(
-            use_group_matcher=True,
-            num_queries=ref_mask_queries,
-            # quries_input_dim=256,
-            quries_input_dim=4096,
+            num_queries=30,
+            quries_input_dim=1024, # ref adapter
+            # quries_input_dim=4096, # no ref adapter
             encoder_input_transform='multiple_select',
-            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            encoder_input_index=[8, 16, 23], # clip-vit features, 23 equal to -2
             encoder_input_dim=[1024, 1024, 1024],
             #region query decoder config
             decoder_layers=6,
@@ -145,7 +174,7 @@ model=dict(
             pre_norm=False,
             activation_function="relu",
             d_model=256,
-            dropout=0.0,
+            dropout=0.1,
             attention_dropout=0.0,
             activation_dropout=0.0,
             #endregion
@@ -163,8 +192,8 @@ model=dict(
     ),
     loss_coefficient=dict(
         llm=1,
-        rec=0.5,
-        moe=0.02,
         box=0.5,
         mask=0.5
     ))
+
+

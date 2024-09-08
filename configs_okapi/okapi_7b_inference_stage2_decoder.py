@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_iter37500'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0906_combine19500'
 
 
 projector = dict(
@@ -45,17 +45,23 @@ vpt_encoder = dict(
 #     trust_remote_code=True,
 # )
 
-# box_decoder = dict(
-#     type=AutoModel.from_pretrained,
-#     pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
-#     trust_remote_code=True,
-# )
+ref_adapter = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
+    trust_remote_code=True,
+)
 
-# mask_decoder = dict(
-#     type=AutoModel.from_pretrained,
-#     pretrained_model_name_or_path=os.path.join(model_dir,'mask_decoder'),
-#     trust_remote_code=True,
-# )
+box_decoder = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'box_decoder'),
+    trust_remote_code=True,
+)
+
+mask_decoder = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'mask_decoder'),
+    trust_remote_code=True,
+)
 
 
 
@@ -92,9 +98,10 @@ model = dict(
     visual_encoder=clip_patch14_336['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
+    ref_adapter=ref_adapter,
     # visual_sync_tuner=visual_sync_tuner,
-    # visual_decoder=dict(
-    #     box=box_decoder,
-    #     mask=mask_decoder
-    # )
+    visual_decoder=dict(
+        box=box_decoder,
+        mask=mask_decoder
+    )
 )
