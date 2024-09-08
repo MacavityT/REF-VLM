@@ -894,8 +894,15 @@ class OkapiModel(BaseModel):
 
         results = []
         for batch_idx, generate_id in enumerate(llm_outputs.sequences):
+            # remove padding length in decode_groups
             prompt_length = llm_outputs.hidden_states[0][-1].shape[1]
-            decode_group = decode_groups[batch_idx]
+            decode_group = []
+            for group in decode_groups[batch_idx]:
+                for key, value in group.items():
+                    group[key] = [idx - prompt_length for idx in value]
+                decode_group.append(group)
+            
+            # decoder outputs
             decoder_output = dict()
             if decoder_outputs is not None:
                 for type, output in decoder_outputs.items():
@@ -904,7 +911,6 @@ class OkapiModel(BaseModel):
             
             results.append(
                 {
-                    'prompt_length': prompt_length,
                     'generate_ids': generate_id,
                     'decode_groups': decode_group,
                     'decoder_outputs': decoder_output
