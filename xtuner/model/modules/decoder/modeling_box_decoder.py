@@ -219,6 +219,10 @@ class BoxDecoderModel(DecoderModel):
 
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
+        if isinstance(visual_hidden_states, torch.Tensor):
+             visual_hidden_states = self.bchw2blc(visual_hidden_states)
+        else:
+            visual_hidden_states = [self.bchw2blc(hidden_states) for hidden_states in visual_hidden_states]
         visual_hidden_states = self.in_proj_visual_feats(visual_hidden_states)
         visual_position_embedding, visual_flatten_mask = self.visual_position_encoding(
             visual_hidden_states, 

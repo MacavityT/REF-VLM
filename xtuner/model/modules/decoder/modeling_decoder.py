@@ -123,20 +123,27 @@ class DecoderModel(PreTrainedModel):
             assert isinstance(in_index, int)
             self.in_channels = in_channels
 
-    def resize(self, x, target_length):
-        b, l, c = x.shape
-        grid_size = int(math.sqrt(l))
-        target_grid_size = int(math.sqrt(target_length))
+    def blc2bchw(self, x):
+        if len(x.shape) == 3:
+            b, l, c = x.shape
+            grid_size = int(math.sqrt(l))
+            x = x.view(b, grid_size, grid_size, c)
+            x = x.permute(0, 3, 1, 2) # b, c, h, w
+        return x
+    
+    def bchw2blc(self, x):
+        if len(x.shape) == 4:
+            b, c, h, w = x.shape
+            x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, L, c
+        return x
 
-        x = x.view(b, grid_size, grid_size, c)
-        x = x.permute(0, 3, 1, 2) # b, c, h, w
+    def resize(self, x, target_size):
         x = F.interpolate(
             x, 
-            size=(target_grid_size, target_grid_size),
+            size=target_size,
             mode="bilinear",
             align_corners=False
         )
-        x = x.permute(0, 2, 3, 1).view(b, -1, c) # b, target_length, c
         return x
 
     def transform_visual_inputs(self, inputs):
@@ -149,20 +156,19 @@ class DecoderModel(PreTrainedModel):
             Tensor: The transformed inputs
         """
         if self.input_transform == 'resize_concat':
-            inputs = [inputs[i] for i in self.in_index]
-            target_length = inputs[-1].shape[1]
+            inputs = [self.blc2bchw(x) for x in inputs]
+            target_size = inputs[-1].shape[2:]
             upsampled_inputs = [
                 self.resize(
                     x,
-                    target_length=target_length
+                    target_size=target_size
                 ) for x in inputs
             ]
-            inputs = torch.cat(upsampled_inputs, dim=2)
+            inputs = torch.cat(upsampled_inputs, dim=1)
         elif self.input_transform == 'multiple_select':
             inputs = [inputs[i] for i in self.in_index]
         else:
             inputs = inputs[self.in_index]
-
         return inputs
 
     def padding_ref_inputs(self, hidden_states, hidden_states_mask):

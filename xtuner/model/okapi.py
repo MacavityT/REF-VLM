@@ -13,7 +13,7 @@ from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
 from mmengine.logging import print_log
 from peft import get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoConfig,GenerationConfig, StoppingCriteriaList
+from transformers import AutoConfig, GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
 from xtuner.utils import IGNORE_INDEX
@@ -60,6 +60,7 @@ class OkapiModel(BaseModel):
                  llm,
                  tokenizer=None,
                  visual_encoder=None,
+                 visual_tower=None,
                  vpt_encoder=None,
                  projector=None,
                  ref_adapter=None,
@@ -126,6 +127,11 @@ class OkapiModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder).to(self.llm.dtype)
+            if visual_tower is not None:
+                self.visual_tower = self._build_from_cfg_or_module(
+                    visual_tower).to(self.llm.dtype)
+            else:
+                self.visual_tower = None
             if projector is not None:
                 self.projector = self._build_from_cfg_or_module(
                     projector).to(self.llm.dtype)
@@ -720,7 +726,12 @@ class OkapiModel(BaseModel):
             data['pixel_values'].to(self.visual_encoder.dtype),
             output_hidden_states=True)
         selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
-        metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
+
+        if self.visual_tower is None:
+            metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
+        else:
+            visual_tower_outputs = self.visual_tower(data['pixel_values'].to(self.visual_tower.dtype))
+            metas['visual_hidden_states'] = visual_tower_outputs['hidden_states']
 
         if self.vpt_encoder is None:
             pixel_values = self.projector(selected_feats)
