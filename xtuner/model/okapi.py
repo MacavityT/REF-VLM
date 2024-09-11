@@ -542,7 +542,7 @@ class OkapiModel(BaseModel):
                     ref_index = [ref_index]
                     )
                 else:
-                    cur_group['phrase_pair'] = phrase_pair
+                    cur_group['phrase_pair'] = phrase_pair  
                     cur_group['unit_pair'] = unit_pair
                     cur_group['ref_index'].append(ref_index)
                 return cur_group
@@ -786,13 +786,14 @@ class OkapiModel(BaseModel):
         if self.visual_decoder is None:
             return results
 
+        decode_feats = self.prepare_decode_feats(
+            hidden_states,
+            metas=metas,
+            mode=mode
+        )
+        results['decode_groups'] = decode_feats['decode_groups']
         if self.ref_adapter is not None:
-            decode_feats = self.prepare_decode_feats(
-                hidden_states,
-                metas=metas,
-                mode=mode
-            )
-            results['decode_groups'] = decode_feats['decode_groups']
+
             # all empty features
             if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
                                           for feats in decode_feats['ref_feats']]):
@@ -897,10 +898,12 @@ class OkapiModel(BaseModel):
             # remove padding length in decode_groups
             prompt_length = llm_outputs.hidden_states[0][-1].shape[1]
             decode_group = []
-            for group in decode_groups[batch_idx]:
-                for key, value in group.items():
-                    group[key] = [idx - prompt_length for idx in value]
-                decode_group.append(group)
+            if (decode_groups is not None) and (len(decode_groups) != 0):
+                for group in decode_groups[batch_idx]:
+                    for key, value in group.items():
+                        group[key] = [idx - prompt_length for idx in value]
+                    decode_group.append(group)
+                decode_groups = decode_groups if len(decode_groups) > 0 else None
             
             # decoder outputs
             decoder_output = dict()
@@ -908,7 +911,9 @@ class OkapiModel(BaseModel):
                 for type, output in decoder_outputs.items():
                     decoder_output[type] = output['preds'][batch_idx] \
                         if output is not None else None
-            
+        
+            decoder_output = decoder_output if len(decoder_output) > 0 else None
+
             results.append(
                 {
                     'generate_ids': generate_id,

@@ -46,7 +46,7 @@ ref_mask_queries = ref_mask_num * ref_length
 
 dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
-prefix = 'res'
+prefix = 'coco_det'
 chunk = 8
 
 save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0826_novrt_8/eval46000'
@@ -303,39 +303,6 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=okapi_collate_fn))
 
-# model = dict(
-#     type=OkapiModel,
-#     freeze_llm=True,
-#     tokenizer=tokenizer,
-#     freeze_visual_encoder=True,
-#     cutoff_len=cutoff_len,
-#     llm=dict(
-#         type=AutoModelForCausalLM.from_pretrained,
-#         pretrained_model_name_or_path=vicuna_7b_path,
-#         trust_remote_code=True),
-#     visual_encoder=clip_patch14_336['visual_encoder'],
-#     vpt_encoder=dict(
-#         strategy='pooling',
-#         patch_size=vpt_patch_size,
-#         num_patches = vpt_num_patches,
-#         visual_hidden_size=visual_hidden_size,
-#         use_mask_token=False,
-#         use_projector=False,
-#     ),
-#     visual_sync_tuner=dict(
-#         num_layers=3,
-#         num_queries=vrt_length,
-#         d_input=4096,
-#         d_model=512,
-#         d_ffn=2048,
-#         output_dim=3,
-#         num_heads=8,
-#         dropout=0.1,
-#         ratio=0.5
-#     ),
-#     cot_weight=cot_weight,
-#     vrt_weight=vrt_weight)
-
 
 model=dict(
     type=OkapiModel,
@@ -413,8 +380,6 @@ model=dict(
     ),
     loss_coefficient=dict(
         llm=1,
-        rec=0.5,
-        moe=0.02,
         box=0.5,
         mask=0.5
     ))

@@ -91,16 +91,32 @@ class GCGComputeMetrics(BaseComputeMetrics):
             decode_pred = {}
             target = {}
             
-            decode_pred_string = sample['generate_ids']
-            decode_pred_string = self.decode_generate_ids(ids=decode_pred_string,skip_special_tokens=False)
+            decode_pred_id = sample['generate_ids']
+            decode_pred_string = self.decode_generate_ids(ids=decode_pred_id,skip_special_tokens=False)
             target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
-            # last_ref_index = decode_pred_string.rfind('<REF> )')
-            # decode_pred_string = decode_pred_string[:last_ref_index + len('<REF> )')]
-            matches_pred = get_matches_from_text(decode_pred_string)
             matches_target = get_matches_from_text(target_string)
 
+            if 'decode_groups' in sample.keys():
+                dt_labels = []
+                for decoder_group in sample['decode_groups']:
+                    phrase_pair = decoder_group['phrase_pair']
+                    ref_ids = decoder_group['ref_index']
+                    for _ in range(len(ref_ids)):
+                        if len(phrase_pair) > 0:
+                            label = self.decode_generate_ids(decode_pred_id[phrase_pair[0]+1:phrase_pair[1]],
+                                                            skip_special_tokens=False)
+                        else:
+                            label = None
+                        dt_labels.append(label)
+
+            gt_labels = []
+            for i in range(len(matches_target)):
+                cur_gt_label = matches_target[i][0].strip()
+                cur_gt_num = int(matches_target[i][1])
+                for _ in range(cur_gt_num):
+                    gt_labels.append(cur_gt_label)
 
             # get caption text
             pred_caption = get_caption_text(decode_pred_string)
@@ -114,44 +130,31 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 target_masks = torch.tensor(gt_boxes_masks['mask']).float()
                 target_masks = torch.tensor(np.array([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]))
                 if sample['decoder_outputs'] is not None:
-                    pred_boxes_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
+                    pred_boxes_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
                     # pred_boxes_masks = sample['decoder_outputs']['masks']
                     pred_boxes_masks = torch.tensor(np.array([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]))
                 else:
                     pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()
-                    matches_pred = [('None',1)]
+                    dt_labels = [None]
             else:
                 if sample['decoder_outputs'] is not None:
-                    pred_boxes_masks = sample['decoder_outputs']['boxes'].float().cpu().numpy().tolist()
+                    pred_boxes_masks = sample['decoder_outputs']['box'].float().cpu().numpy().tolist()
                     pred_boxes_masks = [box_xywh_to_xyxy(decode_box) for decode_box in pred_boxes_masks]
                 else:
                     # process unlimited generation
                     pred_boxes_masks = torch.zeros((1,4)).numpy().tolist()
-                    matches_pred = [('None',1)]
-                    pred_caption = ''
+                    dt_labels = [None]
 
                 decode_pred['pred_boxes'] = pred_boxes_masks
                 target_boxes = torch.tensor(gt_boxes_masks['box']).float().cpu().numpy().tolist()
                 target_boxes = [box_xywh_to_xyxy(target_box) for target_box in target_boxes]
                 target['gt_boxes'] = target_boxes
 
-            pred_box_mask_length = sum([int(pred[1]) for pred in matches_pred])
+            pred_box_mask_length = len(dt_labels)
             assert len(pred_boxes_masks) == pred_box_mask_length,  \
                 f"pred mask num: {len(pred_boxes_masks)} does not equal to llm's output num: {pred_box_mask_length}"
             
-            dt_labels = []
-            for i in range(len(matches_pred)):
-                cur_pred_label = matches_pred[i][0].strip()
-                cur_pred_num = int(matches_pred[i][1])
-                for _ in range(cur_pred_num):
-                    dt_labels.append(cur_pred_label)
-            
-            gt_labels = []
-            for i in range(len(matches_target)):
-                cur_gt_label = matches_target[i][0].strip()
-                cur_gt_num = int(matches_target[i][1])
-                for _ in range(cur_gt_num):
-                    gt_labels.append(cur_gt_label)
+        
 
             decode_pred['dt_labels'] = dt_labels
             decode_pred['caption'] = pred_caption

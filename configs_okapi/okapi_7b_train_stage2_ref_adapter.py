@@ -110,6 +110,12 @@ vpt_encoder = dict(
     trust_remote_code=True,
 )
 
+llm=dict(
+    type=AutoModelForCausalLM.from_pretrained,
+    # pretrained_model_name_or_path=vicuna_7b_path,
+    pretrained_model_name_or_path=model_dir,
+    trust_remote_code=True)
+
 
 model=dict(
     type=OkapiModel,
@@ -120,11 +126,7 @@ model=dict(
     freeze_projector=True,
     freeze_vpt_encoder=True,
     cutoff_len=cutoff_len,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        # pretrained_model_name_or_path=vicuna_7b_path,
-        pretrained_model_name_or_path=model_dir,
-        trust_remote_code=True),
+    llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,

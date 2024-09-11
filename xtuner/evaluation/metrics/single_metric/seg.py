@@ -53,10 +53,28 @@ class SEGComputeMetrics(BaseComputeMetrics):
             gt = gt['labels'][gt['labels'] != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
             target = target.replace('</s>','').strip()
-            decode_pred = decode_pred.replace('</s>','').strip()
 
-            matches_pred = get_matches_from_text(decode_pred)
             matches_target = get_matches_from_text(target)
+
+            if 'decode_groups' in sample.keys():
+                dt_labels = []
+                for decoder_group in sample['decode_groups']:
+                    phrase_pair = decoder_group['phrase_pair']
+                    ref_ids = decoder_group['ref_index']
+                    for _ in range(len(ref_ids)):
+                        if len(phrase_pair) > 0:
+                            label = self.decode_generate_ids(decode_pred_id[phrase_pair[0]+1:phrase_pair[1]],
+                                                            skip_special_tokens=False)
+                        else:
+                            label = None
+                        dt_labels.append(label)
+            gt_labels = []
+            for i in len(matches_target):
+                cur_gt_label = matches_target[i][0]
+                cur_gt_num = int(matches_target[i][1])
+                for _ in range(cur_gt_num):
+                    gt_labels.append(cur_gt_label)
+
             
             # TODO: change the format
             pred_masks = sample['masks'].cpu().numpy()   # torch.Tensor
@@ -71,23 +89,11 @@ class SEGComputeMetrics(BaseComputeMetrics):
                 'file_name': image_name,
                 'image_id': image_id,
             }
-            pred_mask_length = sum([int(pred[1]) for pred in matches_pred])
+            pred_mask_length = len(dt_labels)
             assert len(pred_masks) == pred_mask_length,  \
                 f"pred mask num: {len(pred_masks)} does not equal to llm's output num: {pred_mask_length}"
             
-            dt_labels = []
-            for i in len(matches_pred):
-                cur_pred_label = matches_pred[i][0]
-                cur_pred_num = int(matches_pred[i][1])
-                for _ in range(cur_pred_num):
-                    dt_labels.append(cur_pred_label)
             
-            gt_labels = []
-            for i in len(matches_target):
-                cur_gt_label = matches_target[i][0]
-                cur_gt_num = int(matches_target[i][1])
-                for _ in range(cur_gt_num):
-                    gt_labels.append(cur_gt_label)
 
             decode_pred['dt_labels'] = dt_labels
             target['gt_labels'] = gt_labels

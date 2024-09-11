@@ -40,7 +40,7 @@ class RECComputeMetrics(BaseComputeMetrics):
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
             if sample['decoder_outputs'] is not None:
-                decode_boxes = sample['decoder_outputs']['boxes'].float().cpu().numpy().tolist()
+                decode_boxes = sample['decoder_outputs']['box'].float().cpu().numpy().tolist()
                 decode_boxes = [box_xywh_to_xyxy(decode_box) for decode_box in decode_boxes]
             else:
                 decode_boxes = torch.zeros((1,4)).numpy().tolist()

@@ -1,6 +1,22 @@
 import re
 from xtuner.utils.constants import PHRASE_ST_PLACEHOLDER_STAGE2,PHRASE_ED_PLACEHOLDER_STAGE2
 
+
+import torch
+from xtuner.utils.constants import (
+    SPECIAL_TOKENS,
+    BOT_TOKEN, EOT_TOKEN,
+    BOU_TOKEN, EOU_TOKEN,
+    BOV_TOKEN, EOV_TOKEN,
+    PHRASE_ST_PLACEHOLDER_STAGE2,
+    PHRASE_ED_PLACEHOLDER_STAGE2,
+    VISUAL_REFERENCE_TOKEN,
+)
+from xtuner.tools.utils import get_random_available_port
+from torch.nn import CrossEntropyLoss, MSELoss
+
+
+
 def get_cot_elements(output, output_placeholders):
     st_indices = [match.start() for match in \
                     re.finditer(re.escape(PHRASE_ST_PLACEHOLDER_STAGE2), output)]
@@ -83,3 +99,5 @@ def get_matches_from_text(text):
     for phrase, num in zip(p_names,u_counts):
         matches.append((phrase,num))
     return matches
+
+

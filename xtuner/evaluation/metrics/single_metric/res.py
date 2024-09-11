@@ -134,7 +134,7 @@ class RESComputeMetrics(BaseComputeMetrics):
             target_masks = torch.tensor(gt_masks['mask']).float()
             target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
             if sample['decoder_outputs'] is not None:
-                decode_masks = (sample['decoder_outputs']['masks'] > 0.5) * 1
+                decode_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
                 # decode_masks = sample['decoder_outputs']['masks']
                 decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in decode_masks])
             else:

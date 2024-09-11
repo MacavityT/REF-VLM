@@ -284,27 +284,38 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     print(output_seq)
     chatbot[-1][1] = ""
 
-    # if output['sync_tuner_outputs'] is not None:
-    #     rec_output = output['sync_tuner_outputs']['preds'][0]
-    #     rec_output = rec_output.reshape(1,128,128,3)
-    #     rec_output = rec_output.permute(0,3,1,2)
-    #     rec_output = denormalize_image(rec_output)
-    #     Image.fromarray(rec_output).save("rec_image.jpg")
+
 
     if output[0]['decoder_outputs'] is not None:
-        if output[0]['decoder_outputs']['boxes'] is not None:
-            boxes_output = output[0]['decoder_outputs']['boxes'].cpu().tolist()
+        if output[0]['decoder_outputs']['box'] is not None:
+            boxes_output = output[0]['decoder_outputs']['box'].cpu().tolist()
             state['boxes_output'] = boxes_output
-        if output[0]['decoder_outputs']['masks'] is not None:
-            masks_output = output[0]['decoder_outputs']['masks'].float().cpu().numpy().tolist()
+        if output[0]['decoder_outputs']['mask'] is not None:
+            masks_output = output[0]['decoder_outputs']['mask'].float().cpu().numpy().tolist()
             state['masks_output'] = masks_output
-        try:
-            labels = get_cot_elements(output_seq.replace("\\",""),['<REF>'])
+
+        if 'decode_groups' in output[0].keys():
             new_labels = []
-            for label, num in zip(labels[0],labels[2]):
-                new_labels.extend([label.strip()]*int(num))
-        except:
-            new_labels = None
+            for decoder_group in output[0]['decode_groups']:
+                phrase_pair = decoder_group['phrase_pair']
+                ref_ids = decoder_group['ref_index']
+                for _ in range(len(ref_ids)):
+                    if len(phrase_pair) > 0:
+                        label = decode_generate_ids(tokenizer,output[0]['generate_ids'][phrase_pair[0]+1:phrase_pair[1]],
+                                                skip_special_tokens=False)
+                    else:
+                        label = None
+                    new_labels.append(label)
+        
+        else:
+            try:
+                labels = get_cot_elements(output_seq.replace("\\",""),['<REF>'])
+                new_labels = []
+                for label, num in zip(labels[0],labels[2]):
+                    new_labels.extend([label.strip()]*int(num))
+            except:
+                new_labels = None
+
         state['labels'] = new_labels
 
     for character in bot_message:
@@ -314,7 +325,7 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     
     return chatbot
 
-def submit_step3(state,input_image,output_image,threshold=0.5):
+def submit_step3(state,input_image,output_image,threshold=0.3):
     output_image = None
     if input_image is not None:
         if isinstance(input_image,dict):
@@ -331,9 +342,15 @@ def submit_step3(state,input_image,output_image,threshold=0.5):
             boxes_denorm.append(box_denorm)
         output_image = visualize_box(input_image,boxes_denorm,labels=state['labels'])
     elif masks_output != []:
-        masks_resize = [mask_square2origin(torch.tensor(mask),input_image.width,input_image.height) for mask in masks_output]
-        masks_resize = [(mask > threshold).cpu().numpy().astype(np.uint8) for mask in masks_resize]
-        output_image = visualize_mask(input_image,masks_resize)
+        # decode_masks = [(torch.tensor(mask) > 0.5) * 1 for mask in masks_output]
+        decode_masks = masks_output
+        masks_resize = [mask_square2origin(torch.tensor(decode_mask),
+                                           input_image.width,
+                                           input_image.height,
+                                           threshold=threshold) for decode_mask in decode_masks]
+        # masks_resize = [mask_square2origin(torch.tensor(mask),input_image.width,input_image.height) for mask in masks_output]
+        masks_resize = [mask.cpu().numpy().astype(np.uint8) for mask in masks_resize]
+        output_image = visualize_mask(input_image,masks_resize,alpha=1.0, beta=1.0)
     if output_image is not None:
         output_image = Image.fromarray(output_image).resize((600,330))
 

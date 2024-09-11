@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from functools import partial
+from transformers import AutoModel
 from xtuner.utils import PROMPT_TEMPLATE
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.dataset.map_fns import (
@@ -63,48 +64,49 @@ train_dataloader = dict(
 val_cfg = None
 
 # config models
-pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
+# pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
+
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_nodecoder_iter64500'
+projector = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/projector",
+    trust_remote_code=True,
+)
+
+vpt_encoder = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/vpt_encoder",
+    trust_remote_code=True,
+)
+
+llm=dict(
+    type=AutoModelForCausalLM.from_pretrained,
+    # pretrained_model_name_or_path=vicuna_7b_path,
+    pretrained_model_name_or_path=model_dir,
+    trust_remote_code=True)
 
 model=dict(
     type=OkapiModel,
-    pretrained_pth=pretrained_pth,
+    # pretrained_pth=pretrained_pth,
     freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=vicuna_7b_path,
-        trust_remote_code=True),
+    llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    vpt_encoder=dict(
-        strategy='pooling',
-        patch_size=vpt_patch_size,
-        num_patches = vpt_num_patches,
-        visual_hidden_size=visual_hidden_size,
-        use_mask_token=True,
-        use_projector=False
-    ),
-    # visual_sync_tuner=dict(
-    #     num_layers=3,
-    #     num_queries=vrt_length,
-    #     d_input=4096,
-    #     d_model=512,
-    #     d_ffn=2048,
-    #     num_heads=8,
-    #     dropout=0.1,
-    #     ratio=0.5
-    # ),
-    # moe_adapter=dict(
-    #     num_queries=ref_num_queries,
-    #     d_input=4096,
-    #     d_model=256,
-    #     n_heads=8,
-    #     dropout=0,
-    #     d_ffn=2048,
-    #     num_experts=8,
-    #     top_k=2,
-    #     num_layers=3,
+    vpt_encoder=vpt_encoder,
+    projector=projector,
+    # llm=dict(
+    #     type=AutoModelForCausalLM.from_pretrained,
+    #     pretrained_model_name_or_path=vicuna_7b_path,
+    #     trust_remote_code=True),
+    # vpt_encoder=dict(
+    #     strategy='pooling',
+    #     patch_size=vpt_patch_size,
+    #     num_patches = vpt_num_patches,
+    #     visual_hidden_size=visual_hidden_size,
+    #     use_mask_token=True,
+    #     use_projector=False
     # ),
     visual_decoder=dict(
         box=dict(
@@ -145,7 +147,7 @@ model=dict(
             pre_norm=False,
             activation_function="relu",
             d_model=256,
-            dropout=0.0,
+            dropout=0.1,
             attention_dropout=0.0,
             activation_dropout=0.0,
             #endregion
@@ -163,8 +165,6 @@ model=dict(
     ),
     loss_coefficient=dict(
         llm=1,
-        rec=0.5,
-        moe=0.02,
         box=0.5,
         mask=0.5
     ))

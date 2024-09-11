@@ -57,45 +57,25 @@ class DETComputeMetrics(BaseComputeMetrics):
             decode_pred = {}
             target = {}
             
-            decode_pred_string = sample['generate_ids']
-            decode_pred_string = self.decode_generate_ids(ids=decode_pred_string,skip_special_tokens=False)
+            decode_pred_id = sample['generate_ids']
+            decode_pred_string = self.decode_generate_ids(ids=decode_pred_id,skip_special_tokens=False)
             target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
             target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
 
 
-            last_ref_index = decode_pred_string.rfind('<REF> )')
-            decode_pred_string = decode_pred_string[:last_ref_index + len('<REF> )')]
-            matches_pred = get_matches_from_text(decode_pred_string)
             matches_target = get_matches_from_text(target_string)
-
-
-            image_name = os.path.basename(image_path)
-            image_id = image_name.split('.')[0]
-
-            if sample['decoder_outputs'] is not None:
-                pred_boxes_masks = sample['decoder_outputs']['boxes'].float().cpu().numpy().tolist()
-                pred_boxes_masks = [box_xywh_to_xyxy(decode_box) for decode_box in pred_boxes_masks]
-            else:
-                # process unlimited generation
-                pred_boxes_masks = torch.zeros((1,4)).numpy().tolist()
-                matches_pred = [('None',1)]
-
-            decode_pred['pred_boxes'] = pred_boxes_masks
-            target_boxes = torch.tensor(gt_boxes_masks['box']).float().cpu().numpy().tolist()
-            target_boxes = [box_xywh_to_xyxy(target_box) for target_box in target_boxes]
-            target['gt_boxes'] = target_boxes
-
-            pred_box_mask_length = sum([int(pred[1]) for pred in matches_pred])
-            assert len(pred_boxes_masks) == pred_box_mask_length,  \
-                f"pred mask num: {len(pred_boxes_masks)} does not equal to llm's output num: {pred_box_mask_length}"
-            
-            dt_labels = []
-            for i in range(len(matches_pred)):
-                cur_pred_label = matches_pred[i][0].strip()
-                cur_pred_num = int(matches_pred[i][1])
-                for _ in range(cur_pred_num):
-                    dt_labels.append(cur_pred_label)
-            
+            if 'decode_groups' in sample.keys():
+                dt_labels = []
+                for decoder_group in sample['decode_groups']:
+                    phrase_pair = decoder_group['phrase_pair']
+                    ref_ids = decoder_group['ref_index']
+                    for _ in range(len(ref_ids)):
+                        if len(phrase_pair) > 0:
+                            label = self.decode_generate_ids(decode_pred_id[phrase_pair[0]+1:phrase_pair[1]],
+                                                            skip_special_tokens=False)
+                        else:
+                            label = None
+                        dt_labels.append(label)
             gt_labels = []
             for i in range(len(matches_target)):
                 cur_gt_label = matches_target[i][0].strip()
@@ -103,10 +83,29 @@ class DETComputeMetrics(BaseComputeMetrics):
                 for _ in range(cur_gt_num):
                     gt_labels.append(cur_gt_label)
 
+            image_name = os.path.basename(image_path)
+            image_id = image_name.split('.')[0]
+
+            if sample['decoder_outputs'] is not None:
+                pred_boxes_masks = sample['decoder_outputs']['box'].float().cpu().numpy().tolist()
+                pred_boxes_masks = [box_xywh_to_xyxy(decode_box) for decode_box in pred_boxes_masks]
+            else:
+                # process unlimited generation
+                pred_boxes_masks = torch.zeros((1,4)).numpy().tolist()
+                dt_labels = [None]
+
+            decode_pred['pred_boxes'] = pred_boxes_masks
+            target_boxes = torch.tensor(gt_boxes_masks['box']).float().cpu().numpy().tolist()
+            target_boxes = [box_xywh_to_xyxy(target_box) for target_box in target_boxes]
+            target['gt_boxes'] = target_boxes
+
+            pred_box_mask_length = len(dt_labels)
+            assert len(pred_boxes_masks) == pred_box_mask_length,  \
+                f"pred mask num: {len(pred_boxes_masks)} does not equal to llm's output num: {pred_box_mask_length}"
+            
             decode_pred['dt_labels'] = dt_labels
             target['gt_labels'] = gt_labels
 
-                      
             if self.eval_type == 'class':
 
                 text_sims = np.zeros((len(dt_labels), len(self.processor.test_class_names)))
@@ -136,13 +135,8 @@ class DETComputeMetrics(BaseComputeMetrics):
                 decode_pred['pred_classes'] = pred_class_names
 
             elif self.eval_type == 'whole':
-                if self.mask:
-                    for i, mask in enumerate(pred_boxes_masks):
-                        rle_mask = mask_utils.encode(mask)
-                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
-                else:
-                    for i, box in enumerate(pred_boxes_masks):
-                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "bbox": box, "score": 1.0})
+                for i, box in enumerate(pred_boxes_masks):
+                    coco_pred_file.append({"image_id": image_id, "category_id": 1, "bbox": box, "score": 1.0})
 
             self.results.append((decode_pred, target))
             

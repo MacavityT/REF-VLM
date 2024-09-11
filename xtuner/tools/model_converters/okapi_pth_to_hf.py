@@ -117,33 +117,30 @@ def main():
         model.visual_encoder.save_pretrained(
             visual_encoder_path, max_shard_size=args.max_shard_size)
 
-    if hasattr(model, 'projector'):
+    if hasattr(model, 'projector') and (
+            not cfg.model.get('freeze_projector', False)):
         projector_path = osp.join(args.save_dir, 'projector')
         print(f'Saving projector to {projector_path}')
         model.projector.save_pretrained(
             projector_path, max_shard_size=args.max_shard_size)
         
-    if hasattr(model, 'vpt_encoder'):
+    if hasattr(model, 'vpt_encoder') and (
+            not cfg.model.get('freeze_vpt_encoder', False)):
         vpt_encoder_path = osp.join(args.save_dir, 'vpt_encoder')
         print(f'Saving vpt_encoder to {vpt_encoder_path}')
         model.vpt_encoder.save_pretrained(
             vpt_encoder_path, max_shard_size=args.max_shard_size)
-        
-    if hasattr(model, 'visual_sync_tuner'):
-        if model.visual_sync_tuner is not None:
-            visual_sync_tuner_path = osp.join(args.save_dir, 'visual_sync_tuner')
-            print(f'Saving visual_sync_tuner to {visual_sync_tuner_path}')
-            model.visual_sync_tuner.save_pretrained(
-                visual_sync_tuner_path, max_shard_size=args.max_shard_size)
             
-    if hasattr(model, 'ref_adapter'):
+    if hasattr(model, 'ref_adapter') and (
+            not cfg.model.get('freeze_ref_adapter', False)):
         if model.ref_adapter is not None:
             ref_adapter_path = osp.join(args.save_dir, 'ref_adapter')
             print(f'Saving ref_adapter to {ref_adapter_path}')
             model.ref_adapter.save_pretrained(
                 ref_adapter_path, max_shard_size=args.max_shard_size)
             
-    if hasattr(model, 'visual_decoder'):
+    if hasattr(model, 'visual_decoder') and (
+            not cfg.model.get('freeze_visual_decoder', False)):
         if model.visual_decoder is not None:
             for name, decoder in model.visual_decoder.items():
                 visual_decoder_path = osp.join(args.save_dir, f'{name}_decoder')
