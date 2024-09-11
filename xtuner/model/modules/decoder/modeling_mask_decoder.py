@@ -276,20 +276,6 @@ class MaskDecoderModel(DecoderModel):
         self.criteria = MaskDecoderLoss(matcher)
         self.post_init()
 
-    def transform_visual_inputs(self, inputs):
-        visual_hidden_states = super().transform_visual_inputs(inputs)
-        
-        _visual_hidden_states = []
-        for hidden_states in visual_hidden_states:
-            b, l, c = hidden_states.shape
-            grid_size = int(math.sqrt(l))
-            hidden_states = hidden_states.view(b, grid_size, grid_size, c)
-            hidden_states = hidden_states.permute(0, 3, 1, 2) # b, c, h, w
-            _visual_hidden_states.append(
-                hidden_states
-            )
-        return _visual_hidden_states
-
     def _expand_pixel_masks(self, metas, ref_mask):
         pixel_masks = torch.stack(metas['pixel_masks']) # [bs, h, w]
 
@@ -356,6 +342,10 @@ class MaskDecoderModel(DecoderModel):
 
         # prepare visual hidden states
         visual_hidden_states = self.transform_visual_inputs(visual_hidden_states)
+        if isinstance(visual_hidden_states, torch.Tensor):
+             visual_hidden_states = self.blc2bchw(visual_hidden_states)
+        else:
+            visual_hidden_states = [self.blc2bchw(hidden_states) for hidden_states in visual_hidden_states]
         pixel_decoder_outputs = self.pixel_decoder(visual_hidden_states)
         image_features = visual_hidden_states[-1]
         pixel_embeddings = pixel_decoder_outputs.last_hidden_state

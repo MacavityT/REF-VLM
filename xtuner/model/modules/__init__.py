@@ -1,6 +1,6 @@
 from .dispatch import dispatch_modules
 from .projector import ProjectorConfig, ProjectorModel
-from .encoder import VPTEncoderConfig, VPTEncoderModel
+from .encoder import VPTEncoderConfig, VPTEncoderModel, CLIPConvNextModel
 from .sync_tuner import SyncTunerConfig, SyncTunerModel
 from .moe_adapter import MoEAdapterConfig, MoEAdapterModel
 from .ref_adapter import REFAdapterConfig, REFAdapterModel
@@ -16,5 +16,6 @@ __all__ = [
     'MoEAdapterConfig', 'MoEAdapterModel',
     'BoxDecoderConfig', 'BoxDecoderModel',
     'MaskDecoderConfig', 'MaskDecoderModel',
-    'REFAdapterConfig', 'REFAdapterModel'
+    'REFAdapterConfig', 'REFAdapterModel',
+    'CLIPConvNextModel'
 ]
