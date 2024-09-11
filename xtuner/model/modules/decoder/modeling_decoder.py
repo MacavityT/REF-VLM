@@ -157,7 +157,7 @@ class DecoderModel(PreTrainedModel):
         """
         if self.input_transform == 'resize_concat':
             inputs = [self.blc2bchw(x) for x in inputs]
-            target_size = inputs[-1].shape[2:]
+            target_size = inputs[0].shape[2:]
             upsampled_inputs = [
                 self.resize(
                     x,
