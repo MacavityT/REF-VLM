@@ -730,8 +730,9 @@ class OkapiModel(BaseModel):
         if self.visual_tower is None:
             metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
         else:
-            visual_tower_outputs = self.visual_tower(data['pixel_values'].to(self.visual_tower.dtype))
+            visual_tower_outputs = self.visual_tower(data['pixel_values_tower'].to(self.visual_tower.dtype))
             metas['visual_hidden_states'] = visual_tower_outputs['hidden_states']
+            metas['visual_hidden_states'].append(selected_feats)
 
         if self.vpt_encoder is None:
             pixel_values = self.projector(selected_feats)

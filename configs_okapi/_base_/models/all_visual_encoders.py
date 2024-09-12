@@ -1,5 +1,5 @@
 from transformers import CLIPImageProcessor, CLIPVisionModel
-from xtuner.model.modules.encoder import CLIPConvNextModel
+from xtuner.model.modules.encoder import _build_convnext_processor, CLIPConvNextModel
 
 # openai/clip-vit-large-patch14-336
 clip_patch14_336_path = '/model/Aaronzhu/clip-14-336'
@@ -16,6 +16,19 @@ clip_patch14_336 = dict(
 )
 
 clip_convnext_320 = dict(
-    type=CLIPConvNextModel.from_pretrained,
-    pretrained_model_path=clip_convnext_320_path
+    image_processor=dict(
+        type=_build_convnext_processor,
+        pretrained_model_path=clip_patch14_336_path,
+        size=dict(
+            shortest_edge=320
+        ),
+        crop_size=dict(
+            height=320,
+            width=320
+        )
+    ),
+    visual_encoder=dict(
+        type=CLIPConvNextModel.from_pretrained,
+        pretrained_model_path=clip_convnext_320_path
+    )
 )
