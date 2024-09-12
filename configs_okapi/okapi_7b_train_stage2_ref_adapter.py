@@ -12,7 +12,7 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
@@ -120,43 +120,49 @@ llm=dict(
 model=dict(
     type=OkapiModel,
     # pretrained_pth=pretrained_pth,
-    freeze_llm=True,
+    freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
-    freeze_projector=True,
-    freeze_vpt_encoder=True,
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    vpt_encoder=vpt_encoder,
-    projector=projector,
-    ref_adapter=dict(
-        # Padding Method (packing=False): Max length denotes max corresponding token num in single 'phrase-unit-refs' tuple.
-        # Packing Method(packing=True): Max length denotes max corresponding token num in single batch, 
-        # and each token with a start and end token, like [ref_start]<REF>[ref_end]
-        phrase_max_length=100,
-        unit_max_length=50,
-        ref_max_length=100,
-        # phrase_max_length=1024,
-        # unit_max_length=1024,
-        # ref_max_length=300,
-        # packing=True,
-        packing=False,
-        d_input=4096,
-        d_model=1024,
-        n_heads=8,
-        dropout=0.1,
-        d_ffn=2048,
-        num_layers=3,
+    visual_tower=clip_convnext_320,
+    vpt_encoder=dict(
+        strategy='pooling',
+        patch_size=vpt_patch_size,
+        num_patches = vpt_num_patches,
+        visual_hidden_size=visual_hidden_size,
+        use_mask_token=False,
+        use_projector=False
     ),
+    # ref_adapter=dict(
+    #     # Padding Method (packing=False): Max length denotes max corresponding token num in single 'phrase-unit-refs' tuple.
+    #     # Packing Method(packing=True): Max length denotes max corresponding token num in single batch, 
+    #     # and each token with a start and end token, like [ref_start]<REF>[ref_end]
+    #     # phrase_max_length=100,
+    #     # unit_max_length=50,
+    #     # ref_max_length=100,
+    #     phrase_max_length=1024,
+    #     unit_max_length=1024,
+    #     ref_max_length=300,
+    #     packing=True,
+    #     d_input=4096,
+    #     d_model=1024,
+    #     n_heads=8,
+    #     dropout=0.1,
+    #     d_ffn=2048,
+    #     num_layers=3,
+    # ),
     visual_decoder=dict(
         box=dict(
             num_queries=100,
-            quries_input_dim=1024,
-            # quries_input_dim=4096,
+            # quries_input_dim=1024,
+            quries_input_dim=4096,
             encoder_input_transform='resize_concat',
-            encoder_input_index=[8, 16, 23], # clip-vit features
-            encoder_input_dim=[1024, 1024, 1024],
+            # encoder_input_index=[8, 16, 23], # clip-vit features
+            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            encoder_input_dim=[192, 384, 768, 1536],
             decoder_layers=6,
             decoder_ffn_dim=2048,
             decoder_attention_heads=8,
@@ -171,11 +177,13 @@ model=dict(
         ),
         mask=dict(
             num_queries=30,
-            quries_input_dim=1024, # ref adapter
-            # quries_input_dim=4096, # no ref adapter
+            # quries_input_dim=1024, # ref adapter
+            quries_input_dim=4096, # no ref adapter
             encoder_input_transform='multiple_select',
-            encoder_input_index=[8, 16, 23], # clip-vit features, 23 equal to -2
-            encoder_input_dim=[1024, 1024, 1024],
+            # encoder_input_index=[8, 16, 23], # clip-vit features
+            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            encoder_input_dim=[192, 384, 768, 1536],            
             #region query decoder config
             decoder_layers=6,
             decoder_ffn_dim=2048,

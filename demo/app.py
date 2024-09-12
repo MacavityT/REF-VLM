@@ -181,8 +181,8 @@ def img_select_box(input_image: dict, prompt_image_list: list):
     return prompt_image_list
 
 
-# import debugpy
-# debugpy.connect(('127.0.0.1', 5577))
+import debugpy
+debugpy.connect(('127.0.0.1', 5577))
 
 args = parse_args()
 torch.manual_seed(args.seed)
@@ -350,7 +350,7 @@ def submit_step3(state,input_image,output_image,threshold=0.3):
                                            threshold=threshold) for decode_mask in decode_masks]
         # masks_resize = [mask_square2origin(torch.tensor(mask),input_image.width,input_image.height) for mask in masks_output]
         masks_resize = [mask.cpu().numpy().astype(np.uint8) for mask in masks_resize]
-        output_image = visualize_mask(input_image,masks_resize,alpha=1.0, beta=1.0)
+        output_image = visualize_mask(input_image,masks_resize,alpha=1.0, beta=1.0)  # TODO:改visualize
     if output_image is not None:
         output_image = Image.fromarray(output_image).resize((600,330))
 

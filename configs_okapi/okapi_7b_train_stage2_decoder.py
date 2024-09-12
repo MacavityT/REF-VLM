@@ -11,7 +11,7 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
@@ -36,6 +36,24 @@ ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 prompt_template = PROMPT_TEMPLATE.okapi
 
+
+# dataset grand det and seg
+dataset_args = [
+    train_all_dataset['res_refcoco'],
+    train_all_dataset['res_refcocoa'],
+    train_all_dataset['res_refcocog'],
+    train_all_dataset['llavag_gcg'],
+    train_all_dataset['openpsg'],
+    train_all_dataset['interact_mask'],
+    grand_cond_s,
+    train_all_dataset['grand_s'],
+    train_all_dataset['grand_c_s'],
+]
+for dataset in dataset_args:
+    if dataset['type'] == 'SubSet':
+        dataset['cfg'].setdefault('stage',2)
+    else:
+        dataset['stage'] = 2
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -94,6 +112,7 @@ model=dict(
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
+    visual_tower=clip_convnext_320,
     vpt_encoder=vpt_encoder,
     projector=projector,
     # llm=dict(
@@ -116,8 +135,10 @@ model=dict(
             quries_input_dim=4096,
             encoder_input_transform='resize_concat',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            encoder_input_index=[8, 16, 23],    # [3, 2, 1], [-2, -2, -2]
-            encoder_input_dim=[1024, 1024, 1024],  # [512, 512, 512],
+            # encoder_input_index=[8, 16, 23], # clip-vit features
+            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            encoder_input_dim=[192, 384, 768, 1536],
             decoder_layers=6,
             decoder_ffn_dim=2048,
             decoder_attention_heads=8,
@@ -137,8 +158,10 @@ model=dict(
             quries_input_dim=4096,
             encoder_input_transform='multiple_select',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
-            encoder_input_dim=[1024, 1024, 1024],
+            # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            encoder_input_dim=[192, 384, 768, 1536],          
             #region query decoder config
             decoder_layers=6,
             decoder_ffn_dim=2048,
