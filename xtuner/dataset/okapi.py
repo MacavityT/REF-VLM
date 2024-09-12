@@ -59,6 +59,7 @@ class OkapiDataset(Dataset):
     def __init__(self,
                  dataset=None,
                  image_processor=None,
+                 image_tower_processor=None,
                  tokenizer=None,
                  max_dataset_length=None,
                  dataset_map_fn=None,
@@ -75,7 +76,11 @@ class OkapiDataset(Dataset):
         self.pad_image_to_square = pad_image_to_square
         self.data = None
         self.mode = mode
-        self.init_visual_tokenizer(image_processor, tokenizer)
+        self.init_visual_tokenizer(
+            image_processor, 
+            tokenizer, 
+            image_tower_processor=image_tower_processor
+        )
 
         if mode == 'train' or mode == 'test':
             # Build datasets
@@ -123,13 +128,20 @@ class OkapiDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def init_visual_tokenizer(self, image_processor, tokenizer):
+    def init_visual_tokenizer(self, image_processor, tokenizer, image_tower_processor=None):
         if isinstance(image_processor, dict) or isinstance(
                 image_processor, Config) or isinstance(image_processor,
                                                        ConfigDict):
             self.image_processor = BUILDER.build(image_processor)
         else:
             self.image_processor = image_processor
+
+        if isinstance(image_tower_processor, dict) or isinstance(
+                image_tower_processor, Config) or isinstance(image_tower_processor,
+                                                       ConfigDict):
+            self.image_tower_processor = BUILDER.build(image_tower_processor)
+        else:
+            self.image_tower_processor = image_tower_processor
 
         if isinstance(tokenizer, dict) or isinstance(
                 tokenizer, Config) or isinstance(tokenizer, ConfigDict):
@@ -215,11 +227,17 @@ class OkapiDataset(Dataset):
             image_path = ''
             ori_width = 336
             ori_height = 336
+
+        image_tower = None
+        if self.image_tower_processor is not None:
+            image_tower = self.image_tower_processor.preprocess(
+                image, return_tensors='pt')['pixel_values'][0]
         image = self.image_processor.preprocess(
             image, return_tensors='pt')['pixel_values'][0]
-        
+
         return dict(
             pixel_values = image,
+            pixel_values_tower = image_tower,
             ori_width = ori_width,
             ori_height = ori_height,
             image_path = image_path,
@@ -323,10 +341,18 @@ class OkapiDataset(Dataset):
                     crop_size = self.image_processor.size
                 data_dict['pixel_values'] = torch.zeros(3, crop_size['height'],
                                                         crop_size['width'])
+                if self.image_tower_processor is None:
+                    data_dict['pixel_values_tower'] = None
+                else:
+                    if hasattr(self.image_tower_processor, 'crop_size'):
+                        crop_size = self.image_tower_processor.crop_size
+                    else:
+                        crop_size = self.image_tower_processor.size
+                    data_dict['pixel_values_tower'] = torch.zeros(3, crop_size['height'],
+                                                            crop_size['width'])
                 data_dict['ori_height'] = crop_size['height']
                 data_dict['ori_width'] = crop_size['width']
                 data_dict['image_path'] = ''
-                data_dict['super_pixel_values'] = None
 
             data_dict['pixel_masks'] = get_pixel_mask(
                 data_dict['pixel_values'],

@@ -155,9 +155,9 @@ class DecoderModel(PreTrainedModel):
         Returns:
             Tensor: The transformed inputs
         """
+        inputs = [self.blc2bchw(x) for x in inputs]
         if self.input_transform == 'resize_concat':
             inputs = [inputs[i] for i in self.in_index]
-            inputs = [self.blc2bchw(x) for x in inputs]
             target_size = inputs[0].shape[2:]
             upsampled_inputs = [
                 self.resize(

@@ -3,7 +3,14 @@ import json
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
+from transformers import CLIPImageProcessor
 from open_clip.model import _build_vision_tower
+
+def _build_convnext_processor(pretrained_model_path, size, crop_size):
+        image_processor = CLIPImageProcessor.from_pretrained(pretrained_model_path, trust_remote_code=True)
+        image_processor.size = size
+        image_processor.crop_size = crop_size
+        return image_processor
 
 class CLIPConvNextModel(nn.Module):
     def __init__(self, pretrained_model_path, *args, **kwargs):
