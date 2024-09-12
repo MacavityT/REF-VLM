@@ -1,3 +1,3 @@
 #!/bin/bash
 
-NPROC_PER_NODE=8 xtuner train configs_okapi/okapi_7b_train_stage2.py --deepspeed deepspeed_zero2 --work-dir /model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905
+NPROC_PER_NODE=8 xtuner train configs_okapi/okapi_7b_train_stage2.py --deepspeed deepspeed_zero2 --work-dir /model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905_nocot --resume /model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905_nocot/iter_31000.pth

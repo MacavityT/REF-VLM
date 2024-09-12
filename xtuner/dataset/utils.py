@@ -7,6 +7,7 @@ from itertools import chain
 
 import torch
 import torch.nn.functional as F
+from torchvision.utils import draw_segmentation_masks,draw_bounding_boxes
 import numpy as np
 import requests
 import random
@@ -30,48 +31,12 @@ imread_flags = {
 } 
 
 
-PALETTE=[[165, 42, 42], [0, 192, 0], [250, 170, 31], [250, 170, 32],
-                 [196, 196, 196], [190, 153, 153], [180, 165, 180],
-                 [90, 120, 150], [250, 170, 33], [250, 170, 34],
-                 [128, 128, 128], [250, 170, 35], [102, 102, 156],
-                 [128, 64, 255], [140, 140, 200], [170, 170, 170],
-                 [250, 170, 36], [250, 170, 160], [250, 170, 37], [96, 96, 96],
-                 [230, 150, 140], [128, 64, 128], [110, 110, 110],
-                 [110, 110, 110], [244, 35, 232], [128, 196,
-                                                   128], [150, 100, 100],
-                 [70, 70, 70], [150, 150, 150], [150, 120, 90], [220, 20, 60],
-                 [220, 20, 60], [255, 0, 0], [255, 0, 100], [255, 0, 200],
-                 [255, 255, 255], [255, 255, 255], [250, 170, 29],
-                 [250, 170, 28], [250, 170, 26], [250, 170,
-                                                  25], [250, 170, 24],
-                 [250, 170, 22], [250, 170, 21], [250, 170,
-                                                  20], [255, 255, 255],
-                 [250, 170, 19], [250, 170, 18], [250, 170,
-                                                  12], [250, 170, 11],
-                 [255, 255, 255], [255, 255, 255], [250, 170, 16],
-                 [250, 170, 15], [250, 170, 15], [255, 255, 255],
-                 [255, 255, 255], [255, 255, 255], [255, 255, 255],
-                 [64, 170, 64], [230, 160, 50],
-                 [70, 130, 180], [190, 255, 255], [152, 251, 152],
-                 [107, 142, 35], [0, 170, 30], [255, 255, 128], [250, 0, 30],
-                 [100, 140, 180], [220, 128, 128], [222, 40,
-                                                    40], [100, 170, 30],
-                 [40, 40, 40], [33, 33, 33], [100, 128, 160], [20, 20, 255],
-                 [142, 0, 0], [70, 100, 150], [250, 171, 30], [250, 172, 30],
-                 [250, 173, 30], [250, 174, 30], [250, 175,
-                                                  30], [250, 176, 30],
-                 [210, 170, 100], [153, 153, 153], [153, 153, 153],
-                 [128, 128, 128], [0, 0, 80], [210, 60, 60], [250, 170, 30],
-                 [250, 170, 30], [250, 170, 30], [250, 170,
-                                                  30], [250, 170, 30],
-                 [250, 170, 30], [192, 192, 192], [192, 192, 192],
-                 [192, 192, 192], [220, 220, 0], [220, 220, 0], [0, 0, 196],
-                 [192, 192, 192], [220, 220, 0], [140, 140, 20], [119, 11, 32],
-                 [150, 0, 255], [0, 60, 100], [0, 0, 142], [0, 0, 90],
-                 [0, 0, 230], [0, 80, 100], [128, 64, 64], [0, 0, 110],
-                 [0, 0, 70], [0, 0, 142], [0, 0, 192], [170, 170, 170],
-                 [32, 32, 32], [111, 74, 0], [120, 10, 10], [81, 0, 81],
-                 [111, 111, 0]]
+PALETTE=[[128, 64, 128], [244, 35, 232], [70, 70, 70], [102, 102, 156],
+                 [190, 153, 153], [153, 153, 153], [250, 170,
+                                                    30], [220, 220, 0],
+                 [107, 142, 35], [152, 251, 152], [70, 130, 180],
+                 [220, 20, 60], [255, 0, 0], [0, 0, 142], [0, 0, 70],
+                 [0, 60, 100], [0, 80, 100], [0, 0, 230], [119, 11, 32]]
 
 def get_bos_eos_token_ids(tokenizer):
     if tokenizer.__class__.__name__ in [
@@ -469,7 +434,7 @@ def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks
 
-def mask_square2origin(mask, origin_width, origin_height, threshold=0):
+def mask_square2origin(mask, origin_width, origin_height, threshold=0.5):
     # mask shape: [H,W]
     target_size = max(origin_width, origin_height)
     mask = mask.float()
@@ -480,7 +445,7 @@ def mask_square2origin(mask, origin_width, origin_height, threshold=0):
         mode='bilinear', 
         align_corners=False
     )
-    mask = (mask > threshold).to(mask.dtype).to(mask.device)
+    mask = (mask > threshold).to(mask.device)
     mask = mask[0,0]
     if origin_width == origin_height:
         return mask
@@ -596,29 +561,13 @@ def point2mask(point, radius, height, width):
 def visualize_mask(image, masks, alpha=0.5, beta=1.0):
     if isinstance(image, Image.Image):
         image = np.array(image)
-    if not isinstance(masks, list):
-        masks = [masks]
+    if not isinstance(masks, torch.Tensor):
+        masks = torch.tensor(np.array(masks)).bool()
 
     colors = random.sample(PALETTE,len(masks))
-    for i,mask in enumerate(masks):
-        assert mask.shape == image.shape[:-1]
-        mask = mask * 255
-        mask = mask.astype(np.uint8)
-        random_color = colors[i]
-
-        colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
-        for i in range(3):
-            colored_mask[:, :, i] = mask * (random_color[i] / 255.0)
-
-        alpha_channel = np.ones_like(mask) * int(alpha * 255)
-        colored_mask = cv2.merge([colored_mask, alpha_channel])
-
-        if image.shape[2] == 3:
-            b, g, r = cv2.split(image)
-            alpha_channel = np.ones(b.shape, dtype=b.dtype) * 255
-            image = cv2.merge([b, g, r, alpha_channel])
-    
-        image = cv2.addWeighted(image, beta, colored_mask, alpha, 0)
+    image = torch.tensor(image.transpose(2,0,1))
+    image = draw_segmentation_masks(image,masks,alpha,colors)
+    image = image.cpu().numpy().transpose(1,2,0)
 
     return image
 
@@ -689,7 +638,14 @@ def visualize_box(image, boxes, line_thickness=2,labels=None):
         image = np.array(image)
     if not isinstance(boxes, list):
         boxes = [boxes]
-    
+    # if not isinstance(boxes, torch.Tensor):
+    #     boxes = torch.tensor(np.array(boxes))
+
+    # colors = random.sample(PALETTE,len(boxes))
+    # image = torch.tensor(image.transpose(2,0,1))
+    # image = draw_bounding_boxes(image,boxes,labels,width=2,font='DejaVuSans-Bold',font_size=14)
+    # image = image.cpu().numpy().transpose(1,2,0)
+
     for i,box in enumerate(boxes):
         x1, y1, x2, y2 = box
         left_top = tuple((int(x1), int(y1)))

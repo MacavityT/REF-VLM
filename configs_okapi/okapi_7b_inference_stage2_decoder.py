@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0909_unfreeze_iter22000'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0911_iter7000'
 
 
 projector = dict(
@@ -41,11 +41,11 @@ vpt_encoder = dict(
 
 
 
-ref_adapter = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
-    trust_remote_code=True,
-)
+# ref_adapter = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
+#     trust_remote_code=True,
+# )
 
 box_decoder = dict(
     type=AutoModel.from_pretrained,
@@ -92,10 +92,10 @@ model = dict(
         pretrained_model_name_or_path=model_dir,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    # visual_tower=clip_convnext_320,
+    visual_tower=clip_convnext_320,
     projector=projector,
     vpt_encoder=vpt_encoder,
-    ref_adapter=ref_adapter,
+    # ref_adapter=ref_adapter,
     visual_decoder=dict(
         box=box_decoder,
         mask=mask_decoder

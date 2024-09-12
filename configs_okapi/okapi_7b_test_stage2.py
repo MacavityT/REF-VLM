@@ -46,10 +46,10 @@ ref_mask_queries = ref_mask_num * ref_length
 
 dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
-prefix = 'coco_det'
+prefix = 'res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0826_novrt_8/eval46000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0908_noref/eval30000'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -315,6 +315,7 @@ model=dict(
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
+    # visual_tower=clip_convnext_320,
     vpt_encoder=dict(
         strategy='pooling',
         patch_size=vpt_patch_size,

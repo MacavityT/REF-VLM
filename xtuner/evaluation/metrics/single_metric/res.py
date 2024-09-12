@@ -134,14 +134,15 @@ class RESComputeMetrics(BaseComputeMetrics):
             target_masks = torch.tensor(gt_masks['mask']).float()
             target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
             if sample['decoder_outputs'] is not None:
-                decode_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
-                # decode_masks = sample['decoder_outputs']['masks']
-                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in decode_masks])
+                # decode_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
+                decode_masks = sample['decoder_outputs']['mask']
+                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height,threshold=0.4) for decode_mask in decode_masks])
+                decode_masks = decode_masks.float()
             else:
                 decode_masks = torch.zeros_like(target_masks).float()
 
-            decode_pred = {'text':decode_pred_string,'masks':decode_masks}
-            target = {'text':target_string,'masks':target_masks}
+            decode_pred = {'text':decode_pred_string,'masks':decode_masks.float()}
+            target = {'text':target_string,'masks':target_masks.float()}
             
             if self.stage == 2:
                 decode_pred_string = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred_string, flags=re.DOTALL)
@@ -158,8 +159,8 @@ class RESComputeMetrics(BaseComputeMetrics):
             image_id = image_name.split('.')[0]
             decode_masks = [decode_mask for decode_mask in decode_masks.cpu().numpy()]
             target_masks = [target_mask for target_mask in target_masks.cpu().numpy()]
-            vis_mask_pred = visualize_mask(image, decode_masks, alpha=1.0, beta=1.0)
-            vis_mask_target = visualize_mask(image, target_masks, alpha=1.0, beta=1.0)
+            vis_mask_pred = visualize_mask(image, decode_masks, alpha=0.8)
+            vis_mask_target = visualize_mask(image, target_masks, alpha=0.8)
             pred_save_path = f'pred_{image_id}.jpg'
             target_save_path = f'target_{image_id}.jpg'
             save_dir = os.path.join(self.save_dir,f'{self.dataset_name}')
