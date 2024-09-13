@@ -33,6 +33,105 @@ class PositionalEncoding(nn.Module):
             x = x + self.pe[:x.size(0), :, :]
         return self.dropout(x)
 
+class REFAdapterEncoderLayer(nn.Module):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
+        super(REFAdapterEncoderLayer, self).__init__()
+        
+        # Self-attention layer
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+
+        # FFN
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, d_model)
+        )
+
+        # Layer norm
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        
+        # Dropout
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+    def forward(self, x, src_mask=None, src_key_padding_mask=None):
+        # Self-attention block
+        residual = x
+        x = self.norm1(x)
+        attn_outputs = self.self_attn(x, x, x, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)[0]
+        x = residual + self.dropout1(attn_outputs)
+
+        # Feedforward block
+        residual = x
+        x = self.norm2(x)
+        ffn_output = self.ffn(x)
+        x = residual + self.dropout2(ffn_output)        
+        return x
+
+class REFAdapterEncoder(PreTrainedModel):
+
+    def __init__(self, config: REFAdapterConfig):
+        super().__init__(config)
+        self.config = config
+        d_input = config.d_input
+        d_model = config.d_model
+        n_heads = config.n_heads
+        dropout = config.dropout
+        d_ffn = config.d_ffn
+        max_position_embedding = config.max_position_embedding
+
+        if d_input != d_model:
+            self.in_proj = nn.Linear(d_input, d_model)
+        self.positional_encoding = PositionalEncoding(
+            d_model, 
+            dropout=0, 
+            max_len=max_position_embedding,
+            batch_first=True
+        )
+
+        self.layers = nn.ModuleList()
+        for _ in range(config.num_layers):
+            self.layers.append(
+                REFAdapterEncoderLayer(
+                    d_model,
+                    n_heads,
+                    d_ffn,
+                    dropout
+                )
+            )
+        self.last_norm = nn.LayerNorm(d_model)
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    def forward(self,
+        hidden_states,
+        attention_mask=None, 
+        mode='loss'
+    ):
+        if self.config.d_input != self.config.d_model:
+            hidden_states = self.in_proj(hidden_states)
+        hidden_states = self.positional_encoding(hidden_states)
+
+        all_hidden_states = ()
+        for layer in self.layers:
+            all_hidden_states += (hidden_states,)
+            hidden_states = layer(
+                hidden_states,
+                src_mask=attention_mask
+            )
+
+        # add hidden states from the last decoder layer
+        last_hidden_states = self.last_norm(hidden_states)
+        all_hidden_states += (last_hidden_states,)
+        
+        return dict(
+            last_hidden_states = last_hidden_states,
+            hidden_states = all_hidden_states
+        )
+
 class REFAdapterDecoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1):
         super(REFAdapterDecoderLayer, self).__init__()
@@ -167,10 +266,14 @@ class REFAdapterModel(PreTrainedModel):
     def __init__(self, config: REFAdapterConfig):
         super().__init__(config)
         self.config = config
-        if config.packing:
-            self.register_buffer("split_ids", torch.arange(2).unsqueeze(1), persistent=False)
-            self.split_embedding = nn.Embedding(2, config.d_input)
-        self.model = REFAdapterDecoder(config)
+        if config.mode == 'encode':
+            self.model = REFAdapterEncoder(config)
+        else:
+            assert config.mode == 'decode'
+            if config.packing:
+                self.register_buffer("split_ids", torch.arange(2).unsqueeze(1), persistent=False)
+                self.split_embedding = nn.Embedding(2, config.d_input)
+            self.model = REFAdapterDecoder(config)
         self.post_init()
 
     def enable_input_require_grads(self):
@@ -319,7 +422,90 @@ class REFAdapterModel(PreTrainedModel):
         ref_masks = torch.stack(ref_masks)
         return ref_hidden_states, ref_masks
 
-    def forward(
+    def packing_encode_sequences(self, phrase_seqs, unit_seqs, ref_seqs):
+        encode_feats = []
+        encode_masks = []
+        batch_size = len(phrase_seqs)
+        for batch_idx in range(batch_size):
+            p_seqs_batch = phrase_seqs[batch_idx]
+            u_seqs_batch = unit_seqs[batch_idx]
+            r_seqs_batch = ref_seqs[batch_idx]
+            assert len(p_seqs_batch) == len(u_seqs_batch)
+            assert len(p_seqs_batch) == len(r_seqs_batch)
+            batch_feats = []
+            for p_feats, u_feats, r_feats in zip(p_seqs_batch, 
+                                              u_seqs_batch, r_seqs_batch):
+                batch_feats.append(p_feats)
+                batch_feats.append(u_feats)
+                batch_feats.append(r_feats)
+            batch_feats = torch.cat(batch_feats, dim=0)
+            batch_masks = torch.zeros(
+                (batch_feats.shape[0]), 
+                dtype=torch.bool, 
+                device=batch_feats.device
+            )
+            batch_masks[-r_feats.shape[0]:] = True
+            encode_feats.append(batch_feats)
+            encode_masks.append(batch_masks)
+
+        max_len = max([feats.shape[0] for feats in encode_feats])
+        padded_encode_feats = []
+        padded_encode_masks = []
+        for feats, masks in zip(encode_feats, encode_masks):
+            padded_feats = torch.zeros(
+                (max_len, feats.shape[1]),
+                device=feats.device,
+                dtype=feats.dtype
+            )
+            padded_masks = torch.zeros(
+                (max_len),
+                dtype=masks.dtype, 
+                device=masks.device
+            )
+            padded_feats[:feats.shape[0], :] = feats
+            padded_masks[:masks.shape[0]] = masks
+            padded_encode_feats.append(padded_feats)
+            padded_encode_masks.append(padded_masks)
+
+        padded_encode_feats = torch.stack(padded_encode_feats, dim=0)
+        padded_encode_masks = torch.stack(padded_encode_masks, dim=0)
+        return padded_encode_feats, padded_encode_masks
+
+    def forward_encode(
+        self, 
+        phrase_sequences, 
+        unit_sequences, 
+        ref_sequences,
+        metas, 
+        mode='loss'
+    ):
+        encode_feats, ref_masks = self.packing_encode_sequences(
+            phrase_sequences, 
+            unit_sequences, 
+            ref_sequences
+        )
+        if self.gradient_checkpointing and self.training:
+            outputs = checkpoint(
+                self.model, 
+                encode_feats,
+                None,
+                mode,
+                use_reentrant=True
+            )
+        else:
+            outputs = self.model(
+                encode_feats,
+                mode=mode
+            )
+        
+        last_hidden_states = outputs['last_hidden_states']
+        ref_feats, ref_mask = self.reform_packed_sequences(last_hidden_states, ref_masks)
+        return dict(
+            ref_hidden_states = ref_feats,
+            ref_mask = ref_mask
+        )
+
+    def forward_decode(
         self, 
         phrase_sequences, 
         unit_sequences, 
@@ -365,3 +551,30 @@ class REFAdapterModel(PreTrainedModel):
             ref_hidden_states = hidden_states,
             ref_mask = hidden_states_mask
         )
+
+    def forward(
+        self, 
+        phrase_sequences, 
+        unit_sequences, 
+        ref_sequences,
+        metas, 
+        mode='loss'
+    ):
+        if self.config.mode == 'encode':
+            results = self.forward_encode(
+                phrase_sequences, 
+                unit_sequences, 
+                ref_sequences,
+                metas, 
+                mode
+            )
+        else:
+            assert self.config.mode == 'decode'
+            results = self.forward_decode(
+                phrase_sequences, 
+                unit_sequences, 
+                ref_sequences,
+                metas, 
+                mode
+            )
+        return results
