@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0911_iter7000'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0913_ref_encode_iter5500'
 
 
 projector = dict(
@@ -65,6 +65,7 @@ infer_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
+    image_tower_processor=clip_convnext_320['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -92,7 +93,7 @@ model = dict(
         pretrained_model_name_or_path=model_dir,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320,
+    visual_tower=clip_convnext_320['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
     # ref_adapter=ref_adapter,

@@ -62,7 +62,7 @@ def choose_system(task_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
     parser.add_argument(
-        '--config', help='config file name or path.')
+        '--config', default='/code/okapi-mllm/configs_okapi/okapi_7b_inference_stage2_decoder.py', help='config file name or path.')
     parser.add_argument(
         '--seed',
         type=int,
@@ -330,7 +330,7 @@ def submit_step3(state,input_image,output_image,threshold=0.4):
     if input_image is not None:
         if isinstance(input_image,dict):
             input_image = input_image['image']
-    input_image = Image.fromarray(input_image)    
+    input_image = Image.fromarray(input_image)
 
     boxes_output = state['boxes_output']
     masks_output = state['masks_output']

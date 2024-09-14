@@ -20,11 +20,11 @@ clip_convnext_320 = dict(
         type=_build_convnext_processor,
         pretrained_model_path=clip_patch14_336_path,
         size=dict(
-            shortest_edge=320
+            shortest_edge=512  # 320
         ),
         crop_size=dict(
-            height=320,
-            width=320
+            height=512,
+            width=512
         )
     ),
     visual_encoder=dict(

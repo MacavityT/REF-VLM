@@ -59,6 +59,7 @@ train_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
+    image_tower_processor=clip_convnext_320['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -106,13 +107,13 @@ llm=dict(
 model=dict(
     type=OkapiModel,
     # pretrained_pth=pretrained_pth,
-    freeze_llm=False,
+    freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320,
+    visual_tower=clip_convnext_320['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,
     # llm=dict(
@@ -137,8 +138,12 @@ model=dict(
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             # encoder_input_index=[8, 16, 23], # clip-vit features
             # encoder_input_dim=[1024, 1024, 1024],
-            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-            encoder_input_dim=[192, 384, 768, 1536],
+            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            # encoder_input_dim=[192, 384, 768, 1536],
+
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
+
             decoder_layers=6,
             decoder_ffn_dim=2048,
             decoder_attention_heads=8,
@@ -160,8 +165,12 @@ model=dict(
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
             # encoder_input_dim=[1024, 1024, 1024],
-            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-            encoder_input_dim=[192, 384, 768, 1536],          
+            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            # encoder_input_dim=[192, 384, 768, 1536],  
+
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
+            
             #region query decoder config
             decoder_layers=6,
             decoder_ffn_dim=2048,
