@@ -49,7 +49,7 @@ eval_type = 'reg'
 prefix = 'res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0912_mask/eval8500'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0913_mask_512_124/eval9000'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -202,7 +202,7 @@ elif prefix == 'res':
         # test_all_dataset['rec_refcocog_umd_test'],
         dict(
             type='SubSet',
-            portion=1/50,
+            portion=1/10,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset[f'{dataset_name}'],
@@ -283,7 +283,7 @@ test_dataset = dict(
     type=OkapiDataset,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
-    image_tower_processor=clip_convnext_320['image_processor'],
+    image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -316,7 +316,7 @@ model=dict(
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320['visual_encoder'],
+    visual_tower=clip_convnext_512['visual_encoder'],
     vpt_encoder=dict(
         strategy='pooling',
         patch_size=vpt_patch_size,
@@ -335,11 +335,11 @@ model=dict(
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             # encoder_input_index=[8, 16, 23], # clip-vit features
             # encoder_input_dim=[1024, 1024, 1024],
-            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-            encoder_input_dim=[192, 384, 768, 1536],
+            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            # encoder_input_dim=[192, 384, 768, 1536],
 
-            # encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-            # encoder_input_dim=[192, 384, 768, 1024],
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
 
             decoder_layers=6,
             decoder_ffn_dim=2048,
@@ -362,11 +362,11 @@ model=dict(
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
             # encoder_input_dim=[1024, 1024, 1024],
-            encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-            encoder_input_dim=[192, 384, 768, 1536],  
+            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            # encoder_input_dim=[192, 384, 768, 1536],  
 
-            # encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-            # encoder_input_dim=[192, 384, 768, 1024],
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
             
             #region query decoder config
             decoder_layers=6,

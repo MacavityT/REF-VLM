@@ -11,7 +11,7 @@ from transformers import AutoModel
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_320
+    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_320,clip_convnext_512
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0913_ref_encode_iter5500'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_nodecoder_iter1000'
 
 
 projector = dict(
@@ -38,7 +38,6 @@ vpt_encoder = dict(
     pretrained_model_name_or_path=os.path.join(model_dir,'vpt_encoder'),
     trust_remote_code=True,
 )
-
 
 
 # ref_adapter = dict(
@@ -65,7 +64,7 @@ infer_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
-    image_tower_processor=clip_convnext_320['image_processor'],
+    image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -93,7 +92,7 @@ model = dict(
         pretrained_model_name_or_path=model_dir,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320['visual_encoder'],
+    visual_tower=clip_convnext_512['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
     # ref_adapter=ref_adapter,

@@ -7,7 +7,7 @@ from xtuner.dataset.map_fns import (
     okapi_template_map_fn_factory
 )
 from xtuner.dataset.collate_fns import okapi_collate_fn
-
+from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336
@@ -42,7 +42,7 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
         args = dict(
-            use_cot=False,
+            # use_cot=False,   # use_cot
             vrt_len=vrt_length, 
             ref_len=ref_length
         )
@@ -62,28 +62,52 @@ train_dataloader = dict(
 val_cfg = None
 
 # config models
-pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/iter_3558.pth'
+# pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/iter_3558.pth'
+
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_nodecoder_iter64500'
+projector = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/projector",
+    trust_remote_code=True,
+)
+
+vpt_encoder = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=f"{model_dir}/vpt_encoder",
+    trust_remote_code=True,
+)
+
+llm=dict(
+    type=AutoModelForCausalLM.from_pretrained,
+    # pretrained_model_name_or_path=vicuna_7b_path,
+    pretrained_model_name_or_path=model_dir,
+    trust_remote_code=True)
+
+
 
 model = dict(
     type=OkapiModel,
-    pretrained_pth=pretrained_pth,
+    # pretrained_pth=pretrained_pth,
     freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
-    llm=dict(
-        type=AutoModelForCausalLM.from_pretrained,
-        pretrained_model_name_or_path=vicuna_7b_path,
-        trust_remote_code=True),
+    # llm=dict(
+    #     type=AutoModelForCausalLM.from_pretrained,
+    #     pretrained_model_name_or_path=vicuna_7b_path,
+    #     trust_remote_code=True),
+    llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    vpt_encoder=dict(
-        strategy='pooling',
-        patch_size=vpt_patch_size,
-        num_patches = vpt_num_patches,
-        visual_hidden_size=visual_hidden_size,
-        use_mask_token=True,
-        use_projector=False
-    ),
+    vpt_encoder=vpt_encoder,
+    projector=projector,
+    # vpt_encoder=dict(
+    #     strategy='pooling',
+    #     patch_size=vpt_patch_size,
+    #     num_patches = vpt_num_patches,
+    #     visual_hidden_size=visual_hidden_size,
+    #     use_mask_token=True,
+    #     use_projector=False
+    # ),
     loss_coefficient=dict(
         llm=1.,
         box=0.5,

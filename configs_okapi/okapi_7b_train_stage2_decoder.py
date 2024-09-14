@@ -11,7 +11,7 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320, clip_convnext_512
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
@@ -38,28 +38,28 @@ prompt_template = PROMPT_TEMPLATE.okapi
 
 
 # dataset grand det and seg
-dataset_args = [
-    train_all_dataset['res_refcoco'],
-    train_all_dataset['res_refcocoa'],
-    train_all_dataset['res_refcocog'],
-    train_all_dataset['llavag_gcg'],
-    train_all_dataset['openpsg'],
-    train_all_dataset['interact_mask'],
-    grand_cond_s,
-    train_all_dataset['grand_s'],
-    train_all_dataset['grand_c_s'],
-]
-for dataset in dataset_args:
-    if dataset['type'] == 'SubSet':
-        dataset['cfg'].setdefault('stage',2)
-    else:
-        dataset['stage'] = 2
+# dataset_args = [
+#     train_all_dataset['res_refcoco'],
+#     train_all_dataset['res_refcocoa'],
+#     train_all_dataset['res_refcocog'],
+#     train_all_dataset['llavag_gcg'],
+#     train_all_dataset['openpsg'],
+#     train_all_dataset['interact_mask'],
+#     grand_cond_s,
+#     train_all_dataset['grand_s'],
+#     train_all_dataset['grand_c_s'],
+# ]
+# for dataset in dataset_args:
+#     if dataset['type'] == 'SubSet':
+#         dataset['cfg'].setdefault('stage',2)
+#     else:
+#         dataset['stage'] = 2
 
 train_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
-    image_tower_processor=clip_convnext_320['image_processor'],
+    image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -107,13 +107,13 @@ llm=dict(
 model=dict(
     type=OkapiModel,
     # pretrained_pth=pretrained_pth,
-    freeze_llm=True,
+    freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320['visual_encoder'],
+    visual_tower=clip_convnext_512['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,
     # llm=dict(
