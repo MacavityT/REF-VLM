@@ -433,18 +433,23 @@ class REFAdapterModel(PreTrainedModel):
             assert len(p_seqs_batch) == len(u_seqs_batch)
             assert len(p_seqs_batch) == len(r_seqs_batch)
             batch_feats = []
+            batch_masks = []
             for p_feats, u_feats, r_feats in zip(p_seqs_batch, 
                                               u_seqs_batch, r_seqs_batch):
                 batch_feats.append(p_feats)
                 batch_feats.append(u_feats)
                 batch_feats.append(r_feats)
+
+                r_masks = torch.zeros(
+                    (p_feats.shape[0] + u_feats.shape[0] + r_feats.shape[0]), 
+                    dtype=torch.bool, 
+                    device=r_feats.device
+                )
+                r_masks[-r_feats.shape[0]:] = True
+                batch_masks.append(r_masks)
+
             batch_feats = torch.cat(batch_feats, dim=0)
-            batch_masks = torch.zeros(
-                (batch_feats.shape[0]), 
-                dtype=torch.bool, 
-                device=batch_feats.device
-            )
-            batch_masks[-r_feats.shape[0]:] = True
+            batch_masks = torch.cat(batch_masks, dim=0)
             encode_feats.append(batch_feats)
             encode_masks.append(batch_masks)
 

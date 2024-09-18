@@ -12,20 +12,18 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_512
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.okapi_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-
-
 # Data configs
 max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-batch_size = 15  # per_device  24
+batch_size = 24  # per_device  24
 dataloader_num_workers = 4
 vrt_length = 0  # 256
 vpt_num_patches = 9
@@ -70,6 +68,7 @@ train_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
+    image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
@@ -97,7 +96,7 @@ val_cfg = None
 # pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905/iter_11500.pth'
 
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_iter37500'
+model_dir = '/model/Aaronzhu/OkapiModel/aaron/0828_iter37500'
 projector = dict(
     type=AutoModel.from_pretrained,
     pretrained_model_name_or_path=f"{model_dir}/projector",
@@ -128,20 +127,25 @@ model=dict(
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_320['visual_encoder'],
+    visual_tower=clip_convnext_512['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,
     ref_adapter=dict(
         # Padding Method (packing=False): Max length denotes max corresponding token num in single 'phrase-unit-refs' tuple.
         # Packing Method(packing=True): Max length denotes max corresponding token num in single batch, 
         # and each token with a start and end token, like [ref_start]<REF>[ref_end]
+
+        # packing=True,
         # phrase_max_length=100,
         # unit_max_length=50,
         # ref_max_length=100,
-        phrase_max_length=1024,
-        unit_max_length=1024,
-        ref_max_length=300,
-        packing=True,
+
+        # phrase_max_length=1024,
+        # unit_max_length=1024,
+        # ref_max_length=300,
+
+        mode='encode',
+        max_position_embedding=2048,
         d_input=4096,
         d_model=1024,
         n_heads=8,
@@ -153,10 +157,9 @@ model=dict(
         box=dict(
             use_group_matcher=True,
             num_queries=ref_box_queries,
-            # quries_input_dim=256,
-            quries_input_dim=4096,
+            quries_input_dim=1024, # ref adapter
+            # quries_input_dim=4096, # no ref adapter
             encoder_input_transform='resize_concat',
-            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
             # encoder_input_index=[8, 16, 23], # clip-vit features
             # encoder_input_dim=[1024, 1024, 1024],
             # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
@@ -180,11 +183,10 @@ model=dict(
         mask=dict(
             use_group_matcher=True,
             num_queries=ref_mask_queries,
-            # quries_input_dim=256,
-            quries_input_dim=4096,
+            quries_input_dim=1024, # ref adapter
+            # quries_input_dim=4096, # no ref adapter
             encoder_input_transform='multiple_select',
-            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            # encoder_input_index=[8, 16, 23], # clip-vit features
             # encoder_input_dim=[1024, 1024, 1024],
             # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
             # encoder_input_dim=[192, 384, 768, 1536],  
@@ -218,6 +220,6 @@ model=dict(
     ),
     loss_coefficient=dict(
         llm=1,
-        box=0.5,
-        mask=0.5
+        box=1,
+        mask=1
     ))
