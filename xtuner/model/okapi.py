@@ -452,7 +452,7 @@ class OkapiModel(BaseModel):
         
         return visual_feats, visual_prompts
     
-    def prepare_decode_feats(self, hidden_states, metas, mode='loss'):
+    def prepare_decode_feats(self, hidden_states, metas, shift=False, mode='loss'):
         '''
         return: 
             all_phrase_feats: List[List[Tensor]], len(phrase_feats) = batch_size, len(phrase_feats[0]) = 'num of groups in batch'
@@ -639,14 +639,24 @@ class OkapiModel(BaseModel):
             for group in decode_groups:
                 p_start, p_end = group['phrase_pair']
                 u_start, u_end = group['unit_pair']
+                ref_index = group['ref_index']
+                
+                if shift:
+                    p_start -= 1
+                    p_end -= 1
+                    u_start -= 1
+                    u_end -= 1
+                    ref_index = [idx - 1 for idx in ref_index]
+
                 # non-phrase pairs, init as [0, 0]
-                if p_start == p_end: 
+                if p_start == p_end:
+                    p_start = 0
                     p_end = p_start - 1
                 # non-unit pairs, init as [0, 0]
                 if u_start == u_end: 
+                    u_start = 0
                     u_end = u_start - 1
                 
-                ref_index = group['ref_index']
                 phrase_feats.append(feats[p_start:p_end+1, :])
                 unit_feats.append(feats[u_start:u_end+1, :])
                 ref_feats.append(feats[ref_index, :])
@@ -801,6 +811,7 @@ class OkapiModel(BaseModel):
         decode_feats = self.prepare_decode_feats(
             hidden_states,
             metas=metas,
+            shift=False,
             mode=mode
         )
         results['decode_groups'] = decode_feats['decode_groups']
