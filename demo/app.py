@@ -325,7 +325,7 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
     
     return chatbot
 
-def submit_step3(state,input_image,output_image,threshold=0.4):
+def submit_step3(state,input_image,output_image,threshold=0.3):
     output_image = None
     if input_image is not None:
         if isinstance(input_image,dict):

@@ -22,9 +22,10 @@ from .mixin import MInstrDataset
 
 @DATASETS.register_module()
 class RESDataset(MInstrDataset):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, target=False, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, EXPR_PLACEHOLDER))
         self.map_placeholders = {'output':[MASKS_PLACEHOLDER]}
+        self.target = target
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -42,7 +43,10 @@ class RESDataset(MInstrDataset):
         image = self.get_image(img_path)
         question = self.get_template().replace(EXPR_PLACEHOLDER, expr)
 
-        value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + MASKS_PLACEHOLDER
+        if self.target:
+            value = PHRASE_ST_PLACEHOLDER_STAGE2 + expr + PHRASE_ED_PLACEHOLDER_STAGE2 + MASKS_PLACEHOLDER
+        else:
+            value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + MASKS_PLACEHOLDER
         ret = {
             'image': image,
             'target': {
