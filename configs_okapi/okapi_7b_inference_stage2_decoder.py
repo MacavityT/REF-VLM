@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_nodecoder_iter1000'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_iter10000'
 
 
 projector = dict(

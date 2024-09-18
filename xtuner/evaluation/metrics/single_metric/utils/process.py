@@ -222,8 +222,8 @@ class SEGDETProcessor:
             self.bert_tokenizer = AutoTokenizer.from_pretrained(model_path)
             self.bert_model = AutoModel.from_pretrained(model_path)
         else:
-            self.bert_tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-            self.bert_model = AutoModel.from_pretrained("bert-base-uncased")
+            self.bert_tokenizer = AutoTokenizer.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
+            self.bert_model = AutoModel.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
 
         self.dataset_root = dataset_root
         self.iou_threshold = iou_threshold

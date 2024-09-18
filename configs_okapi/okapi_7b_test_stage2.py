@@ -44,12 +44,12 @@ ref_mask_num = 30
 ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 
-dataset_name = 'res_refcocog_test'
+dataset_name = 'rec_refcoco_unc_val'
 eval_type = 'reg'
-prefix = 'res'
+prefix = 'gcg_mask'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0913_mask_512_124/eval9000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0908_noref/eval68871'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -185,28 +185,28 @@ elif prefix == 'rec':
     test_evaluator = dict(
         type=RECComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        # test_all_dataset['rec_refcocog_umd_test'],
-        dict(
-            type='SubSet',
-            portion=1/10,
-            do_shuffle=False,
-            seed=43,
-            cfg=test_all_dataset[f'{dataset_name}'],
-            )
+        test_all_dataset[f'{dataset_name}'],
+        # dict(
+        #     type='SubSet',
+        #     portion=1/10,
+        #     do_shuffle=False,
+        #     seed=43,
+        #     cfg=test_all_dataset[f'{dataset_name}'],
+        #     )
     ]
 
 elif prefix == 'res':
     test_evaluator = dict(
         type=RESComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        # test_all_dataset['rec_refcocog_umd_test'],
-        dict(
-            type='SubSet',
-            portion=1/10,
-            do_shuffle=False,
-            seed=43,
-            cfg=test_all_dataset[f'{dataset_name}'],
-            )
+        test_all_dataset[f'{dataset_name}'],
+        # dict(
+        #     type='SubSet',
+        #     portion=1/10,
+        #     do_shuffle=False,
+        #     seed=43,
+        #     cfg=test_all_dataset[f'{dataset_name}'],
+        #     )
     ]
 
 elif prefix == 'gcg_box':
@@ -230,7 +230,7 @@ elif prefix == 'gcg_mask':
         # test_all_dataset['rec_refcocog_umd_test'],
         dict(
             type='SubSet',
-            portion=1/10,
+            portion=1,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['cocogcg_val'],
@@ -316,7 +316,7 @@ model=dict(
         pretrained_model_name_or_path=vicuna_7b_path,
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
-    visual_tower=clip_convnext_512['visual_encoder'],
+    # visual_tower=clip_convnext_512['visual_encoder'],
     vpt_encoder=dict(
         strategy='pooling',
         patch_size=vpt_patch_size,
@@ -333,13 +333,13 @@ model=dict(
             quries_input_dim=4096,
             encoder_input_transform='resize_concat',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            # encoder_input_index=[8, 16, 23], # clip-vit features
-            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[8, 16, 23], # clip-vit features
+            encoder_input_dim=[1024, 1024, 1024],
             # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
             # encoder_input_dim=[192, 384, 768, 1536],
 
-            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-            encoder_input_dim=[192, 384, 768, 1024],
+            # encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            # encoder_input_dim=[192, 384, 768, 1024],
 
             decoder_layers=6,
             decoder_ffn_dim=2048,
@@ -360,13 +360,13 @@ model=dict(
             quries_input_dim=4096,
             encoder_input_transform='multiple_select',
             # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-            # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
-            # encoder_input_dim=[1024, 1024, 1024],
+            encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            encoder_input_dim=[1024, 1024, 1024],
             # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
             # encoder_input_dim=[192, 384, 768, 1536],  
 
-            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-            encoder_input_dim=[192, 384, 768, 1024],
+            # encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            # encoder_input_dim=[192, 384, 768, 1024],
             
             #region query decoder config
             decoder_layers=6,
