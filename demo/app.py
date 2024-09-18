@@ -62,7 +62,7 @@ def choose_system(task_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
     parser.add_argument(
-        '--config', default='/code/okapi-mllm/configs_okapi/okapi_7b_inference_stage2_decoder.py', help='config file name or path.')
+        '--config', default='configs_okapi/okapi_7b_inference_stage2_decoder.py', help='config file name or path.')
     parser.add_argument(
         '--seed',
         type=int,
