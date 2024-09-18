@@ -128,11 +128,11 @@ class GCGComputeMetrics(BaseComputeMetrics):
             # TODO: change the format ,add caption
             if self.mask:
                 target_masks = torch.tensor(gt_boxes_masks['mask']).float()
-                target_masks = torch.tensor(np.array([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]))
+                target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]).float()
                 if sample['decoder_outputs'] is not None:
                     pred_boxes_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
                     # pred_boxes_masks = sample['decoder_outputs']['masks']
-                    pred_boxes_masks = torch.tensor(np.array([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]))
+                    pred_boxes_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]).float()
                 else:
                     pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()
                     dt_labels = [None]
