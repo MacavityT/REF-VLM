@@ -3,7 +3,7 @@ import torch
 import json
 from torch.utils.data import Dataset
 from pycocotools.coco import COCO
-from pycocotools.mask import decode
+from pycocotools.mask import decode,encode
 from PIL import Image
 from xtuner.registry import DATASETS
 import cv2
@@ -26,6 +26,12 @@ from xtuner.utils.constants import (
     )
 from .mixin import MInstrDataset
 from pycocotools import mask as maskUtils
+
+def coco_encode_rle(uncompressed_rle):
+    h, w = uncompressed_rle["size"]
+    # rle = maskUtils.frPyObjects(uncompressed_rle, h, w)
+    uncompressed_rle["counts"] = uncompressed_rle["counts"].decode("utf-8")  # Necessary to serialize with json
+    return uncompressed_rle
 
 @DATASETS.register_module()
 class COCOInteract(MInstrDataset):
@@ -391,7 +397,7 @@ class COCOInteractSingle(MInstrDataset):
     def save_data(self):
 
         self.all_items = []
-        for item in self.text_data:
+        for item in tqdm(self.text_data):
             img_path = item['image']
             image_path_abs = os.path.join(self.image_folder,img_path)
             width = item['image_info']['width']
@@ -401,9 +407,9 @@ class COCOInteractSingle(MInstrDataset):
             #load annotations
             annotations = item['anns']
 
-            selected_mask = []
             for i,annotation in enumerate(annotations): 
-                mask = self.annToMask(annotation['segmentation'], height, width)
+                mask = annotation['segmentation']
+                # mask = self.annToMask(annotation['segmentation'], height, width)
                 box = convert_bbox(annotation['bbox'])
                 category_name = self.coco_class_name[self.coco_class_ids.index(annotation['category_id'])]
                 kernel = np.ones((10,10),np.uint8)
@@ -414,38 +420,24 @@ class COCOInteractSingle(MInstrDataset):
                 interact_list = [decode(annotation['box_visual_prompt_mask']),
                                 point_mask,
                                 scribble_mask,
-                                decode(annotation['mask_visual_prompt_mask']),]
-                
-                if self.version == 's':
-                    interact_list = interact_list[:-1]
-                    for interact in interact_list:
-                        single_item = {
-                            'target':{'masks':[interact,mask]},
-                            'image':image,
-                            'category_name':category_name,
-                        }
+                                decode(annotation['mask_visual_prompt_mask'])]
+                interact_list = [encode(np.array(mask,order='F',dtype='uint8')) for mask in interact_list]
+                for interact in interact_list:
+                    interact = coco_encode_rle(interact)
+                # for interact in interact_list:
+                single_item = {
+                    'prompt':interact_list,
+                    'target':mask,
+                    'image':image,
+                    'category_name':category_name,
+                }
 
-                        self.all_items.append(single_item)
+                self.all_items.append(single_item)
 
 
-                elif self.version == 'd':
-                    interact_list = interact_list[1:]
-                    for interact in interact_list:
-                        single_item = {
-                            'target':{'masks':[interact,mask],'boxes':[box]},
-                            'image':image,
-                            'category_name':category_name,
-                        }
-                        self.all_items.append(single_item)
-
-                elif self.version == 'r':
-                    for interact in interact_list:
-                        single_item = {
-                            'target':{'masks':[interact]},
-                            'image':image,
-                            'category_name':category_name,
-                        }
-                        self.all_items.append(single_item)
+        with open("/data/Aaronzhu/DatasetStage2and3/COCO_interactive/interactive_val_single.json","w") as f:
+            json.dump(self.all_items,f)
+            f.close()
 
     def __len__(self):
         return len(self.all_items)                        
@@ -498,5 +490,88 @@ class COCOInteractSingle(MInstrDataset):
         return ret
 
 
+@DATASETS.register_module()
+class COCOInteractSingleTask(MInstrDataset):
 
+    def __init__(self, *args, version, split='val', **kwargs):
+        super().__init__(*args, **kwargs)
+        self.split = split
+        assert self.split in ['train','val']
+        self.version = version
+        self.coco_class_ids = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17,
+            18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
+            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49,
+            50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+            64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+            82, 84, 85, 86, 87, 88, 89, 90
+        ]
+        self.coco_class_name = [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+            'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
+            'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
+            'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag',
+            'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+            'sports ball', 'kite', 'baseball bat', 'baseball glove',
+            'skateboard', 'surfboard', 'tennis racket', 'bottle',
+            'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+            'banana', 'apple', 'sandwich', 'orange', 'broccoli',
+            'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+            'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+            'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+            'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
+            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
+        self.dataset = self.read_json()
 
+        self.version_dict = {
+            'box': 0,
+            'point': 1,
+            'scribble': 2,
+            'mask': 3,
+        }
+
+    def read_json(self):
+        with open(self.text_path) as f:
+            img_json = json.loads(f.read())
+        return img_json
+    
+    def annToMask(self, mask_ann, h, w):
+        if isinstance(mask_ann, list):
+            rles = maskUtils.frPyObjects(mask_ann, h, w)
+            rle = maskUtils.merge(rles)
+        elif isinstance(mask_ann['counts'], list):
+            # uncompressed RLE
+            rle = maskUtils.frPyObjects(mask_ann, h, w)
+        else:
+            # rle
+            rle = mask_ann
+        mask = maskUtils.decode(rle)
+        return mask
+    
+    def __getitem__(self, index):
+        item = self.dataset[index]
+        image = item['image']
+        question = self.get_template()
+        category_name = item['category_name']
+
+        question = question.replace(REGION_PLACEHOLDER,MASKS_PLACEHOLDER)
+        answer = category_name.replace(category_name,f'{PHRASE_ST_PLACEHOLDER_STAGE2}{category_name}{PHRASE_ED_PLACEHOLDER_STAGE2}{MASKS_PLACEHOLDER}')
+        single_conversation = [
+                {'from':'system','value':[{'task':{'task_name':'grounding_segmentation','element':['phrase'],'use_unit':True},'unit':['mask']}]},
+                {'from':'human','value':question,'masks_seq':[[0]]},
+                {'from':'gpt','value':answer,'masks_seq':[[1]]}
+            ]
+        
+        prompt = decode(item['prompt'][self.version_dict[self.version]])
+        target = self.annToMask(item['target'],image['height'],image['width'])
+
+        ret = {
+            'image': image,
+            'target': {'masks':[prompt,target]},
+            'conversations': single_conversation,
+            'map_placeholders': self.map_placeholders
+        }
+
+        return ret

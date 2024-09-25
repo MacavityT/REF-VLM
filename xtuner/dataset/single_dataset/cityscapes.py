@@ -37,7 +37,7 @@ def resize_mask(mask,width,height,ratio=0.3):
     if mask is None:
         return None
     mask = Image.fromarray(mask)
-    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.ANTIALIAS)
+    mask = mask.resize((int(width*ratio),int(height*ratio)), Image.LANCZOS)
     mask = np.array(mask)
     mask[mask!=0] = 1
     return mask.astype(np.uint8)

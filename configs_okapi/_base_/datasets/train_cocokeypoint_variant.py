@@ -7,7 +7,7 @@ train_cocokeypoints_variant = dict(
         template_name=r"Keypoints",
         placeholders=('<image>',),
         map_placeholders=dict(
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),     
     ),
     keypoints2017_rec_box=dict(
@@ -19,7 +19,7 @@ train_cocokeypoints_variant = dict(
         placeholders=('<image>','<region>'),
         map_placeholders=dict(
             input=['<boxes>'],
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),    
     ),
     keypoints2017_rec_mask=dict(
@@ -31,7 +31,7 @@ train_cocokeypoints_variant = dict(
         version='mask',
         map_placeholders=dict(
             input=['<masks>'],
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),      
     ),
     keypoints2014_det=dict(
@@ -41,7 +41,7 @@ train_cocokeypoints_variant = dict(
         template_name=r"Keypoints",
         placeholders=('<image>',),
         map_placeholders=dict(
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),    
     ),
     keypoints2014_rec_box=dict(
@@ -53,7 +53,7 @@ train_cocokeypoints_variant = dict(
         placeholders=('<image>','<region>'),
         map_placeholders=dict(
             input=['<boxes>'],
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),    
     ),
     keypoints2014_rec_mask=dict(
@@ -65,7 +65,7 @@ train_cocokeypoints_variant = dict(
         version='mask',
         map_placeholders=dict(
             input=['<masks>'],
-            output=["<keypoints>"],
+            output=["<boxes>"],
         ),    
     ),
 

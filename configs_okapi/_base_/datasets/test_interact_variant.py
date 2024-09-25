@@ -4,6 +4,10 @@ interact_test_common_cfg=dict(
     image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/val2017',
 )
 
+interact_train_single_common_cfg=dict(
+    text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/interactive_val_single.json',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/val2017',
+)
 
 test_interact_variant = dict(
     interact_mask=dict(
@@ -37,5 +41,41 @@ test_interact_variant = dict(
             input=["<masks>"],
         ),
         offline_processed_text_folder=''           
+    ),
+    interact_mask_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='mask',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
+    interact_point_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='point',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
+    interact_scribble_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='scribble',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
     )
 )

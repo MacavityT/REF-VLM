@@ -125,7 +125,7 @@ class RESComputeMetrics(BaseComputeMetrics):
                                                         data_batch['data']['labels'],
                                                         data_batch['data']['decode_labels'],
                                                         data_batch['data']['image_path']):
-            image = Image.open(image_path)
+            image = Image.open(image_path).convert('RGB')
             decode_pred_string = sample['generate_ids']
             decode_pred_string = self.decode_generate_ids(ids=decode_pred_string,skip_special_tokens=False)
             target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)

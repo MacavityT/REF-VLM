@@ -85,7 +85,7 @@ val_cfg = None
 # config models
 # pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0908_noref_iter68871'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_iter68871'
 
 
 projector = dict(
@@ -128,7 +128,7 @@ model=dict(
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
-    # visual_tower=clip_convnext_512['visual_encoder'],
+    visual_tower=clip_convnext_512['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,
     visual_decoder=dict(

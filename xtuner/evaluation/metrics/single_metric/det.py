@@ -112,11 +112,11 @@ class DETComputeMetrics(BaseComputeMetrics):
                 for i, dt_label in enumerate(dt_labels):
                     for j, gt_label in enumerate(self.processor.test_class_names):
                         if isinstance(gt_label,str):
-                            text_sims[i, j] = self.processor.text_similarity_bert(dt_label,gt_label)
+                            text_sims[i, j] = self.processor.text_similarity(dt_label,gt_label)
                         elif isinstance(gt_label,list):
                             max_similarity = 0
                             for single_label in gt_label:
-                                similarity = self.processor.text_similarity_bert(dt_label,single_label)
+                                similarity = self.processor.text_similarity(dt_label,single_label)
                                 if similarity > max_similarity:
                                     max_similarity = similarity
                             text_sims[i, j] = max_similarity
@@ -156,7 +156,7 @@ class DETComputeMetrics(BaseComputeMetrics):
             targets.append(target)
         
         miou = self.processor.evaluate_box_mask_miou(preds,targets,self.eval_type,mask=False)
-        recall = self.processor.evaluate_recall_with_mapping(preds,targets,global_softmax=True)
+        recall = self.processor.evaluate_recall_with_mapping(preds,targets,mask=False, global_softmax=False)
         
         metrics = {
             'miou': miou,

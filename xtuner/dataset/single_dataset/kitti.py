@@ -13,6 +13,7 @@ class KITTIDataset(MInstrDataset):
         super().__init__(*args, **kwargs)
         assert os.path.isdir(self.text_path), "KITTI dataset is composed of list of gt_depth files, not a single json!"
         self.gt_depth = []
+
         for folder in os.listdir(self.text_path):
             gt_path = os.path.join(self.text_path,folder,'proj_depth','groundtruth')
             for img_path in os.listdir(gt_path):

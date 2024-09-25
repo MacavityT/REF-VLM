@@ -26,6 +26,6 @@ train_cityscapes_variant = dict(
         map_placeholders=dict(
             output=["<masks>"],
         ),
-        offline_processed_text_folder='',     
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/cityscapes/offline/instance_offline',     
     ),
 )
