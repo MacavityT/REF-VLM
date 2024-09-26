@@ -67,7 +67,11 @@ class COCOREMDataset(MInstrDataset):
         print('index created!')
 
     def __len__(self):
-        return len(self.imgs)
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder):
+            return len(self.text_data)
+        else:
+            return len(self.imgToAnns.keys())
         
     
     def replace_categories(self, category_id):
@@ -79,8 +83,12 @@ class COCOREMDataset(MInstrDataset):
         types = []
         boxes_masks_seq = []
         info = self.imgs[index]
+        if 'file_name' in info.keys():
+            path = os.path.join(self.image_folder,info['file_name'])
+        else:
+            path = os.path.join(self.image_folder,f"{str(info['id']).zfill(12)}.jpg")
         img_info = {
-            'path': os.path.join(self.image_folder,info['file_name']),
+            'path': path,
             'width': info['width'],
             'height': info['height'],
         }
@@ -148,5 +156,9 @@ class COCOREMDataset(MInstrDataset):
             return offline_item
         conversations = self.build_conversations(index)
         return conversations
-
+    
+@DATASETS.register_module()
+class LVISDataset(COCOREMDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     

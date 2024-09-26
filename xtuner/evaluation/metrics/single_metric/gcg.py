@@ -63,7 +63,7 @@ def mask_to_rle_pytorch(tensor: torch.Tensor):
 class GCGComputeMetrics(BaseComputeMetrics):
     def __init__(self, *args, eval_type, mask, **kwargs):
         super().__init__(*args, **kwargs)
-        self.processor = SEGDETProcessor(task=self.prefix)
+        self.processor = SEGDETProcessor(task=self.prefix,text_model_type='bert')
         self.eval_type = eval_type
         self.mask = mask   # output bbox or masks
 
@@ -128,14 +128,17 @@ class GCGComputeMetrics(BaseComputeMetrics):
             # TODO: change the format ,add caption
             if self.mask:
                 target_masks = torch.tensor(gt_boxes_masks['mask']).float()
-                target_masks = torch.tensor(np.array([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]))
+                target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks]).float()
                 if sample['decoder_outputs'] is not None:
                     pred_boxes_masks = (sample['decoder_outputs']['mask'] > 0.5) * 1
                     # pred_boxes_masks = sample['decoder_outputs']['masks']
-                    pred_boxes_masks = torch.tensor(np.array([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]))
+                    pred_boxes_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height) for decode_mask in pred_boxes_masks]).float()
                 else:
                     pred_boxes_masks = torch.zeros((1,target_masks.shape[1],target_masks.shape[2])).float()
                     dt_labels = [None]
+                
+                decode_pred['pred_masks'] = pred_boxes_masks
+                target['gt_mask'] = target_masks
             else:
                 if sample['decoder_outputs'] is not None:
                     pred_boxes_masks = sample['decoder_outputs']['box'].float().cpu().numpy().tolist()
@@ -151,8 +154,12 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 target['gt_boxes'] = target_boxes
 
             pred_box_mask_length = len(dt_labels)
-            assert len(pred_boxes_masks) == pred_box_mask_length,  \
-                f"pred mask num: {len(pred_boxes_masks)} does not equal to llm's output num: {pred_box_mask_length}"
+            if len(pred_boxes_masks) != pred_box_mask_length:
+                print(f"pred mask num: {len(pred_boxes_masks)} does not equal to llm's output num: {pred_box_mask_length}")
+                if len(pred_boxes_masks) < pred_box_mask_length:
+                    dt_labels = dt_labels[:len(pred_boxes_masks)]
+                else:
+                    dt_label.extend([dt_label[-1] for _ in range(len(pred_boxes_masks) - pred_box_mask_length)])
             
         
 
@@ -167,11 +174,11 @@ class GCGComputeMetrics(BaseComputeMetrics):
                 for i, dt_label in enumerate(dt_labels):
                     for j, gt_label in enumerate(gt_labels):
                         if isinstance(gt_label,str):
-                            text_sims[i, j] = self.processor.text_similarity_bert(dt_label,gt_label)
+                            text_sims[i, j] = self.processor.text_similarity(dt_label,gt_label)
                         elif isinstance(gt_label,list):
                             max_similarity = 0
                             for single_label in gt_label:
-                                similarity = self.processor.text_similarity_bert(dt_label,single_label)
+                                similarity = self.processor.text_similarity(dt_label,single_label)
                                 if similarity > max_similarity:
                                     max_similarity = similarity
                             text_sims[i, j] = max_similarity

@@ -703,8 +703,9 @@ class OkapiModel(BaseModel):
         for batch_idx, (feats, mask) in enumerate(zip(hidden_states, ref_masks)):
             ref_feats = feats[mask, :]
             ref_feats_len = ref_feats.shape[0]
-            ref_hidden_states[batch_idx, :ref_feats_len, :] = ref_feats
-            ref_attention_masks[batch_idx, :ref_feats_len] = True
+            valid_len = min(max_num_queries, ref_feats_len)
+            ref_hidden_states[batch_idx, :valid_len, :] = ref_feats[:valid_len,:]
+            ref_attention_masks[batch_idx, :valid_len] = True
         return ref_hidden_states, ref_attention_masks
 
     def prepare_token_masks(self, ids):
@@ -814,7 +815,7 @@ class OkapiModel(BaseModel):
         decode_feats = self.prepare_decode_feats(
             hidden_states,
             metas=metas,
-            shift=False,
+            shift=True,
             mode=mode
         )
         results['decode_groups'] = decode_feats['decode_groups']

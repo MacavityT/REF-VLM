@@ -3,6 +3,10 @@ interact_train_common_cfg=dict(
     image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
 )
 
+interact_train_single_common_cfg=dict(
+    text_path=r'/data/Aaronzhu/DatasetStage2and3/COCO_interactive/interactive_train_single.json',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2017/train2017',
+)
 
 train_interact_variant = dict(
     interact_mask=dict(
@@ -77,6 +81,53 @@ train_interact_variant = dict(
             input=["<masks>"],
             output=["<masks>"],
         ),    
-    )
-
+    ),
+    interact_box_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='box',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
+    interact_mask_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='mask',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
+    interact_point_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='point',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
+    interact_scribble_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        split='train',
+        version='scribble',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
 )

@@ -4,6 +4,7 @@ import os
 import json
 import numpy as np
 import torch.nn.functional as F
+from PIL import Image
 from detectron2.structures import Boxes, ImageList, Instances
 from mmengine.logging import print_log
 from typing import Dict, Any, Union, Sequence,List
@@ -13,6 +14,7 @@ from pycocotools import mask as mask_utils
 from sentence_transformers import SentenceTransformer, util
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog, build_detection_test_loader
+from xtuner.dataset.utils import mask_square2origin
 from detectron2.utils.memory import retry_if_cuda_oom
 
 from xtuner.utils import IGNORE_INDEX
@@ -47,14 +49,20 @@ class SEGComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         coco_pred_file = []
-        for i,(sample, gt) in enumerate(zip(data_samples,data_batch['data'])):
-            generate_ids =sample['generate_ids']
-            decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
-            gt = gt['labels'][gt['labels'] != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
-            target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
-            target = target.replace('</s>','').strip()
+        for sample, gt_text, gt_masks,image_path in zip(data_samples,data_batch['data']['labels'],
+                                                   data_batch['data']['decode_labels'],
+                                                   data_batch['data']['image_path']):
+            # initialize the output
+            decode_pred = {}
+            target = {}
 
-            matches_target = get_matches_from_text(target)
+            decode_pred_id = sample['generate_ids']
+            decode_pred = self.decode_generate_ids(ids=decode_pred_id,skip_special_tokens=False)
+            decode_pred_string = self.decode_generate_ids(ids=decode_pred_id,skip_special_tokens=False)
+            target_string = gt_text[gt_text != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
+            target_string = self.decode_generate_ids(ids=target_string,skip_special_tokens=False)
+
+            matches_target = get_matches_from_text(target_string)
 
             if 'decode_groups' in sample.keys():
                 dt_labels = []
@@ -76,22 +84,28 @@ class SEGComputeMetrics(BaseComputeMetrics):
                     gt_labels.append(cur_gt_label)
 
             
-            # TODO: change the format
-            pred_masks = sample['masks'].cpu().numpy()   # torch.Tensor
-            gt_masks = gt['masks'].cpu().numpy()
-            decode_pred['pred_masks'] = pred_masks
-            target['gt_masks'] = gt_masks
-
-            image_path = gt['image_path']
             image_name = os.path.basename(image_path)
             image_id = image_name.split('.')[0]
-            batch_input = {
-                'file_name': image_name,
-                'image_id': image_id,
-            }
-            pred_mask_length = len(dt_labels)
-            assert len(pred_masks) == pred_mask_length,  \
-                f"pred mask num: {len(pred_masks)} does not equal to llm's output num: {pred_mask_length}"
+            image = Image.open(image_path).convert('RGB')
+            target_masks = torch.tensor(gt_masks['mask']).float()
+            target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
+            if sample['decoder_outputs'] is not None:
+                decode_masks = sample['decoder_outputs']['mask']
+                decode_masks = torch.stack([mask_square2origin(decode_mask,image.width,image.height,threshold=0.4) for decode_mask in decode_masks])
+                decode_masks = decode_masks.float()
+            else:
+                decode_masks = torch.zeros_like(target_masks).float()
+
+            decode_pred = {'masks':decode_masks.float()}
+            target = {'masks':target_masks.float()}
+
+            pred_box_mask_length = len(dt_labels)
+            assert len(decode_masks) == pred_box_mask_length,  \
+                f"pred mask num: {len(decode_masks)} does not equal to llm's output num: {pred_box_mask_length}"
+            
+            decode_pred['dt_labels'] = dt_labels
+            target['gt_labels'] = gt_labels
+
             
             
 
@@ -118,11 +132,11 @@ class SEGComputeMetrics(BaseComputeMetrics):
                 pred_class_names = [self.processor.test_class_names[index] for index in ids]
 
                 if self.mask:
-                    for i, mask in enumerate(pred_masks):
+                    for i, mask in enumerate(decode_masks):
                         score = scores[i]
                         class_name = pred_class_names[i]
                         rle_mask = mask_utils.encode(mask)
-                        coco_pred_file.append({"image_id": image_id, "category_id": convert_cls_to_id(class_name), 
+                        coco_pred_file.append({"image_id": image_id, "category_id": self.processor.convert_cls_to_id(class_name), 
                                             "segmentation": rle_mask, "score": score})
                
                 decode_pred['scores'] = scores
@@ -130,13 +144,13 @@ class SEGComputeMetrics(BaseComputeMetrics):
 
             elif self.type == 'whole':
                 if self.mask:
-                    for i, mask in enumerate(pred_masks):
+                    for i, mask in enumerate(decode_masks):
                         rle_mask = mask_utils.encode(mask)
                         coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
      
 
             processed_results = []
-            mask_pred_results = pred_masks
+            mask_pred_results = decode_masks
             mask_cls_results = text_sims
             for mask_cls_result, mask_pred_result in zip(mask_cls_results, mask_pred_results):
                 processed_results.append({})

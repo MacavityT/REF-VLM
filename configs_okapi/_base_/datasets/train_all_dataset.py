@@ -132,7 +132,19 @@ train_all_dataset = dict(
         map_placeholders=dict(
             output=["<boxes>"],
         ),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='', 
+    ),
+    lvis_box=dict(
+        type='LVISDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/LVIS/lvis_v1_train.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/LVIS/COCO2017/train2017',
+        task_type='box',
+        template_name=r'DET',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<boxes>"],
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/LVIS/box_offline', 
     ),
     kitti=dict(
         type='KITTIDataset',

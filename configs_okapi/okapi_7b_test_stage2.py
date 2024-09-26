@@ -44,12 +44,12 @@ ref_mask_num = 30
 ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 
-dataset_name = 'res_refcocog_test'
+dataset_name = 'rec_refcoco_unc_testa'
 eval_type = 'reg'
-prefix = 'res'
+prefix = 'rec'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0913_mask_512_124/eval9000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0921_box_sft_refcoco/eval47940'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -185,28 +185,28 @@ elif prefix == 'rec':
     test_evaluator = dict(
         type=RECComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        # test_all_dataset['rec_refcocog_umd_test'],
-        dict(
-            type='SubSet',
-            portion=1/10,
-            do_shuffle=False,
-            seed=43,
-            cfg=test_all_dataset[f'{dataset_name}'],
-            )
+        test_all_dataset[f'{dataset_name}'],
+        # dict(
+        #     type='SubSet',
+        #     portion=1/10,
+        #     do_shuffle=False,
+        #     seed=43,
+        #     cfg=test_all_dataset[f'{dataset_name}'],
+        #     )
     ]
 
 elif prefix == 'res':
     test_evaluator = dict(
         type=RESComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        # test_all_dataset['rec_refcocog_umd_test'],
-        dict(
-            type='SubSet',
-            portion=1/10,
-            do_shuffle=False,
-            seed=43,
-            cfg=test_all_dataset[f'{dataset_name}'],
-            )
+        test_all_dataset[f'{dataset_name}'],
+        # dict(
+        #     type='SubSet',
+        #     portion=1/10,
+        #     do_shuffle=False,
+        #     seed=43,
+        #     cfg=test_all_dataset[f'{dataset_name}'],
+        #     )
     ]
 
 elif prefix == 'gcg_box':
@@ -227,13 +227,25 @@ elif prefix == 'gcg_mask':
     test_evaluator = dict(
         type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=True, prefix=prefix)
     test_dataset_args = [
-        # test_all_dataset['rec_refcocog_umd_test'],
         dict(
             type='SubSet',
-            portion=1/10,
+            portion=2/3,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['cocogcg_val'],
+            )
+    ]
+
+elif prefix == 'gcg_mask_test':
+    test_evaluator = dict(
+        type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=True, prefix=prefix)
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['cocogcg_test'],
             )
     ]
 
@@ -244,7 +256,7 @@ elif prefix == 'coco_det':
         # test_all_dataset['rec_refcocog_umd_test'],
         dict(
             type='SubSet',
-            portion=1/10,
+            portion=1/500,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['coco_2017_box_val'],

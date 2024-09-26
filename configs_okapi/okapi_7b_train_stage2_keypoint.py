@@ -42,27 +42,11 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter14500"
+model_dir = "/model/Aaronzhu/OkapiModel/aaron/0914_full_512_0124_epoch2_iter14500"
 
 dataset_args_sft = [
-    # train_all_dataset['lvis_box']
-    train_all_dataset['interact_point_finetune']
-    # train_all_dataset['interact_box_finetune'],
-    # train_all_dataset['point_local_b'],
-    # train_all_dataset['point_local_p'],
-    # train_all_dataset['point_twice_oq_bp'],
-    # train_all_dataset['point_twice_sq_bp'],
-    # train_all_dataset['point_twice_gq_bp'],
-    # train_all_dataset['point_v7w_p'],
-    # train_all_dataset['point_v7w_b'],
-    # train_all_dataset['openpsg'],
-    # train_all_dataset['train_ade20_with_instance'],
-    # train_all_dataset['train_cityscapes_instance'],
-    # train_all_dataset['coco_rem_mask'],
-    # train_all_dataset['rec']
-    # train_all_dataset['res_refcoco'],
-    # train_all_dataset['res_refcocoa'],
-    # train_all_dataset['res_refcocog'],
+    train_all_dataset['keypoints2017_det'],
+    train_all_dataset['keypoints2014_det'],
 ]
 
 for dataset in dataset_args_sft:

@@ -19,6 +19,9 @@ with read_base():
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
+
+
+
 # Data configs
 max_length = 2048 - 576 # use cutoff lens instead
 cutoff_len = 2048
@@ -39,30 +42,64 @@ prompt_template = PROMPT_TEMPLATE.okapi
 # dataset grand det and seg
 dataset_args = [
     train_all_dataset['flickr'],
-    train_all_dataset['rec'],
-    train_all_dataset['res_refcoco'],
-    train_all_dataset['res_refcocoa'],
-    train_all_dataset['res_refcocog'],
-    train_all_dataset['llavag_gcg'],
-    train_all_dataset['openpsg'],
-    train_all_dataset['interact_mask'],
-    train_all_dataset['interact_box'],
+    # train_all_dataset['rec'],
+    # train_all_dataset['res_refcoco'],
+    # train_all_dataset['res_refcocoa'],
+    # train_all_dataset['res_refcocog'],
+    # train_all_dataset['llavag_gcg'],
+    # train_all_dataset['openpsg'],
+    # train_all_dataset['interact_mask'],
+    # train_all_dataset['interact_box'],
     train_all_dataset['grit_d_offline'],
-    train_all_dataset['grit_cond_d_offline'],
-    train_all_dataset['grit_r_offline'],
-    train_all_dataset['grit_c_d_offline'],
-    grand_cond_d,
-    grand_cond_s,
+    # train_all_dataset['grit_cond_d_offline'],
+    # train_all_dataset['grit_r_offline'],
+    # train_all_dataset['grit_c_d_offline'],
+    # grand_cond_d,
+    # grand_cond_s,
     train_all_dataset['grand_d'],
-    train_all_dataset['grand_s'],
+    # train_all_dataset['grand_s'],
     train_all_dataset['grand_c_d'],
-    train_all_dataset['grand_c_s'],
+    # train_all_dataset['grand_c_s'],
 ]
 for dataset in dataset_args:
     if dataset['type'] == 'SubSet':
         dataset['cfg'].setdefault('stage',2)
     else:
         dataset['stage'] = 2
+        # dataset['target'] = True
+
+
+# max_epochs = 1
+# lr = 1e-5 # 2e-5 4e-6 2e-6
+# betas = (0.9, 0.999)
+# weight_decay = 0
+# max_norm = 1  # grad clip
+# warmup_ratio = 0.5
+
+# # optimizer
+# optim_wrapper = dict(
+#     type=AmpOptimWrapper,
+#     optimizer=dict(
+#         type=AdamW, lr=lr, betas=betas, weight_decay=weight_decay),
+#     clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
+#     accumulative_counts=accumulative_counts,
+#     loss_scale='dynamic',
+#     dtype='float16')
+
+# param_scheduler = [
+#     dict(
+#         type=LinearLR,
+#         start_factor=1e-6,
+#         by_epoch=True,
+#         begin=0,
+#         end=max_epochs,
+#         convert_to_iter_based=True),
+# ]
+
+# # train, val, test setting
+# train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
+
+
 
 train_dataset = dict(
     type=OkapiDataset,
@@ -96,7 +133,7 @@ val_cfg = None
 # pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0905/iter_11500.pth'
 
 
-model_dir = '/model/Aaronzhu/OkapiModel/aaron/0828_iter37500'
+model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_nodecoder_iter11500'
 projector = dict(
     type=AutoModel.from_pretrained,
     pretrained_model_name_or_path=f"{model_dir}/projector",
@@ -111,7 +148,6 @@ vpt_encoder = dict(
 
 llm=dict(
     type=AutoModelForCausalLM.from_pretrained,
-    # pretrained_model_name_or_path=vicuna_7b_path,
     pretrained_model_name_or_path=model_dir,
     trust_remote_code=True)
 

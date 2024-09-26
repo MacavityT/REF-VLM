@@ -18,6 +18,8 @@ from detectron2.evaluation import (
     DatasetEvaluators,
     SemSegEvaluator,
 )
+from transformers import AutoTokenizer, CLIPModel
+from torch.nn import CosineSimilarity
 from torchvision.ops import box_iou
 from . import openseg_classes
 from .instance_evaluation import InstanceSegEvaluator
@@ -214,20 +216,31 @@ class SEGDETProcessor:
     def __init__(self,task, 
                  iou_threshold=0.5, 
                  text_sim_threshold=0.5,
-                 dataset_root='/data/Aaronzhu/DatasetStage2and3/ADE20k', 
+                 dataset_root='/data/Aaronzhu/DatasetStage2and3/ADE20k',
+                 text_model_type='clip', 
                  model_path=None):
         self.task = task
         # Load pre-trained model tokenizer and model for evaluation
-        if model_path is not None:
-            self.bert_tokenizer = AutoTokenizer.from_pretrained(model_path)
-            self.bert_model = AutoModel.from_pretrained(model_path)
-        else:
-            self.bert_tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-            self.bert_model = AutoModel.from_pretrained("bert-base-uncased")
+        self.text_model_type = text_model_type
+        if text_model_type == 'bert':
+            if model_path is not None:
+                self.text_tokenizer = AutoTokenizer.from_pretrained(model_path)
+                self.text_model = AutoModel.from_pretrained(model_path)
+            else:
+                self.text_tokenizer = AutoTokenizer.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
+                self.text_model = AutoModel.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
+        elif text_model_type == 'clip':
+            if model_path is not None:
+                self.text_tokenizer = AutoTokenizer.from_pretrained(model_path)
+                self.text_model = CLIPModel.from_pretrained(model_path)
+            else:
+                self.text_tokenizer = AutoTokenizer.from_pretrained("/model/Aaronzhu/clip-14-336")
+                self.text_model = CLIPModel.from_pretrained("/model/Aaronzhu/clip-14-336")
 
         self.dataset_root = dataset_root
         self.iou_threshold = iou_threshold
         self.text_sim_threshold = text_sim_threshold
+        self.cos = CosineSimilarity(dim=1, eps=1e-6)
 
         if self.task in ['ade_panoptic','ade_semantic','cityscapes_panoptic']:
             self.process_config()
@@ -358,8 +371,8 @@ class SEGDETProcessor:
         return category_overlapping_mask, num_templates, class_names
 
     def get_bert_embedding(self,text):
-        inputs = self.bert_tokenizer(text, return_tensors="pt", max_length=512, truncation=True)
-        outputs = self.bert_model(**inputs)
+        inputs = self.text_tokenizer(text, return_tensors="pt", max_length=512, truncation=True)
+        outputs = self.text_model(**inputs)
         # Use the mean of the last hidden states as sentence embedding
         sentence_embedding = torch.mean(outputs.last_hidden_state[0], dim=0).detach().numpy()
 
@@ -370,6 +383,15 @@ class SEGDETProcessor:
         emb2 = self.get_bert_embedding(str2)
 
         return cosine_similarity([emb1], [emb2])[0, 0]
+    
+    def text_similarity(self,str1,str2):
+        if self.text_model_type == 'bert':
+            return self.text_similarity_bert(str1,str2)
+        elif self.text_model_type == 'clip':
+            inputs = self.text_tokenizer([str1, str2],padding=True, return_tensors="pt")
+            with torch.no_grad():
+                text_features = self.text_model.get_text_features(**inputs)
+            return self.cos(text_features[0].reshape(1,-1),text_features[1].reshape(1,-1)).cpu().item()
 
     def compute_mask_iou(self, mask1, mask2):
         intersection = np.logical_and(mask1, mask2)
@@ -381,7 +403,7 @@ class SEGDETProcessor:
         iou_matrix = np.zeros((len(pred_masks), len(gt_masks)))
         for i, pred_mask in enumerate(pred_masks):
             for j, gt_mask in enumerate(gt_masks):
-                iou_matrix[i, j] = self.compute_iou(pred_mask, gt_mask)
+                iou_matrix[i, j] = self.compute_mask_iou(pred_mask, gt_mask)
         return iou_matrix
     
     def compute_miou(self, dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks, type):
@@ -414,11 +436,11 @@ class SEGDETProcessor:
             for i, dt_label in enumerate(dt_labels):
                 for j, gt_label in enumerate(gt_labels):
                     if isinstance(gt_label,str):
-                        text_sims[i, j] = self.text_similarity_bert(dt_label,gt_label)
+                        text_sims[i, j] = self.text_similarity(dt_label,gt_label)
                     elif isinstance(gt_label,list):
                         max_similarity = 0
                         for single_label in gt_label:
-                            similarity = self.text_similarity_bert(dt_label,single_label)
+                            similarity = self.text_similarity(dt_label,single_label)
                             if similarity > max_similarity:
                                 max_similarity = similarity
                         text_sims[i, j] = max_similarity
@@ -430,14 +452,14 @@ class SEGDETProcessor:
 
             for i,row in enumerate(text_sims):
                 max_value = row.max()
-                indices = (row == max_value).nonzero(as_tuple=True)[0].tolist()
+                indices = (row == max_value).nonzero()[0].tolist()
                 scores.append(max_value)
                 if len(indices) > 1:
                     max_iou = 0
                     max_ind = None
                     for ind in indices:
                         iou_ind = iou_matrix[i,ind]
-                        if iou_ind > max_iou:
+                        if iou_ind >= max_iou:
                             max_iou = iou_ind
                             max_ind = ind
                     ids.append(max_ind)
@@ -513,11 +535,11 @@ class SEGDETProcessor:
         for i, dt_label in enumerate(dt_labels):
             for j, gt_label in enumerate(gt_labels):
                 if isinstance(gt_label,str):
-                    text_sims[i, j] = self.text_similarity_bert(dt_label,gt_label)
+                    text_sims[i, j] = self.text_similarity(dt_label,gt_label)
                 elif isinstance(gt_label,list):
                     max_similarity = 0
                     for single_label in gt_label:
-                        similarity = self.text_similarity_bert(dt_label,single_label)
+                        similarity = self.text_similarity(dt_label,single_label)
                         if similarity > max_similarity:
                             max_similarity = similarity
                     text_sims[i, j] = max_similarity
@@ -543,6 +565,9 @@ class SEGDETProcessor:
     def find_global_matches(self,dt_labels, gt_labels, pred_boxes_masks, gt_boxes_masks,topk=5):
         # find best matches compared to global classes
 
+        if not isinstance(pred_boxes_masks,np.ndarray):
+            pred_boxes_masks = np.array(pred_boxes_masks)
+
         best_matches = []
         # Compute pair - wise IoU
         if pred_boxes_masks.shape[1] == 4:
@@ -554,7 +579,7 @@ class SEGDETProcessor:
 
         for i, dt_label in enumerate(dt_labels):
             for j, gt_cls in enumerate(self.test_class_names):
-                text_sims[i, j] = self.text_similarity_bert(dt_label,gt_cls)
+                text_sims[i, j] = self.text_similarity(dt_label,gt_cls)
 
         all_logits = F.softmax(torch.tensor(text_sims),dim=-1)
         cls_logits, cls_index = all_logits.topk(topk)
@@ -568,14 +593,14 @@ class SEGDETProcessor:
                 if isinstance(gt_cls_name,str):
                     if gt_cls_name in pred_cls_name:
                         iou = ious[i,j]
-                        if iou > max_iou_per_class:
+                        if iou >= max_iou_per_class:
                             max_iou_per_class = iou
                             max_iou_idx = (i,j)
                 elif isinstance(gt_cls_name,list):
                     for single_gt_cls_name in gt_cls_name:
                         if single_gt_cls_name in pred_cls_name:
                             iou = ious[i,j]
-                            if iou > max_iou_per_class:
+                            if iou >= max_iou_per_class:
                                 max_iou_per_class = iou
                                 max_iou_idx = (i,j)
                             break

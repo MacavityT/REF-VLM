@@ -8,6 +8,7 @@ import json
 from torch.utils.data import Dataset
 from xtuner.registry import DATASETS
 from pycocotools.mask import decode
+from xtuner.dataset.utils import convert_bbox
 import pycocotools.mask as mask_utils
 from xtuner.dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single
 from xtuner.utils.constants import (
@@ -76,6 +77,7 @@ class COCOKeypointsDataset(MInstrDataset):
         annotations = anno_item[1]
 
         all_keypoints = []
+        all_boxes = []
         keypoints_seq = []
         question = self.get_template()
         count = 0
@@ -83,28 +85,31 @@ class COCOKeypointsDataset(MInstrDataset):
             num_keypoints = annotation['num_keypoints']
             if num_keypoints > 0:
                 keypoints = np.array(annotation['keypoints']).reshape(-1,3)
-
+                bbox = list(convert_bbox(annotation['bbox']))
                 # start
                 # image = np.array(Image.open(img_info['path']).convert('RGB'))
                 # skeleton = self.cats[1]['skeleton']
                 # visualize_keypoints(image=image,keypoints=keypoints,skeleton=skeleton,index=count)
                 # end
 
-
+                all_boxes.append(bbox)
                 all_keypoints.append(keypoints)
                 keypoints_seq.append([count])
+
                 count += 1
         
         if all_keypoints != []:
-            answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{KEYPOINTS_PLACEHOLDER*len(all_keypoints)}'
+            # answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{KEYPOINTS_PLACEHOLDER*len(all_keypoints)}'
+            answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER*len(all_keypoints)}'
             
             ret = {
                 'image':img_info,
-                'target': {'keypoints':all_keypoints},
+                'target': {'boxes':all_boxes,'keypoints':all_keypoints},
                 'conversations':[
-                    {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+                    # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+                    {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
                     {'from':'human','value':question},
-                    {'from':'gpt','value':answer,'keypoints_seq':keypoints_seq}
+                    {'from':'gpt','value':answer,'keypoints_seq':keypoints_seq,'boxes_seq':keypoints_seq}
                 ]
             }
         else:
@@ -112,7 +117,8 @@ class COCOKeypointsDataset(MInstrDataset):
             ret = {
                 'image':img_info,
                 'conversations':[
-                    {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+                    # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+                    {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
                     {'from':'human','value':question},
                     {'from':'gpt','value':answer}
                 ]
