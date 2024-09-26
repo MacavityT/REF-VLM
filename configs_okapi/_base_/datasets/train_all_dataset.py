@@ -132,7 +132,7 @@ train_all_dataset = dict(
         map_placeholders=dict(
             output=["<boxes>"],
         ),
-        offline_processed_text_folder='', 
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/box_offline', 
     ),
     lvis_box=dict(
         type='LVISDataset',

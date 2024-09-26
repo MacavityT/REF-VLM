@@ -428,7 +428,7 @@ class OkapiDataset(Dataset):
             save_wrong_data(f"wrong_data_dict", data_dict)
             raise ValueError('Error in get data process')
 
-        # #region debug
+        # # #region debug
         # ori_path = 'vis_origin.jpg'
         # shutil.copy(data_dict['image_path'], ori_path)
 

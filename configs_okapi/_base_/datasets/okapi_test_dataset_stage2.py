@@ -48,6 +48,28 @@ test_all_dataset = dict(
         has_annotation=False,
         template_name=r"VQA",
     ),
+    lvis_box=dict(
+        type='LVISDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/LVIS/lvis_v1_val.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/LVIS/COCO2017/val2017',
+        task_type='box',
+        template_name=r'DET',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<boxes>"],
+        ),
+    ),
+    lvis_box_test=dict(
+        type='LVISTestDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/LVIS/lvis_v1_image_info_test_dev.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/LVIS/test2017',
+        task_type='box',
+        template_name=r'DET',
+        placeholders=('<image>',),
+        map_placeholders=dict(
+            output=["<boxes>"],
+        ),
+    ),
     **test_rec_variant,
     **train_grand_variant,
     **test_interact_variant,

@@ -20,7 +20,7 @@ from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
 from .pascal import PascalDataset,PascalVoc59Dataset,PascalVoc459Dataset,PascalVocDataset
 from .ade20k import ADE20k
-from .coco_rem import COCOREMDataset,LVISDataset
+from .coco_rem import COCOREMDataset,LVISDataset,LVISTestDataset
 from .llava_g import LLAVAGrounding
 from .png import PNGDataset
 from .kitti import KITTIDataset

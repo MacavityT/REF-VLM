@@ -35,18 +35,21 @@ prompt_template = PROMPT_TEMPLATE.okapi
 
 accumulative_counts = 1
 
-max_epochs = 5
+max_epochs = 20
 lr = 2e-6 # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter14500"
+model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter23000"
 
 dataset_args_sft = [
     # train_all_dataset['lvis_box']
-    train_all_dataset['interact_point_finetune']
+    # train_all_dataset['coco_rem_box']
+    train_all_dataset['train_ade20_with_instance'],
+    # train_all_dataset['interact_scribble_finetune']
+    # train_all_dataset['interact_point_finetune']
     # train_all_dataset['interact_box_finetune'],
     # train_all_dataset['point_local_b'],
     # train_all_dataset['point_local_p'],

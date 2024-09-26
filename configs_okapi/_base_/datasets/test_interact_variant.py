@@ -42,11 +42,21 @@ test_interact_variant = dict(
         ),
         offline_processed_text_folder=''           
     ),
+    interact_box_finetune=dict(
+        **interact_train_single_common_cfg,
+        type='COCOInteractSingleTask', 
+        template_name=r'Region_SEG',
+        version='box',
+        placeholders=('<image>','<region>'),
+        map_placeholders=dict(
+            input=["<masks>"],
+            output=["<masks>"],
+        ),    
+    ),
     interact_mask_finetune=dict(
         **interact_train_single_common_cfg,
         type='COCOInteractSingleTask', 
         template_name=r'Region_SEG',
-        split='train',
         version='mask',
         placeholders=('<image>','<region>'),
         map_placeholders=dict(
@@ -58,7 +68,6 @@ test_interact_variant = dict(
         **interact_train_single_common_cfg,
         type='COCOInteractSingleTask', 
         template_name=r'Region_SEG',
-        split='train',
         version='point',
         placeholders=('<image>','<region>'),
         map_placeholders=dict(
@@ -70,7 +79,6 @@ test_interact_variant = dict(
         **interact_train_single_common_cfg,
         type='COCOInteractSingleTask', 
         template_name=r'Region_SEG',
-        split='train',
         version='scribble',
         placeholders=('<image>','<region>'),
         map_placeholders=dict(
