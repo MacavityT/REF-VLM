@@ -430,6 +430,18 @@ def points_xy_expand2square(points, width, height):
     expanded_points = [_point_xy_expand2square(point, w=width, h=height) for point in points]
     return expanded_points
 
+def keypoints_xyc_expand2square(keypoints, width, height):
+    all_result_keypoints = []
+    for kpts in keypoints:
+        expanded_keypoints = [_point_xy_expand2square(kpt[:-1], w=width, h=height) for kpt in kpts]
+        keypoints_classes = [kpt[-1] for kpt in kpts]
+
+        result_keypoints = []
+        for (expanded_x, expanded_y), keypoint_cls in zip(expanded_keypoints, keypoints_classes):
+            result_keypoints.append([expanded_x, expanded_y, keypoint_cls])
+        all_result_keypoints.append(result_keypoints)
+    return all_result_keypoints
+
 def masks_expand2square(masks):
     expanded_masks = [_mask_expand2square(mask) for mask in masks]
     return expanded_masks

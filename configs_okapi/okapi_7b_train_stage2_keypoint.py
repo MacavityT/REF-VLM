@@ -51,7 +51,7 @@ dataset_args_sft = [
 
 for dataset in dataset_args_sft:
     if dataset['type'] == 'SubSet':
-        dataset['cfg'].setdefault('stage',2)
+        dataset['cfg'].setdefault('stage', 2)
     else:
         dataset['stage'] = 2
 
@@ -159,9 +159,7 @@ mask_decoder = dict(
     trust_remote_code=True,
 )
 
-
-
-model = dict(
+model=dict(
     type=OkapiModel,
     freeze_llm=False,
     tokenizer=tokenizer,
@@ -173,12 +171,41 @@ model = dict(
     projector=projector,
     vpt_encoder=vpt_encoder,
     visual_decoder=dict(
-        box=box_decoder,
-        mask=mask_decoder
+        pose=dict(
+            use_auxiliary_loss=True,
+            aux_loss_coefficient=0.5,
+            box_config=dict(
+                use_group_matcher=True,
+                num_queries=20,
+                # quries_input_dim=256,
+                quries_input_dim=4096,
+                encoder_input_transform='resize_concat',
+                # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
+                # encoder_input_index=[8, 16, 23], # clip-vit features
+                # encoder_input_dim=[1024, 1024, 1024],
+                # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+                # encoder_input_dim=[192, 384, 768, 1536],
+                encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+                encoder_input_dim=[192, 384, 768, 1024],
+                decoder_layers=6,
+                decoder_ffn_dim=2048,
+                decoder_attention_heads=8,
+                decoder_layerdrop=0.0,
+                activation_function="relu",
+                d_model=256,
+                dropout=0.1,
+                attention_dropout=0.0,
+                activation_dropout=0.0,
+                bbox_loss_coefficient=5,
+                giou_loss_coefficient=2,
+            ),
+            keypoint_config=dict(
+
+            )
+        )
     ),
     loss_coefficient=dict(
         llm=1,
-        box=0.5,
-        mask=0.5
+        pose=1
     )
 )

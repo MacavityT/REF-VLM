@@ -19,7 +19,7 @@ __all__ = [
     'BoxDecoderConfig', 'BoxDecoderModel',
     'MaskDecoderConfig', 'MaskDecoderModel',
     'PoseDecoderConfig', 'PoseDecoderModel',
-    'DepthDecoderConfig', 'DepthDecoderModel'
+    'DepthDecoderConfig', 'DepthDecoderModel',
     'REFAdapterConfig', 'REFAdapterModel',
     'CLIPConvNextModel'
 ]
