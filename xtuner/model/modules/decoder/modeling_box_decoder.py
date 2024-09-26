@@ -278,7 +278,10 @@ class BoxDecoderModel(DecoderModel):
                 metas['ref_mask_filter'] = ref_mask
                 save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = box')
+        elif mode == 'tensor':
+            pred_boxes = None
         else:
+            assert mode == 'predict'
             pred_boxes = []
             for queries_logits, mask in zip(boxes_queries_logits, ref_mask):
                 boxes = queries_logits[mask, :]
@@ -286,5 +289,8 @@ class BoxDecoderModel(DecoderModel):
 
         return dict(
             loss=loss,
-            preds=pred_boxes
+            preds=pred_boxes,
+            box_logits=boxes_queries_logits,
+            ref_hidden_states=sequence_output,
+            ref_mask=ref_mask
         )

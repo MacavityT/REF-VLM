@@ -33,17 +33,20 @@ from xtuner.utils.constants import (
     PHRASE_ED_PLACEHOLDER_STAGE2,
     VISUAL_REFERENCE_TOKEN,
 )
-from xtuner.tools.utils import get_random_available_port
 from torch.nn import CrossEntropyLoss, MSELoss
 
 DECODER_CONFIG_CLASS = {
     'box': BoxDecoderConfig,
-    'mask': MaskDecoderConfig
+    'mask': MaskDecoderConfig,
+    'pose': PoseDecoderConfig,
+    'depth': DepthDecoderConfig
 }
 
 DECODER_MODEL_CLASS = {
     'box': BoxDecoderModel,
-    'mask': MaskDecoderModel
+    'mask': MaskDecoderModel,
+    'pose': PoseDecoderModel,
+    'depth': DepthDecoderModel
 }
 
 TOKEN_MASK_IDS = {

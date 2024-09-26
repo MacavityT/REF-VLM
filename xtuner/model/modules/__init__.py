@@ -6,7 +6,9 @@ from .moe_adapter import MoEAdapterConfig, MoEAdapterModel
 from .ref_adapter import REFAdapterConfig, REFAdapterModel
 from .decoder import (
     BoxDecoderConfig, BoxDecoderModel,
-    MaskDecoderConfig, MaskDecoderModel
+    MaskDecoderConfig, MaskDecoderModel,
+    PoseDecoderConfig, PoseDecoderModel,
+    DepthDecoderConfig, DepthDecoderModel
 )
 
 __all__ = [
@@ -16,6 +18,8 @@ __all__ = [
     'MoEAdapterConfig', 'MoEAdapterModel',
     'BoxDecoderConfig', 'BoxDecoderModel',
     'MaskDecoderConfig', 'MaskDecoderModel',
+    'PoseDecoderConfig', 'PoseDecoderModel',
+    'DepthDecoderConfig', 'DepthDecoderModel'
     'REFAdapterConfig', 'REFAdapterModel',
     'CLIPConvNextModel'
 ]
