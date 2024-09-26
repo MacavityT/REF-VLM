@@ -149,7 +149,6 @@ class COCOREMDataset(MInstrDataset):
         ret['map_placeholders'] = self.map_placeholders
         return ret
     
-        
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
         if offline_item is not None:
@@ -161,4 +160,41 @@ class COCOREMDataset(MInstrDataset):
 class LVISDataset(COCOREMDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
     
+@DATASETS.register_module()
+class LVISTestDataset(COCOREMDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def __len__(self):
+        return len(self.imgs)
+    
+    def __getitem__(self, index):
+        image_info = self.imgs[index]
+
+        if 'file_name' in image_info.keys():
+            path = os.path.join(self.image_folder,image_info['file_name'])
+        else:
+            path = os.path.join(self.image_folder,f"{str(image_info['id']).zfill(12)}.jpg")
+
+        img_info = {
+            'path': path,
+            'width': image_info['width'],
+            'height': image_info['height'],
+        }
+
+        question = self.get_template()
+
+        ret = {
+            'image':img_info,
+            'target':{'boxes':[[0,0,0,0]]},
+            'conversations':[
+                {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
+                {'from':'human','value':question},
+                {'from': 'gpt','value':''},
+                ]
+        }
+        ret['map_placeholders'] = self.map_placeholders
+
+        return ret

@@ -109,19 +109,30 @@ class DETComputeMetrics(BaseComputeMetrics):
             if self.eval_type == 'class':
 
                 text_sims = np.zeros((len(dt_labels), len(self.processor.test_class_names)))
-                for i, dt_label in enumerate(dt_labels):
-                    for j, gt_label in enumerate(self.processor.test_class_names):
-                        if isinstance(gt_label,str):
-                            text_sims[i, j] = self.processor.text_similarity(dt_label,gt_label)
-                        elif isinstance(gt_label,list):
-                            max_similarity = 0
-                            for single_label in gt_label:
-                                similarity = self.processor.text_similarity(dt_label,single_label)
-                                if similarity > max_similarity:
-                                    max_similarity = similarity
-                            text_sims[i, j] = max_similarity
-                        else:
-                            raise NotImplementedError
+
+                if self.processor.test_class_features is None:
+                    for i, dt_label in enumerate(dt_labels):
+                        for j, gt_label in enumerate(self.processor.test_class_names):
+                            if isinstance(gt_label,str):
+                                text_sims[i, j] = self.processor.text_similarity(dt_label,gt_label)
+                            elif isinstance(gt_label,list):
+                                max_similarity = 0
+                                for single_label in gt_label:
+                                    similarity = self.processor.text_similarity(dt_label,single_label)
+                                    if similarity > max_similarity:
+                                        max_similarity = similarity
+                                text_sims[i, j] = max_similarity
+                            else:
+                                raise NotImplementedError
+                else:
+                    dt_labels_features = self.processor.get_clip_embedding(dt_labels)
+                    for i, dt_label in enumerate(dt_labels):
+                        dt_label_features = dt_labels_features[i].reshape(1,-1)
+                        for j, gt_label in enumerate(self.processor.test_class_names):
+                            gt_class_feature = self.processor.test_class_features[j].reshape(1,-1)
+                            text_sims[i, j] = self.processor.text_similarity(dt_label_features,gt_class_feature)
+
+
                 scores = text_sims.max(1)
                 ids = text_sims.argmax(1)
                 pred_class_names = [self.processor.test_class_names[index] for index in ids]

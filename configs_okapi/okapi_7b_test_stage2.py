@@ -44,12 +44,12 @@ ref_mask_num = 30
 ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 
-dataset_name = 'rec_refcoco_unc_testa'
+dataset_name = 'interact_scribble_finetune'
 eval_type = 'reg'
-prefix = 'rec'
+prefix = 'interactive_res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0921_box_sft_refcoco/eval47940'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0923_full_512_sft_scribble_interactive/eval3500'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -209,6 +209,20 @@ elif prefix == 'res':
         #     )
     ]
 
+elif prefix == 'interactive_res':
+    test_evaluator = dict(
+        type=RESComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
+    test_dataset_args = [
+        # test_all_dataset[f'{dataset_name}'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset[f'{dataset_name}'],
+            )
+    ]
+
 elif prefix == 'gcg_box':
     test_evaluator = dict(
         type=GCGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='whole', mask=False, prefix=prefix)
@@ -242,7 +256,7 @@ elif prefix == 'gcg_mask_test':
     test_dataset_args = [
         dict(
             type='SubSet',
-            portion=1,
+            portion=5/6,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['cocogcg_test'],
@@ -260,6 +274,20 @@ elif prefix == 'coco_det':
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['coco_2017_box_val'],
+            )
+    ]
+
+elif prefix == 'lvis_det':
+    test_evaluator = dict(
+        type=DETComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['lvis_box_test'],
             )
     ]
 

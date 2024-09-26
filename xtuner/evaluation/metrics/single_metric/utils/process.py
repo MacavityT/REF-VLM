@@ -2,9 +2,10 @@ import torch
 import re
 import os
 from typing import List
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, CLIPModel
 from sklearn.metrics.pairwise import cosine_similarity
 import json
+import pickle
 import numpy as np
 import torch.nn.functional as F
 from detectron2.data import MetadataCatalog
@@ -18,7 +19,6 @@ from detectron2.evaluation import (
     DatasetEvaluators,
     SemSegEvaluator,
 )
-from transformers import AutoTokenizer, CLIPModel
 from torch.nn import CosineSimilarity
 from torchvision.ops import box_iou
 from . import openseg_classes
@@ -241,7 +241,7 @@ class SEGDETProcessor:
         self.iou_threshold = iou_threshold
         self.text_sim_threshold = text_sim_threshold
         self.cos = CosineSimilarity(dim=1, eps=1e-6)
-
+        self.test_class_features = None
         if self.task in ['ade_panoptic','ade_semantic','cityscapes_panoptic']:
             self.process_config()
         elif "coco" in self.task:
@@ -270,6 +270,14 @@ class SEGDETProcessor:
                 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
                 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
             ]
+        elif "lvis" in self.task:
+            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/lvis_classes.json') as f:
+                self.test_class_names = json.load(f)
+                f.close()
+            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/lvis_class_clip.pkl','rb') as f2:
+                self.test_class_features = pickle.load(f2)
+                f2.close()
+            self.test_class_ids = [i for i in range(len(self.test_class_names))]
 
     def convert_cls_txt_to_id(self,label_txt):
         label_dict = {}
@@ -282,9 +290,8 @@ class SEGDETProcessor:
         return label_dict
     
     def convert_cls_to_id(self,class_name):
-        if "coco" in self.task:
-            class_idx = self.test_class_names.index(class_name)
-            return self.test_class_ids[class_idx]
+        class_idx = self.test_class_names.index(class_name)
+        return self.test_class_ids[class_idx]
 
     def process_config(self):
         self.cfg = get_cfg()
@@ -384,14 +391,30 @@ class SEGDETProcessor:
 
         return cosine_similarity([emb1], [emb2])[0, 0]
     
+    def get_clip_embedding(self,text):
+        if not isinstance(text,List):
+            text = [text]
+        inputs = self.text_tokenizer(text,padding=True, return_tensors="pt")
+        with torch.no_grad():
+            text_features = self.text_model.get_text_features(**inputs)
+        return text_features
+
+    def text_similarity_clip(self,str1,str2):
+        if isinstance(str1,str) and isinstance(str2,str):
+            inputs = self.text_tokenizer([str1, str2],padding=True, return_tensors="pt")
+            with torch.no_grad():
+                text_features = self.text_model.get_text_features(**inputs)
+        elif isinstance(str1,torch.Tensor) and isinstance(str2,torch.Tensor):
+            text_features = torch.cat([str1,str2])
+        
+        return self.cos(text_features[0].reshape(1,-1),text_features[1].reshape(1,-1)).cpu().item()
+    
     def text_similarity(self,str1,str2):
         if self.text_model_type == 'bert':
             return self.text_similarity_bert(str1,str2)
         elif self.text_model_type == 'clip':
-            inputs = self.text_tokenizer([str1, str2],padding=True, return_tensors="pt")
-            with torch.no_grad():
-                text_features = self.text_model.get_text_features(**inputs)
-            return self.cos(text_features[0].reshape(1,-1),text_features[1].reshape(1,-1)).cpu().item()
+            return self.text_similarity_clip(str1,str2)
+
 
     def compute_mask_iou(self, mask1, mask2):
         intersection = np.logical_and(mask1, mask2)

@@ -94,13 +94,14 @@ class COCOKeypointsDataset(MInstrDataset):
 
                 all_boxes.append(bbox)
                 all_keypoints.append(keypoints)
-                keypoints_seq.append([count])
+                keypoints_seq.append(count)
 
                 count += 1
         
         if all_keypoints != []:
             # answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{KEYPOINTS_PLACEHOLDER*len(all_keypoints)}'
-            answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{BOXES_PLACEHOLDER*len(all_keypoints)}'
+            PLACE_HOLDER = BOXES_PLACEHOLDER + KEYPOINTS_PLACEHOLDER
+            answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{PLACE_HOLDER*len(all_keypoints)}'
             
             ret = {
                 'image':img_info,
@@ -109,7 +110,7 @@ class COCOKeypointsDataset(MInstrDataset):
                     # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
                     {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
                     {'from':'human','value':question},
-                    {'from':'gpt','value':answer,'keypoints_seq':keypoints_seq,'boxes_seq':keypoints_seq}
+                    {'from':'gpt','value':answer,'keypoints_seq':[keypoints_seq],'boxes_seq':[keypoints_seq]}
                 ]
             }
         else:
