@@ -17,183 +17,98 @@ from transformers.models.detr.modeling_detr import (
 from transformers.image_transforms import center_to_corners_format
 from xtuner.model.utils import save_wrong_data
 
-@torch.no_grad()
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    if target.numel() == 0:
-        return [torch.zeros([], device=output.device)]
-    maxk = max(topk)
-    batch_size = target.size(0)
+class PoseDecoderLoss(BoxDecoderLoss):
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
-
-def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
-    """
-    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
-    Args:
-        inputs: A float tensor of arbitrary shape.
-                The predictions for each example.
-        targets: A float tensor with the same shape as inputs. Stores the binary
-                 classification label for each element in inputs
-                (0 for the negative class and 1 for the positive class).
-        alpha: (optional) Weighting factor in range (0,1) to balance
-                positive vs negative examples. Default = -1 (no weighting).
-        gamma: Exponent of the modulating factor (1 - p_t) to
-               balance easy vs hard examples.
-    Returns:
-        Loss tensor
-    """
-    prob = inputs.sigmoid()
-    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
-    p_t = prob * targets + (1 - prob) * (1 - targets)
-    loss = ce_loss * ((1 - p_t) ** gamma)
-
-    if alpha >= 0:
-        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
-        loss = alpha_t * loss
-
-    return loss.mean(1).sum() / num_boxes
-
-
-class KeypointDecoderLoss(nn.Module):
-
-    def __init__(self):
-        super().__init__()
-
-    def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
-        """Classification loss (Binary focal loss)
-        targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
-        """
-        indices = indices[0]
-        assert 'pred_logits' in outputs
-        src_logits = outputs['pred_logits']
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
-        target_classes[idx] = target_classes_o
-
-        target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]+1],
-                                            dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
-        target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
-
-        target_classes_onehot = target_classes_onehot[:,:,:-1]
-        loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
-        losses = {'loss_ce': loss_ce}
-
-        if log:
-            # TODO this should probably be a separate loss, not hacked in this one here
-            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
-        return losses
-
-    def compute_loss_oks(self, 
-        kpt_preds,
-        kpt_gts,
-        kpt_valids=None,
-        kpt_areas=None,
-        linear=False,
-        num_keypoints=None,
-        eps=1e-6
-    ):
-        """Oks loss.
-        Computing the oks loss between a set of predicted poses and target poses.
-        The loss is calculated as negative log of oks.
-        Args:
-            pred (torch.Tensor): Predicted poses of format (x1, y1, x2, y2, ...),
-                shape (n, 2K).
-            target (torch.Tensor): Corresponding gt poses, shape (n, 2K).
-            linear (bool, optional): If True, use linear scale of loss instead of
-                log scale. Default: False.
-            eps (float): Eps to avoid log(0).
-        Return:
-            torch.Tensor: Loss tensor.
-        """
-
-        if num_keypoints == 17:
-            sigmas = np.array([
+    def __init__(self, matcher=None, num_body_points=17, eps=1e-6):
+        super().__init__(matcher)
+        self.num_body_points = num_body_points
+        if num_body_points == 17:
+            self.sigmas = np.array([
                 .26, .25, .25, .35, .35, .79, .79, .72, .72, .62, .62, 1.07,
                 1.07, .87, .87, .89, .89
             ], dtype=np.float32) / 10.0
-        elif num_keypoints == 14:
-            sigmas = np.array([
+        elif num_body_points == 14:
+            self.sigmas = np.array([
                 .79, .79, .72, .72, .62, .62, 1.07, 1.07, .87, .87, .89, .89,
                 .79, .79
             ]) / 10.0
         else:
-            raise ValueError(f'Unsupported keypoints number {num_keypoints}')
+            raise ValueError(f'Unsupported keypoints number {num_body_points}')
+        self.eps = eps
 
-        sigmas = kpt_preds.new_tensor(sigmas)
-        variances = (sigmas * 2)**2
-
-        assert kpt_preds.size(0) == kpt_gts.size(0)
-        kpt_preds = kpt_preds.reshape(-1, kpt_preds.size(-1) // 2, 2)
-        kpt_gts = kpt_gts.reshape(-1, kpt_gts.size(-1) // 2, 2)
-
-        squared_distance = (kpt_preds[:, :, 0] - kpt_gts[:, :, 0]) ** 2 + \
-            (kpt_preds[:, :, 1] - kpt_gts[:, :, 1]) ** 2
-        # import pdb
-        # pdb.set_trace()
-        # assert (kpt_valids.sum(-1) > 0).all()
-        squared_distance0 = squared_distance / (kpt_areas[:, None] * variances[None, :] * 2)
-        squared_distance1 = torch.exp(-squared_distance0)
-        squared_distance1 = squared_distance1 * kpt_valids
-        oks = squared_distance1.sum(dim=1) / (kpt_valids.sum(dim=1)+1e-6)
-        oks = oks.clamp(min=eps)
-        
-        if linear:
-            loss = 1 - oks
-        else:
-            loss = -oks.log()
-        return loss
-
-    def compute_loss_keypoints(self, outputs, targets, indices, num_boxes):
-        """Compute the losses related to the keypoints
+    # removed logging parameter, which was part of the original implementation
+    def compute_loss_labels(self, preds, targets):
         """
-        indices = indices[0]
-        idx = self._get_src_permutation_idx(indices)
-        src_keypoints = outputs['pred_keypoints'][idx] # xyxyvv
-
-        if len(src_keypoints) == 0:
-            device = outputs["pred_logits"].device
-            losses = {
-                'loss_keypoints': torch.as_tensor(0., device=device)+src_keypoints.sum()*0,
-                'loss_oks': torch.as_tensor(0., device=device)+src_keypoints.sum()*0,
-            }
-            return losses
-        Z_pred = src_keypoints[:, 0:(self.num_body_points*2)]
-        V_pred = src_keypoints[:, (self.num_body_points*2):]
-        targets_keypoints = torch.cat([t['keypoints'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        targets_area = torch.cat([t['area'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        Z_gt = targets_keypoints[:, 0:(self.num_body_points*2)]
-        V_gt: torch.Tensor = targets_keypoints[:, (self.num_body_points*2):]
-        oks_loss=self.oks(Z_pred,Z_gt,V_gt,targets_area,weight=None,avg_factor=None,reduction_override=None)
-        pose_loss = F.l1_loss(Z_pred, Z_gt, reduction='none')
-        pose_loss = pose_loss * V_gt.repeat_interleave(2, dim=1)
-        losses = {}
-        losses['loss_keypoints'] = pose_loss.sum() / num_boxes        
-        losses['loss_oks'] = oks_loss.sum() / num_boxes
+        Classification loss (NLL) targets dicts must contain the key "class_labels" containing a tensor of dim
+        [nb_target_boxes]
+        """
+        origin_type = preds.dtype
+        preds = preds.view(-1, preds.shape[-1]).to(torch.float32)
+        targets = targets.view(-1).to(torch.int64)
+        loss_ce = nn.functional.cross_entropy(preds, targets)
+        loss_ce.to(origin_type)
+        losses = {"loss_ce": loss_ce}
         return losses
 
-    def forward(self, pred_boxes, target_boxes, target_slices):
+    def compute_loss_oks(self, pred_keypoints, gt_keypoints, visible, area):
+        """
+        :param pred_keypoints: 预测关键点的坐标，形状为 (batch_size, num_keypoints, 2)
+        :param gt_keypoints: 真实关键点的坐标，形状为 (batch_size, num_keypoints, 2)
+        :param visible: 关键点的可见性，形状为 (batch_size, num_keypoints)，1为可见，0为不可见
+        :param area: 对象的面积（例如包围框的面积），形状为 (batch_size, 1)
+        :return: 计算出的OKS损失
+        """
+        # 计算预测关键点和真实关键点之间的欧式距离
+        distance = torch.sqrt(((pred_keypoints - gt_keypoints) ** 2).sum(dim=-1))
+
+        # 计算归一化的距离平方
+        sigmas = pred_keypoints.new_tensor(self.sigmas)
+        area = area.unsqueeze(-1)  # 将area扩展到与关键点匹配的维度
+        sigma_term = 2 * (sigmas ** 2) * (area + self.eps)
+        oks_term = torch.exp(- (distance ** 2) / sigma_term)
+
+        # 只计算可见的关键点
+        oks_term = oks_term * visible.float()
+
+        # 计算OKS，防止除以0
+        oks_loss = 1.0 - oks_term.sum(dim=-1) / (visible.sum(dim=-1).float() + self.eps)
+        oks_loss = torch.clamp(oks_loss, 0, 1)
+
+        losses = {}
+        losses['loss_oks'] = oks_loss.mean() 
+        return losses
+
+    def compute_loss_keypoints(self, pred_kpts, target_kpt, valid_kpts):
+        """Compute the losses related to the keypoints
+        """
+        num_boxes = len(target_kpt)
+        pose_loss = F.l1_loss(pred_kpts, target_kpt, reduction='none')
+        pose_loss = pose_loss[valid_kpts, :]  # ignore not visible keypoints
+        losses = {}
+        losses['loss_keypoints'] = pose_loss.sum() / num_boxes        
+        return losses
+
+    def forward(self, pred_boxes, target_boxes, pred_kpts, pred_kpts_cls, target_kpts, target_slices):
         if self.matcher is not None:
             indices = self.matcher(pred_boxes, target_boxes, target_slices)
             source_idx, target_idx = self._get_permutation_idx(indices)
             pred_boxes = pred_boxes[source_idx] # actually do nothing, matcher only permuted the target idx
+            pred_kpts = pred_kpts[source_idx]
+            pred_kpts_cls = pred_kpts_cls[source_idx]
             target_boxes = target_boxes[target_idx]
+            target_kpts = target_kpts[target_idx]
+
+        # target process
+        target_kpts_coord = target_kpts[..., :-1]
+        target_kpts_cls = target_kpts[..., -1]
+        valid_kpts = (target_kpts_cls > 0).to(torch.bool).to(target_kpts_cls.device)
+        kpt_areas = target_boxes[:, 2] * target_boxes[:, 3]
         
         loss_dict = dict()
-        loss_dict_box = self.compute_loss_box(pred_boxes, target_boxes)
-        loss_dict_kpt = self.compute_loss_keypoints()
-        loss_dict.update(loss_dict_box)
-        loss_dict.update(loss_dict_kpt)
+        loss_dict.update(self.compute_loss_box(pred_boxes, target_boxes))
+        loss_dict.update(self.compute_loss_keypoints(pred_kpts, target_kpts_coord, valid_kpts))
+        loss_dict.update(self.compute_loss_labels(pred_kpts_cls, target_kpts_cls))
+        loss_dict.update(self.compute_loss_oks(pred_kpts, target_kpts_coord, valid_kpts, kpt_areas))
         return loss_dict
 
 class KeypointDecoderModel(DecoderModel):
@@ -207,7 +122,7 @@ class KeypointDecoderModel(DecoderModel):
         
         self.register_buffer(
             "kpt_ids", 
-            torch.arange(config.num_body_points).unsqueeze(1), 
+            torch.arange(config.num_body_points).unsqueeze(0), 
             persistent=False
             )
         self.kpt_embedding = nn.Embedding(config.num_body_points, config.d_model)
@@ -232,16 +147,16 @@ class KeypointDecoderModel(DecoderModel):
         self.box_predictor = DetrMLPPredictionHead(
             input_dim=config.d_model, 
             hidden_dim=config.d_model, 
-            output_dim=2, 
+            output_dim=4, 
             num_layers=3
         )
         self.kpt_predictor = DetrMLPPredictionHead(
             input_dim=config.d_model, 
             hidden_dim=config.d_model, 
-            output_dim=config.num_body_points, 
+            output_dim=2, 
             num_layers=3
         )
-        self.kpt_classifier = nn.Linear(config.d_model, 2)
+        self.kpt_classifier = nn.Linear(config.d_model, 3)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -271,8 +186,9 @@ class KeypointDecoderModel(DecoderModel):
         ref_hidden_states = self.in_proj_queries(ref_hidden_states)
 
         ref_hidden_states_expand = ref_hidden_states.repeat(1, self.config.num_body_points + 1, 1)
-        kpt_queries_init = torch.cat([torch.zeros((1, 1, self.config.d_model)), 
-                                      self.kpt_embedding(self.kpt_ids)], dim=1)
+        empty_tensor = torch.zeros((1, 1, self.config.d_model)).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
+        kpt_queries_init = torch.cat([empty_tensor, self.kpt_embedding(self.kpt_ids)], dim=1)
+        kpt_queries_init = kpt_queries_init.repeat(1, self.config.num_queries, 1)
         ref_hidden_states_expand = ref_hidden_states_expand + kpt_queries_init
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         assert ref_hidden_states_expand.shape == query_position_embeddings.shape
@@ -293,34 +209,28 @@ class KeypointDecoderModel(DecoderModel):
         
         box_queries_logits = []
         kpt_queries_logits = []
-        batch, ref_len, _ = ref_hidden_states.shape
-        dim = sequence_output.shape[-1]
-        for idx in range(ref_len):
+        for idx in range(ref_hidden_states.shape[1]):
             box_idx = idx * (self.config.num_body_points + 1)
             kpt_start = box_idx + 1
             kpt_end = kpt_start + self.config.num_body_points
 
             box_queries_logits.append(sequence_output[:, box_idx, :])
-            kpt_queries_logits.append(
-                sequence_output[:, kpt_start:kpt_end, :].view(
-                    batch, 1, self.config.num_body_points, dim
-                )
-            )
-        box_queries_logits = torch.cat(box_queries_logits, dim=1)
-        kpt_queries_logits = torch.cat(kpt_queries_logits, dim=1)
+            kpt_queries_logits.append(sequence_output[:, kpt_start:kpt_end, :])
+        box_queries_logits = torch.stack(box_queries_logits, dim=1)
+        kpt_queries_logits = torch.stack(kpt_queries_logits, dim=1)
 
-        box_queries_logits = self.box_predictor(box_queries_logits).sigmoid()
-        kpt_queries_logits = self.box_predictor(kpt_queries_logits).sigmoid()
+        box_logits = self.box_predictor(box_queries_logits).sigmoid()
+        kpt_logits = self.kpt_predictor(kpt_queries_logits).sigmoid()
         kpt_cls_logits = self.kpt_classifier(kpt_queries_logits)
         
         return dict(
             hidden_states = sequence_output,
-            box_logits = box_queries_logits,
-            kpt_logits = kpt_queries_logits,
+            box_logits = box_logits,
+            kpt_logits = kpt_logits,
             kpt_cls_logits = kpt_cls_logits
         )
 
-class PoseDecoderModel(DecoderModel):
+class PoseDecoderModel(PreTrainedModel):
     config_class = PoseDecoderConfig
 
     def __init__(self, config: PoseDecoderConfig):
@@ -328,10 +238,76 @@ class PoseDecoderModel(DecoderModel):
         self.config = config
         self.box_decoder = BoxDecoderModel(config.box_config)
         self.kpt_decoder = KeypointDecoderModel(config.keypoint_config)
-
-        self.box_criteria = self.box_decoder.criteria
-        self.kpt_criteria = KeypointDecoderLoss(self.box_decoder.criteria)
+        if config.use_group_matcher:
+            matcher = BoxDecoderGroupHungarianMatcher(
+                bbox_cost=config.box_config.bbox_loss_coefficient,
+                giou_cost=config.box_config.giou_loss_coefficient
+            )
+        else:
+            matcher = None
+        self.criteria = PoseDecoderLoss(matcher)
         self.post_init()
+
+    def get_label_slices(self, metas, ref_mask):
+        decode_seqs = metas.get('decode_seqs', None)
+        if decode_seqs is None:
+            return None
+        
+        target_slices =[]
+        for seqs in decode_seqs:
+            if seqs is None:
+                target_slices.append([])
+            else:
+                u_num = [len(seq) for seq in seqs]
+                target_slices.append(u_num)
+        
+        slice_num = sum([len(items) for items in target_slices])
+        if slice_num == 0:
+            return None
+
+        # get used seqs in batch data (sequence might be cutoff and remove some seqs)
+        target_slices_trim = []
+        for batch_idx, mask in enumerate(ref_mask):
+            ref_num = mask.sum().cpu().item()
+            if ref_num == 0: continue
+
+            unit_num = target_slices[batch_idx]
+            assert sum(unit_num) >= ref_num
+            diff = sum(unit_num) - ref_num
+            while diff > 0:
+                cur_diff = diff
+                diff -= min(unit_num[-1], cur_diff)
+                unit_num[-1] -= min(unit_num[-1], cur_diff)
+                if unit_num[-1] == 0: unit_num.pop()
+            target_slices_trim.extend(unit_num)
+        return target_slices_trim
+
+    def get_unit_labels(self, metas, ref_mask, type):
+        decode_labels = metas.get('decode_labels', None)
+        if decode_labels is None:
+            return None
+        
+        target_labels =[]
+        for labels in decode_labels:
+            if labels is None: 
+                target_labels.append([])
+            else:
+                unit_labels = labels.get(type, [])
+                target_labels.append(unit_labels)
+        
+        label_num = sum([len(items) for items in target_labels])
+        if label_num == 0:
+            return None
+
+        # get used labels in batch data (sequence might be cutoff and remove some labels)
+        target_labels_trim = []
+        for batch_idx, mask in enumerate(ref_mask):
+            ref_num = mask.sum()
+            if ref_num == 0: continue
+            assert len(target_labels[batch_idx]) >= ref_num
+            target_labels_trim.extend(target_labels[batch_idx][:ref_num])
+        target_labels_trim = [torch.tensor(label) for label in target_labels_trim]
+        return target_labels_trim
 
     def forward(self, 
         visual_hidden_states,
@@ -372,11 +348,11 @@ class PoseDecoderModel(DecoderModel):
         if mode == 'loss':
             try:
                 target_boxes = self.get_unit_labels(metas, ref_mask, 'box')
-                target_kpts = self.get_unit_labels(metas, ref_mask, 'kpt')
+                target_kpts = self.get_unit_labels(metas, ref_mask, 'keypoint')
                 target_slices = self.get_label_slices(metas, ref_mask)
             except Exception as e:
                 print(e)
-                metas['type'] = 'box'
+                metas['type'] = 'pose'
                 metas['ref_mask_filter'] = ref_mask
                 save_wrong_data(f"wrong_ref_match", metas)
                 raise ValueError('Error in get_unit_labels/seqs process, type = pose')
@@ -384,26 +360,41 @@ class PoseDecoderModel(DecoderModel):
             pred_boxes1 = boxes_queries_logits1[ref_mask, :] # [b, n, 4]
             pred_boxes2 = boxes_queries_logits2[ref_mask, :] # [b, n, 4]
             pred_kpts = kpts_queries_logits[ref_mask, ...] # [b, n, num_body_points, 2]
+            pred_kpts_cls = kpts_cls_logits[ref_mask, ...] # [b, n, num_body_points, 3]
 
             if ref_mask.sum() > 0 and target_boxes is not None:
                 target_boxes = torch.stack(
-                    target_boxes).to(pred_boxes.device).to(pred_boxes.dtype)
-                loss_dict = self.criteria(pred_boxes, target_boxes, target_slices)
-                weight_dict = {
-                    "loss_bbox": self.config.bbox_loss_coefficient,
-                    "loss_giou": self.config.giou_loss_coefficient}
-                loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
+                    target_boxes).to(pred_boxes1.device).to(pred_boxes1.dtype)
+                target_kpts =  torch.stack(
+                    target_kpts).to(pred_kpts.device).to(pred_kpts.dtype)
+
+                box_weight_dict = {
+                    "loss_bbox": self.config.box_config.bbox_loss_coefficient,
+                    "loss_giou": self.config.box_config.giou_loss_coefficient}
+                pose_weight_dict = {
+                    "loss_ce": self.config.keypoint_config.cls_loss_coefficient,
+                    "loss_keypoints": self.config.keypoint_config.keypoint_loss_coefficient,
+                    "loss_oks": self.config.keypoint_config.oks_loss_coefficient
+                }
+                pose_weight_dict.update(box_weight_dict)
+
+                loss_dict = self.criteria(pred_boxes2, target_boxes, pred_kpts, pred_kpts_cls, target_kpts, target_slices)
+                loss = sum(loss_dict[k] * pose_weight_dict[k] for k in loss_dict.keys() if k in pose_weight_dict)
+
+                if self.config.use_auxiliary_loss:
+                    loss_dict_aux = self.box_decoder.criteria(pred_boxes1, target_boxes, target_slices)
+                    loss_aux = sum(loss_dict_aux[k] * box_weight_dict[k] for k in loss_dict_aux.keys() if k in box_weight_dict)
+                    loss += self.config.aux_loss_coefficient * loss_aux
             else:
-                loss = pred_boxes.sum() * 0.0 + pred_kpts.sum() * 0.0
+                loss = pred_boxes1.sum() * 0.0 + pred_kpts.sum() * 0.0 + pred_boxes2.sum() * 0.0 + pred_kpts_cls.sum() * 0.0
         else:
             assert mode == 'predict'
-            boxes_queries_logits = self.predictor(sequence_output).sigmoid()
-            pred_boxes = []
-            for queries_logits, mask in zip(boxes_queries_logits, ref_mask):
-                boxes = queries_logits[mask, :]
-                pred_boxes.append(boxes)
+            pred_kpts = []
+            for queries_logits, mask in zip(kpts_queries_logits, ref_mask):
+                keypoints = queries_logits[mask, :]
+                pred_kpts.append(keypoints)
 
         return dict(
             loss=loss,
-            preds=pred_boxes,
+            preds=pred_kpts,
         )

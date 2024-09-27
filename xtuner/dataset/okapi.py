@@ -319,6 +319,8 @@ class OkapiDataset(Dataset):
                         raise ValueError("Points target value error!")
                 elif label['type'] == 'mask':
                     unit_label = label['value']
+                elif label['type'] == 'keypoint':
+                    unit_label = label['value']
                 else:
                     raise ValueError(f"Unsupport label type: {label['type']}")
                 

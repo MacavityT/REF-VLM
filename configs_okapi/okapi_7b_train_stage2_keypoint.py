@@ -8,6 +8,7 @@ from xtuner.utils import PROMPT_TEMPLATE
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
+    okapi_keypoint_map_fn,
     okapi_template_map_fn_factory
 )
 from xtuner.dataset.collate_fns import okapi_collate_fn
@@ -108,7 +109,7 @@ train_dataset = dict(
     image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
-        function=okapi_map_fn_stage2,
+        function=okapi_keypoint_map_fn,
         args = dict(
             vrt_len=vrt_length, 
             ref_len=ref_length
@@ -161,7 +162,7 @@ mask_decoder = dict(
 
 model=dict(
     type=OkapiModel,
-    freeze_llm=False,
+    freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
@@ -172,21 +173,15 @@ model=dict(
     vpt_encoder=vpt_encoder,
     visual_decoder=dict(
         pose=dict(
+            num_queries=20,
+            encoder_input_transform='resize_concat',
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
+            use_group_matcher=True,
             use_auxiliary_loss=True,
             aux_loss_coefficient=0.5,
             box_config=dict(
-                use_group_matcher=True,
-                num_queries=20,
-                # quries_input_dim=256,
                 quries_input_dim=4096,
-                encoder_input_transform='resize_concat',
-                # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-                # encoder_input_index=[8, 16, 23], # clip-vit features
-                # encoder_input_dim=[1024, 1024, 1024],
-                # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-                # encoder_input_dim=[192, 384, 768, 1536],
-                encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-                encoder_input_dim=[192, 384, 768, 1024],
                 decoder_layers=6,
                 decoder_ffn_dim=2048,
                 decoder_attention_heads=8,
@@ -200,7 +195,20 @@ model=dict(
                 giou_loss_coefficient=2,
             ),
             keypoint_config=dict(
-
+                quries_input_dim=256,
+                decoder_layers=6,
+                decoder_ffn_dim=2048,
+                decoder_attention_heads=8,
+                decoder_layerdrop=0.0,
+                activation_function="relu",
+                d_model=256,
+                dropout=0.1,
+                attention_dropout=0.0,
+                activation_dropout=0.0,
+                num_body_points=17,
+                keypoint_loss_coefficient=2,
+                oks_loss_coefficient=2,
+                cls_loss_coefficient=1,
             )
         )
     ),
