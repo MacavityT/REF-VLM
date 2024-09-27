@@ -16,25 +16,29 @@ from xtuner.utils.constants import (
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,
     PHRASE_ST_PLACEHOLDER_STAGE2,
-    PHRASE_ED_PLACEHOLDER_STAGE2
+    PHRASE_ED_PLACEHOLDER_STAGE2,
+    KEYPOINTS_PLACEHOLDER
     )
 
 SEQ_MAP = {
     BOXES_PLACEHOLDER: 'boxes_seq',
     MASKS_PLACEHOLDER: 'masks_seq',
-    POINTS_PLACEHOLDER: 'points_seq'
+    POINTS_PLACEHOLDER: 'points_seq',
+    KEYPOINTS_PLACEHOLDER: 'keypoints_seq'
 }
 
 TGT_KEY_MAP = {
     BOXES_PLACEHOLDER: 'boxes',
     MASKS_PLACEHOLDER: 'masks',
-    POINTS_PLACEHOLDER: 'points'
+    POINTS_PLACEHOLDER: 'points',
+    KEYPOINTS_PLACEHOLDER: 'keypoints'
 }
 
 UNIT_MAP = {
     BOXES_PLACEHOLDER: 'box',
     MASKS_PLACEHOLDER: 'mask',
-    POINTS_PLACEHOLDER: 'point'
+    POINTS_PLACEHOLDER: 'point',
+    KEYPOINTS_PLACEHOLDER: 'keypoint'
 }
 
 def flatten_obj(obj_list):
@@ -339,6 +343,37 @@ def okapi_map_fn_stage2(example, vrt_len=256, ref_len=1, use_cot=True):
         example['conversations'] = example['conversations'][1:]
 
     res = target_map_fn(example)
+    conversation = conversation_map_fn(example, vrt_len, ref_len, use_cot)
+    res.update(conversation)
+    return res
+
+def okapi_keypoint_map_fn(example, vrt_len=256, ref_len=1, use_cot=True):
+    messages = example['conversations']
+    while messages and messages[0]['from'] == 'gpt':
+        # Skip the first one if it is from gpt
+        example['conversations'] = example['conversations'][1:]
+
+    map_placeholders = example.get('map_placeholders', None)
+    if map_placeholders is not None:
+        output_placeholders = map_placeholders.get('output', [])
+        output_placeholders.append(KEYPOINTS_PLACEHOLDER)
+        example['map_placeholders']['output'] = output_placeholders
+
+    res = target_map_fn(example)
+    
+    if map_placeholders is not None:
+        output_placeholders = map_placeholders.get('output', [])
+        output_placeholders = [value for value in output_placeholders \
+                               if value != KEYPOINTS_PLACEHOLDER]
+        example['map_placeholders']['output'] = output_placeholders
+
+    new_messages = []
+    for msg in messages:
+        if msg['from'] == 'gpt':
+            msg['value'] = msg['value'].replace(KEYPOINTS_PLACEHOLDER, '')
+        new_messages.append(msg)
+    example['conversations'] = new_messages
+
     conversation = conversation_map_fn(example, vrt_len, ref_len, use_cot)
     res.update(conversation)
     return res

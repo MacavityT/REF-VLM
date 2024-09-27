@@ -31,6 +31,7 @@ from .utils import (
     point2mask,
     boxes_xyxy_expand2square,
     points_xy_expand2square,
+    keypoints_xyc_expand2square,
     masks_expand2square,
     mask_transform,
     norm_box_xyxy, 
@@ -172,6 +173,8 @@ class OkapiDataset(Dataset):
                 target['points'] = points_xy_expand2square(target['points'], width=width, height=height)
             if 'masks' in target.keys():
                 target['masks'] = masks_expand2square(target['masks'])
+            if 'keypoints' in target.keys():
+                target['keypoints'] = keypoints_xyc_expand2square(target['keypoints'], width=width, height=height)
             width = max(width, height)
             height = width
         
@@ -199,6 +202,19 @@ class OkapiDataset(Dataset):
                     mask_transform(mask, self.image_processor)
                 )
             target['masks'] = transformed_masks
+
+        if 'keypoints' in target.keys():
+            normalized_all_kpts = []
+            for keypoints in target['keypoints']:
+                normalized_kpts = []
+                for keypoint in keypoints:
+                    point_class = keypoint[-1]
+                    norm_x, norm_y = norm_point_xyxy(keypoint[:-1], w=width, h=height)
+                    normalized_kpts.append(
+                        [norm_x, norm_y, point_class]
+                    )
+                normalized_all_kpts.append(normalized_kpts)
+            target['keypoints'] = normalized_all_kpts
 
     def image_process(self, image):
         # load image
@@ -302,6 +318,8 @@ class OkapiDataset(Dataset):
                     else:
                         raise ValueError("Points target value error!")
                 elif label['type'] == 'mask':
+                    unit_label = label['value']
+                elif label['type'] == 'keypoint':
                     unit_label = label['value']
                 else:
                     raise ValueError(f"Unsupport label type: {label['type']}")
