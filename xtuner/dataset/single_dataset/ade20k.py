@@ -38,7 +38,6 @@ class ADE20k(MInstrDataset):
         self.limit = " Answer the question using a short phrase."
         self.begin_str = """<image>\nThis provides an overview of the picture.\n"""
         self.max_gt_per_img = 15
-        self.img_name =  os.listdir(self.image_folder)
         self.dataset = self.read_json()
         self.createIndex()
 
@@ -51,11 +50,13 @@ class ADE20k(MInstrDataset):
         # create index
         print('creating index...')
         self.anns, self.cats, self.imgs = {}, {}, {}
+        self.img_name = []
         self.imgToAnns,self.catToImgs = defaultdict(list),defaultdict(list)
         if 'annotations' in self.dataset:
             for ann in self.dataset['annotations']:
                 self.imgToAnns[ann['image_id']].append(ann)
                 self.anns[ann['id']] = ann
+                self.img_name.append(ann['image_id'])
 
         if 'images' in self.dataset:
             for img in self.dataset['images']:
@@ -70,7 +71,13 @@ class ADE20k(MInstrDataset):
                 self.catToImgs[ann['category_id']].append(ann['image_id'])
 
         print('index created!')
-        
+
+    def __len__(self):
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder):
+            return len(self.text_data)
+        else:
+            return len(self.imgToAnns.keys())
     
     def replace_categories(self, category_id):
         category_name = self.cats[category_id]['name']

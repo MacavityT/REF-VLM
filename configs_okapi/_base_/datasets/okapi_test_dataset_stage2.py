@@ -70,6 +70,17 @@ test_all_dataset = dict(
             output=["<boxes>"],
         ),
     ),
+    test_ade20_with_instance=dict(
+        type='ADE20k',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/ade20k_instance_val.json',  
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/images/validation',
+        gt_info=r'/data/Aaronzhu/DatasetStage2and3/ADE20k/ADEChallengeData2016/annotations_instance/validation',
+        target_type = 'instance',
+        template_name=r'SEG',
+        map_placeholders=dict(
+            output=["<masks>"],
+        ),
+    ),
     **test_rec_variant,
     **train_grand_variant,
     **test_interact_variant,

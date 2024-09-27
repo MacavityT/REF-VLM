@@ -25,14 +25,46 @@ from .utils.get_cot import get_matches_from_text
 from .utils.process import semantic_inference, panoptic_inference, instance_inference,build_evaluator, SEGDETProcessor
 from ..okapi_metric import BaseComputeMetrics
 
+def coco_encode_rle(uncompressed_rle):
+    h, w = uncompressed_rle["size"]
+    rle = mask_utils.frPyObjects(uncompressed_rle, h, w)
+    rle["counts"] = rle["counts"].decode("utf-8")  # Necessary to serialize with json
+    return rle
+
+def mask_to_rle_pytorch(tensor: torch.Tensor):
+    """
+    Encodes masks to an uncompressed RLE, in the format expected by
+    pycoco tools.
+    """
+    # Put in fortran order and flatten h,w
+    b, h, w = tensor.shape
+    tensor = tensor.permute(0, 2, 1).flatten(1)
+
+    # Compute change indices
+    diff = tensor[:, 1:] ^ tensor[:, :-1]
+    change_indices = diff.nonzero()
+
+    # Encode run length
+    out = []
+    for i in range(b):
+        cur_idxs = change_indices[change_indices[:, 0] == i, 1]
+        cur_idxs = torch.cat(
+            [torch.tensor([0], dtype=cur_idxs.dtype, device=cur_idxs.device), cur_idxs + 1,
+             torch.tensor([h * w], dtype=cur_idxs.dtype, device=cur_idxs.device), ]
+        )
+        btw_idxs = cur_idxs[1:] - cur_idxs[:-1]
+        counts = [] if tensor[i, 0] == 0 else [0]
+        counts.extend(btw_idxs.detach().cpu().tolist())
+        out.append({"size": [h, w], "counts": counts})
+
+    return out
+
+
 @METRICS.register_module()
 class SEGComputeMetrics(BaseComputeMetrics):
-    def __init__(self, *args, version, task, dataset_root,
-                 bert_model='/model/Aaronzhu/all-MiniLM-L6-v2', num_queries=30, **kwargs):
+    def __init__(self, *args,eval_type, task='instance', **kwargs):
         super().__init__(*args, **kwargs)
-        self.dataset_root = dataset_root
-        self.version = version
-        assert self.version in ['general','prompt']
+        self.eval_type = eval_type
         self.task = task
         self.processor = SEGDETProcessor(task=self.prefix)
     
@@ -77,15 +109,15 @@ class SEGComputeMetrics(BaseComputeMetrics):
                             label = None
                         dt_labels.append(label)
             gt_labels = []
-            for i in len(matches_target):
-                cur_gt_label = matches_target[i][0]
+            for i in range(len(matches_target)):
+                cur_gt_label = matches_target[i][0].strip()
                 cur_gt_num = int(matches_target[i][1])
                 for _ in range(cur_gt_num):
                     gt_labels.append(cur_gt_label)
-
             
             image_name = os.path.basename(image_path)
             image_id = image_name.split('.')[0]
+            # image_id = image_name.split('.')[0]
             image = Image.open(image_path).convert('RGB')
             target_masks = torch.tensor(gt_masks['mask']).float()
             target_masks = torch.stack([mask_square2origin(target_mask,image.width,image.height) for target_mask in target_masks])
@@ -99,91 +131,113 @@ class SEGComputeMetrics(BaseComputeMetrics):
             decode_pred = {'masks':decode_masks.float()}
             target = {'masks':target_masks.float()}
 
-            pred_box_mask_length = len(dt_labels)
-            assert len(decode_masks) == pred_box_mask_length,  \
-                f"pred mask num: {len(decode_masks)} does not equal to llm's output num: {pred_box_mask_length}"
+            # pred_box_mask_length = len(dt_labels)
+            # assert len(decode_masks) == pred_box_mask_length,  \
+            #     f"pred mask num: {len(decode_masks)} does not equal to llm's output num: {pred_box_mask_length}"
             
             decode_pred['dt_labels'] = dt_labels
             target['gt_labels'] = gt_labels
-
-            
-            
 
             decode_pred['dt_labels'] = dt_labels
             target['gt_labels'] = gt_labels
                       
-            if self.type == 'class':
+            if self.eval_type == 'class':
 
                 text_sims = np.zeros((len(dt_labels), len(self.processor.test_class_names)))
-                for i, dt_label in enumerate(dt_labels):
-                    for j, gt_label in enumerate(self.processor.test_class_names):
-                        if isinstance(gt_label,str):
-                            text_sims[i, j] = self.processor.text_similarity_bert(dt_label,gt_label)
-                        elif isinstance(gt_label,list):
-                            max_similarity = 0
-                            for single_label in gt_label:
-                                similarity = self.processor.text_similarity_bert(dt_label,single_label)
-                                if similarity > max_similarity:
-                                    max_similarity = similarity
-                            text_sims[i, j] = max_similarity
-                        else:
-                            raise NotImplementedError
-                scores, ids = text_sims.max(1)
+                if self.processor.test_class_features is None:
+                    for i, dt_label in enumerate(dt_labels):
+                        for j, gt_label in enumerate(self.processor.test_class_names):
+                            if isinstance(gt_label,str):
+                                text_sims[i, j] = self.processor.text_similarity(dt_label,gt_label)
+                            elif isinstance(gt_label,list):
+                                max_similarity = 0
+                                for single_label in gt_label:
+                                    similarity = self.processor.text_similarity(dt_label,single_label)
+                                    if similarity > max_similarity:
+                                        max_similarity = similarity
+                                text_sims[i, j] = max_similarity
+                            else:
+                                raise NotImplementedError
+                else:
+                    dt_labels_features = self.processor.get_clip_embedding(dt_labels)
+                    for i, dt_label in enumerate(dt_labels):
+                        dt_label_features = dt_labels_features[i].reshape(1,-1)
+                        for j, gt_label in enumerate(self.processor.test_class_names):
+                            gt_class_feature = self.processor.test_class_features[j].reshape(1,-1)
+                            text_sims[i, j] = self.processor.text_similarity(dt_label_features,gt_class_feature)
+
+                scores = text_sims.max(1)
+                ids = text_sims.argmax(1)
                 pred_class_names = [self.processor.test_class_names[index] for index in ids]
 
-                if self.mask:
-                    for i, mask in enumerate(decode_masks):
-                        score = scores[i]
-                        class_name = pred_class_names[i]
-                        rle_mask = mask_utils.encode(mask)
-                        coco_pred_file.append({"image_id": image_id, "category_id": self.processor.convert_cls_to_id(class_name), 
-                                            "segmentation": rle_mask, "score": score})
-               
+                mask_encode = mask_to_rle_pytorch(decode_masks.int())
+                for i, mask_encode_single in enumerate(mask_encode):
+                    score = scores[i]
+                    class_name = pred_class_names[i]
+                    rle_mask = coco_encode_rle(mask_encode_single)
+                    coco_pred_file.append({"image_id": image_id, "category_id": self.processor.convert_cls_to_id(class_name), 
+                                        "segmentation": rle_mask, "score": score})
+            
                 decode_pred['scores'] = scores
                 decode_pred['pred_classes'] = pred_class_names
 
-            elif self.type == 'whole':
-                if self.mask:
-                    for i, mask in enumerate(decode_masks):
-                        rle_mask = mask_utils.encode(mask)
-                        coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
+            elif self.eval_type == 'whole':
+
+                mask_encode = mask_to_rle_pytorch(decode_masks.int())
+                for i, mask_encode_single in enumerate(mask_encode):
+                    rle_mask = coco_encode_rle(mask_encode_single)
+                    coco_pred_file.append({"image_id": image_id, "category_id": 1, "segmentation": rle_mask, "score": 1.0})
      
 
-            processed_results = []
-            mask_pred_results = decode_masks
-            mask_cls_results = text_sims
-            for mask_cls_result, mask_pred_result in zip(mask_cls_results, mask_pred_results):
-                processed_results.append({})
-                # semantic segmentation inference
-                mask_cls_result = mask_cls_result.to(mask_pred_result)
+            # processed_results = []
+            # mask_pred_results = decode_masks
+            # mask_cls_results = text_sims
+            # for mask_cls_result, mask_pred_result in zip(mask_cls_results, mask_pred_results):
+            #     processed_results.append({})
+            #     # semantic segmentation inference
+            #     mask_cls_result = mask_cls_result.to(mask_pred_result)
 
-                r = retry_if_cuda_oom(semantic_inference)(
-                    mask_cls_result, mask_pred_result)
-                processed_results[-1]["sem_seg"] = r
+            #     r = retry_if_cuda_oom(semantic_inference)(
+            #         mask_cls_result, mask_pred_result)
+            #     processed_results[-1]["sem_seg"] = r
 
-                # panoptic segmentation inference
-                panoptic_r = retry_if_cuda_oom(panoptic_inference)(
-                    mask_cls_result, mask_pred_result)
-                processed_results[-1]["panoptic_seg"] = panoptic_r
+            #     # panoptic segmentation inference
+            #     panoptic_r = retry_if_cuda_oom(panoptic_inference)(
+            #         mask_cls_result, mask_pred_result)
+            #     processed_results[-1]["panoptic_seg"] = panoptic_r
 
-                # instance segmentation inference
-                instance_r = retry_if_cuda_oom(instance_inference)(
-                    mask_cls_result, mask_pred_result)
-                processed_results[-1]["instances"] = instance_r
+            #     # instance segmentation inference
+            #     instance_r = retry_if_cuda_oom(instance_inference)(
+            #         mask_cls_result, mask_pred_result)
+            #     processed_results[-1]["instances"] = instance_r
 
-            self.task_evaluator.process(batch_input,processed_results)  # gt: image_id, file_name
-            self.results.append((decode_pred, target))
+            # self.task_evaluator.process(batch_input,processed_results)  # gt: image_id, file_name
+            # self.results.append((decode_pred, target))
+
         # Save gcg_coco_predictions
-        with open(f"{self.prefix}_{self.type}.json", 'w') as f:
-            json.dump(coco_pred_file, f)
+        with open(os.path.join(self.save_dir,f"{self.prefix}_{self.eval_type}.json"), 'a') as f:
+            json_line = json.dumps(coco_pred_file)
+            f.write(json_line+'\n')
+            f.close()
             
 
 
 
     def compute_metrics(self, results: list) -> dict:
 
-        metrics = self.task_evaluator.evaluate()
+        preds = []
+        targets = []
+        for i, (pred, target) in enumerate(results):
+            preds.append(pred)
+            targets.append(target)
         
+        miou = self.processor.evaluate_box_mask_miou(preds,targets,self.eval_type,mask=True)
+        recall = self.processor.evaluate_recall_with_mapping(preds,targets,mask=True, global_softmax=False)
+        
+        metrics = {
+            'miou': miou,
+            'recall': recall,
+        }
         return metrics            
 
 

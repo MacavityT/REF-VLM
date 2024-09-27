@@ -23,7 +23,7 @@ from torch.nn import CosineSimilarity
 from torchvision.ops import box_iou
 from . import openseg_classes
 from .instance_evaluation import InstanceSegEvaluator
-from .register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic
+from .register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic,ADE20K_150_CATEGORIES
 from .register_cityscapes_panoptic import register_all_cityscapes_panoptic
 
 
@@ -270,6 +270,7 @@ class SEGDETProcessor:
                 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
                 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
             ]
+
         elif "lvis" in self.task:
             with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/lvis_classes.json') as f:
                 self.test_class_names = json.load(f)
@@ -278,6 +279,23 @@ class SEGDETProcessor:
                 self.test_class_features = pickle.load(f2)
                 f2.close()
             self.test_class_ids = [i for i in range(len(self.test_class_names))]
+            
+
+        elif "ade20k_instance" in self.task:
+            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_instance_classes.json') as f:
+                ade20k_category_dict = json.load(f)
+                f.close()
+            self.test_class_names = []
+            self.test_class_ids = []
+            for category in ade20k_category_dict:
+                self.test_class_names.append(category['id'])
+                self.test_class_ids.append(category['name'])
+
+            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_class_clip.pkl','rb') as f2:
+                self.test_class_features = pickle.load(f2)
+                f2.close()
+
+        self.id_cls_map = {self.test_class_names[i]: id for i, id in enumerate(self.test_class_ids)}
 
     def convert_cls_txt_to_id(self,label_txt):
         label_dict = {}
@@ -290,8 +308,7 @@ class SEGDETProcessor:
         return label_dict
     
     def convert_cls_to_id(self,class_name):
-        class_idx = self.test_class_names.index(class_name)
-        return self.test_class_ids[class_idx]
+        return self.id_cls_map[class_name]
 
     def process_config(self):
         self.cfg = get_cfg()

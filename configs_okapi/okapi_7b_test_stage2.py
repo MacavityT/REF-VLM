@@ -13,6 +13,7 @@ from xtuner.evaluation.metrics.single_metric import (
     RESComputeMetrics,
     GCGComputeMetrics,
     DETComputeMetrics,
+    SEGComputeMetrics,
 )
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
@@ -46,10 +47,10 @@ ref_mask_queries = ref_mask_num * ref_length
 
 dataset_name = 'interact_scribble_finetune'
 eval_type = 'reg'
-prefix = 'interactive_res'
+prefix = 'ade20k_instance'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0923_full_512_sft_scribble_interactive/eval3500'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0923_full_512_epoch2/eval23000'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -256,7 +257,7 @@ elif prefix == 'gcg_mask_test':
     test_dataset_args = [
         dict(
             type='SubSet',
-            portion=5/6,
+            portion=1/2,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['cocogcg_test'],
@@ -270,7 +271,7 @@ elif prefix == 'coco_det':
         # test_all_dataset['rec_refcocog_umd_test'],
         dict(
             type='SubSet',
-            portion=1/500,
+            portion=1,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['coco_2017_box_val'],
@@ -291,6 +292,19 @@ elif prefix == 'lvis_det':
             )
     ]
 
+elif prefix == 'ade20k_instance':
+    test_evaluator = dict(
+        type=SEGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['test_ade20_with_instance'],
+            )
+    ]
 elif (prefix == 'cot') or (prefix == 'vrt') or (prefix == 'cot_vrt'):
     test_evaluator = dict(
         type=COTComputeMetrics, tokenizer=tokenizer, stage=2, eval_type=eval_type, save_dir=save_dir, prefix=prefix)

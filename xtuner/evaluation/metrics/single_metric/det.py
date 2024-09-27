@@ -84,7 +84,7 @@ class DETComputeMetrics(BaseComputeMetrics):
                     gt_labels.append(cur_gt_label)
 
             image_name = os.path.basename(image_path)
-            image_id = image_name.split('.')[0]
+            image_id = int(image_name.split('.')[0])
 
             if sample['decoder_outputs'] is not None:
                 pred_boxes_masks = sample['decoder_outputs']['box'].float().cpu().numpy().tolist()
