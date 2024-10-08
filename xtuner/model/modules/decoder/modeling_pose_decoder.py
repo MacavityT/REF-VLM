@@ -3,19 +3,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from transformers import PreTrainedModel
+from transformers import PreTrainedModel,AutoModel
 from transformers.activations import ACT2FN
 from .modeling_decoder import DecoderModel
 from .modeling_box_decoder import BoxDecoderModel, BoxDecoderLoss, BoxDecoderGroupHungarianMatcher
 from .configuration_pose_decoder import PoseDecoderConfig, KeypointDecoderConfig
-
+from .configuration_box_decoder import BoxDecoderConfig
+from xtuner.registry import BUILDER
 from transformers.models.detr import DetrConfig
 from transformers.models.detr.modeling_detr import (
     DetrDecoder,
     DetrMLPPredictionHead,
 )
 from transformers.image_transforms import center_to_corners_format
-from xtuner.model.utils import save_wrong_data
+from xtuner.model.utils import save_wrong_data,traverse_dict
 
 class PoseDecoderLoss(BoxDecoderLoss):
 
@@ -35,6 +36,7 @@ class PoseDecoderLoss(BoxDecoderLoss):
         else:
             raise ValueError(f'Unsupported keypoints number {num_body_points}')
         self.eps = eps
+        self.pdist = nn.PairwiseDistance(p=2)
 
     # removed logging parameter, which was part of the original implementation
     def compute_loss_labels(self, preds, targets):
@@ -46,7 +48,7 @@ class PoseDecoderLoss(BoxDecoderLoss):
         preds = preds.view(-1, preds.shape[-1]).to(torch.float32)
         targets = targets.view(-1).to(torch.int64)
         loss_ce = nn.functional.cross_entropy(preds, targets)
-        loss_ce.to(origin_type)
+        # loss_ce = loss_ce.to(origin_type)
         losses = {"loss_ce": loss_ce}
         return losses
 
@@ -59,23 +61,28 @@ class PoseDecoderLoss(BoxDecoderLoss):
         :return: 计算出的OKS损失
         """
         # 计算预测关键点和真实关键点之间的欧式距离
-        distance = torch.sqrt(((pred_keypoints - gt_keypoints) ** 2).sum(dim=-1))
+        # distance = torch.sqrt(((pred_keypoints - gt_keypoints) ** 2).sum(dim=-1))
+        # distance = F.mse_loss(pred_keypoints, gt_keypoints, reduction='none').sum(dim=-1).float()
+        # distance = torch.sqrt(distance + self.eps)
+        distance = self.pdist(pred_keypoints.float(),gt_keypoints.float())
 
-        # 计算归一化的距离平方
-        sigmas = pred_keypoints.new_tensor(self.sigmas)
+        # # 计算归一化的距离平方
+        sigmas = pred_keypoints.new_tensor(self.sigmas).float()
+        
         area = area.unsqueeze(-1)  # 将area扩展到与关键点匹配的维度
         sigma_term = 2 * (sigmas ** 2) * (area + self.eps)
         oks_term = torch.exp(- (distance ** 2) / sigma_term)
 
-        # 只计算可见的关键点
-        oks_term = oks_term * visible.float()
+        # # 只计算可见的关键点
+        oks_term = oks_term * visible
 
-        # 计算OKS，防止除以0
-        oks_loss = 1.0 - oks_term.sum(dim=-1) / (visible.sum(dim=-1).float() + self.eps)
+        # # 计算OKS，防止除以0
+        oks_loss = 1.0 - oks_term.sum(dim=-1) / (visible.sum(dim=-1) + self.eps)
+        # # oks_loss = torch.clamp(oks_loss, 0, 1).to(pred_keypoints.dtype)
         oks_loss = torch.clamp(oks_loss, 0, 1)
 
         losses = {}
-        losses['loss_oks'] = oks_loss.mean() 
+        losses['loss_oks'] = distance.mean() 
         return losses
 
     def compute_loss_keypoints(self, pred_kpts, target_kpt, valid_kpts):
@@ -85,7 +92,7 @@ class PoseDecoderLoss(BoxDecoderLoss):
         pose_loss = F.l1_loss(pred_kpts, target_kpt, reduction='none')
         pose_loss = pose_loss[valid_kpts, :]  # ignore not visible keypoints
         losses = {}
-        losses['loss_keypoints'] = pose_loss.sum() / num_boxes        
+        losses['loss_keypoints'] = pose_loss.sum().float() / num_boxes        
         return losses
 
     def forward(self, pred_boxes, target_boxes, pred_kpts, pred_kpts_cls, target_kpts, target_slices):
@@ -219,9 +226,9 @@ class KeypointDecoderModel(DecoderModel):
         box_queries_logits = torch.stack(box_queries_logits, dim=1)
         kpt_queries_logits = torch.stack(kpt_queries_logits, dim=1)
 
-        box_logits = self.box_predictor(box_queries_logits).sigmoid()
-        kpt_logits = self.kpt_predictor(kpt_queries_logits).sigmoid()
-        kpt_cls_logits = self.kpt_classifier(kpt_queries_logits)
+        box_logits = self.box_predictor(box_queries_logits).sigmoid().float()
+        kpt_logits = self.kpt_predictor(kpt_queries_logits).sigmoid().float()
+        kpt_cls_logits = self.kpt_classifier(kpt_queries_logits).float()
         
         return dict(
             hidden_states = sequence_output,
@@ -236,17 +243,29 @@ class PoseDecoderModel(PreTrainedModel):
     def __init__(self, config: PoseDecoderConfig):
         super().__init__(config)
         self.config = config
-        self.box_decoder = BoxDecoderModel(config.box_config)
-        self.kpt_decoder = KeypointDecoderModel(config.keypoint_config)
+        if  'type' in config.box_config:
+            self.box_decoder = self._build_from_cfg_or_module(config.box_config)
+        else:
+            self.box_decoder = BoxDecoderModel(BoxDecoderConfig(**config.box_config))
+        self.kpt_decoder = KeypointDecoderModel(KeypointDecoderConfig(**config.keypoint_config))
         if config.use_group_matcher:
             matcher = BoxDecoderGroupHungarianMatcher(
-                bbox_cost=config.box_config.bbox_loss_coefficient,
-                giou_cost=config.box_config.giou_loss_coefficient
+                bbox_cost=self.box_decoder.config.bbox_loss_coefficient,
+                giou_cost=self.box_decoder.config.giou_loss_coefficient
             )
         else:
             matcher = None
         self.criteria = PoseDecoderLoss(matcher)
         self.post_init()
+
+    def _build_from_cfg_or_module(self, cfg_or_mod):
+        if isinstance(cfg_or_mod, nn.Module):
+            return cfg_or_mod
+        elif isinstance(cfg_or_mod, dict):
+            traverse_dict(cfg_or_mod)
+            return BUILDER.build(cfg_or_mod)
+        else:
+            raise NotImplementedError
 
     def get_label_slices(self, metas, ref_mask):
         decode_seqs = metas.get('decode_seqs', None)
@@ -335,7 +354,7 @@ class PoseDecoderModel(PreTrainedModel):
             visual_mask=visual_mask,
             ref_mask=box_outputs['ref_mask'],
             metas=metas,
-            mode=mode
+            mode=mode,
         )
 
         # get logits
@@ -369,32 +388,35 @@ class PoseDecoderModel(PreTrainedModel):
                     target_kpts).to(pred_kpts.device).to(pred_kpts.dtype)
 
                 box_weight_dict = {
-                    "loss_bbox": self.config.box_config.bbox_loss_coefficient,
-                    "loss_giou": self.config.box_config.giou_loss_coefficient}
+                    "loss_bbox": self.box_decoder.config.bbox_loss_coefficient,
+                    "loss_giou": self.box_decoder.config.giou_loss_coefficient}
                 pose_weight_dict = {
-                    "loss_ce": self.config.keypoint_config.cls_loss_coefficient,
-                    "loss_keypoints": self.config.keypoint_config.keypoint_loss_coefficient,
-                    "loss_oks": self.config.keypoint_config.oks_loss_coefficient
+                    "loss_ce": self.kpt_decoder.config.cls_loss_coefficient,
+                    "loss_keypoints": self.kpt_decoder.config.keypoint_loss_coefficient,
+                    "loss_oks": self.kpt_decoder.config.oks_loss_coefficient
                 }
                 pose_weight_dict.update(box_weight_dict)
-
                 loss_dict = self.criteria(pred_boxes2, target_boxes, pred_kpts, pred_kpts_cls, target_kpts, target_slices)
                 loss = sum(loss_dict[k] * pose_weight_dict[k] for k in loss_dict.keys() if k in pose_weight_dict)
-
                 if self.config.use_auxiliary_loss:
                     loss_dict_aux = self.box_decoder.criteria(pred_boxes1, target_boxes, target_slices)
                     loss_aux = sum(loss_dict_aux[k] * box_weight_dict[k] for k in loss_dict_aux.keys() if k in box_weight_dict)
                     loss += self.config.aux_loss_coefficient * loss_aux
             else:
                 loss = pred_boxes1.sum() * 0.0 + pred_kpts.sum() * 0.0 + pred_boxes2.sum() * 0.0 + pred_kpts_cls.sum() * 0.0
+            return dict(
+                loss=loss,
+                preds=pred_kpts,
+            )
         else:
             assert mode == 'predict'
-            pred_kpts = []
-            for queries_logits, mask in zip(kpts_queries_logits, ref_mask):
+            preds = []
+            for queries_logits, cls_logits, mask in zip(kpts_queries_logits, kpts_cls_logits, ref_mask):
                 keypoints = queries_logits[mask, :]
-                pred_kpts.append(keypoints)
+                cls = F.softmax(cls_logits[mask,:],dim=-1).argmax(-1)
+                preds.append({'pred_kpts':keypoints,'pred_cls':cls})
 
-        return dict(
-            loss=loss,
-            preds=pred_kpts,
-        )
+            return dict(
+                loss=loss,
+                preds=preds,
+            )

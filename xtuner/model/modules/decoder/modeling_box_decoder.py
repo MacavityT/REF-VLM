@@ -41,7 +41,8 @@ class BoxDecoderGroupHungarianMatcher(nn.Module):
         self.bbox_cost = bbox_cost
         self.giou_cost = giou_cost
         if bbox_cost == 0 and giou_cost == 0:
-            raise ValueError("All costs of the Box Matcher can't be 0")
+            # raise ValueError("All costs of the Box Matcher can't be 0")
+            pass
 
     @torch.no_grad()
     def forward(self, pred_boxes, target_boxes, target_slices):
@@ -137,10 +138,11 @@ class BoxDecoderLoss(nn.Module):
         loss_bbox = nn.functional.l1_loss(preds, targets, reduction="none")
 
         losses = {}
-        losses["loss_bbox"] = loss_bbox.sum() / num_boxes
+        losses["loss_bbox"] = loss_bbox.sum().float() / num_boxes
         loss_giou = 1 - torch.diag(
             generalized_box_iou(center_to_corners_format(preds), center_to_corners_format(targets))
         )
+        # loss_giou = loss_giou.to(preds.dtype)
         losses["loss_giou"] = loss_giou.sum() / num_boxes
         return losses
 
@@ -252,7 +254,7 @@ class BoxDecoderModel(DecoderModel):
             return_dict=True,
         )
         sequence_output = decoder_outputs[0]
-        boxes_queries_logits = self.predictor(sequence_output).sigmoid()
+        boxes_queries_logits = self.predictor(sequence_output).sigmoid().float()
 
         loss = None
         if mode == 'loss':

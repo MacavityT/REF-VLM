@@ -45,12 +45,12 @@ ref_mask_num = 30
 ref_box_queries = ref_box_num * ref_length
 ref_mask_queries = ref_mask_num * ref_length
 
-dataset_name = 'interact_scribble_finetune'
+dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
-prefix = 'ade20k_instance'
+prefix = 'res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0923_full_512_epoch2/eval23000'
+save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/1001_mask_512_nomatcher/eval3355'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -200,14 +200,14 @@ elif prefix == 'res':
     test_evaluator = dict(
         type=RESComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        test_all_dataset[f'{dataset_name}'],
-        # dict(
-        #     type='SubSet',
-        #     portion=1/10,
-        #     do_shuffle=False,
-        #     seed=43,
-        #     cfg=test_all_dataset[f'{dataset_name}'],
-        #     )
+        # test_all_dataset[f'{dataset_name}'],
+        dict(
+            type='SubSet',
+            portion=1/10,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset[f'{dataset_name}'],
+            )
     ]
 
 elif prefix == 'interactive_res':
@@ -292,6 +292,20 @@ elif prefix == 'lvis_det':
             )
     ]
 
+elif prefix == 'cityscapes_instance':
+    test_evaluator = dict(
+        type=SEGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
+    test_dataset_args = [
+        # test_all_dataset['rec_refcocog_umd_test'],
+        dict(
+            type='SubSet',
+            portion=1,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['test_cityscapes_instance'],
+            )
+    ]
+
 elif prefix == 'ade20k_instance':
     test_evaluator = dict(
         type=SEGComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, eval_type='class', prefix=prefix)
@@ -371,6 +385,7 @@ model=dict(
         trust_remote_code=True),
     visual_encoder=clip_patch14_336['visual_encoder'],
     visual_tower=clip_convnext_512['visual_encoder'],
+    # visual_tower=clip_convnext_320['visual_encoder'],
     vpt_encoder=dict(
         strategy='pooling',
         patch_size=vpt_patch_size,

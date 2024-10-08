@@ -128,12 +128,14 @@ class SEGComputeMetrics(BaseComputeMetrics):
             else:
                 decode_masks = torch.zeros_like(target_masks).float()
 
-            decode_pred = {'masks':decode_masks.float()}
-            target = {'masks':target_masks.float()}
+            decode_pred = {'pred_masks':decode_masks.float()}
+            target = {'gt_mask':target_masks.float()}
 
-            # pred_box_mask_length = len(dt_labels)
-            # assert len(decode_masks) == pred_box_mask_length,  \
-            #     f"pred mask num: {len(decode_masks)} does not equal to llm's output num: {pred_box_mask_length}"
+            pred_box_mask_length = len(dt_labels)
+            if len(decode_masks) != pred_box_mask_length:
+                print(f"pred mask num: {len(decode_masks)} does not equal to llm's output num: {pred_box_mask_length}")
+                assert len(decode_masks) < pred_box_mask_length
+                dt_labels = dt_labels[:len(decode_masks)]
             
             decode_pred['dt_labels'] = dt_labels
             target['gt_labels'] = gt_labels
@@ -212,7 +214,7 @@ class SEGComputeMetrics(BaseComputeMetrics):
             #     processed_results[-1]["instances"] = instance_r
 
             # self.task_evaluator.process(batch_input,processed_results)  # gt: image_id, file_name
-            # self.results.append((decode_pred, target))
+            self.results.append((decode_pred, target))
 
         # Save gcg_coco_predictions
         with open(os.path.join(self.save_dir,f"{self.prefix}_{self.eval_type}.json"), 'a') as f:

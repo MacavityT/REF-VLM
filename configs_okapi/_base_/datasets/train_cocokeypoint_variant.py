@@ -8,7 +8,8 @@ train_cocokeypoints_variant = dict(
         placeholders=('<image>',),
         map_placeholders=dict(
             output=["<boxes>"],
-        ),     
+        ),
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/MSCOCO/2017/offline/offline_keypoints'
     ),
     keypoints2017_rec_box=dict(
         type='COCOKeypointsRECDataset',

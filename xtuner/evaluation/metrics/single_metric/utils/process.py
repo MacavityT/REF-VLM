@@ -288,14 +288,16 @@ class SEGDETProcessor:
             self.test_class_names = []
             self.test_class_ids = []
             for category in ade20k_category_dict:
-                self.test_class_names.append(category['id'])
-                self.test_class_ids.append(category['name'])
+                self.test_class_ids.append(category['id'])
+                self.test_class_names.append(category['name'])
 
             with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_class_clip.pkl','rb') as f2:
                 self.test_class_features = pickle.load(f2)
                 f2.close()
+        
 
-        self.id_cls_map = {self.test_class_names[i]: id for i, id in enumerate(self.test_class_ids)}
+
+        self.id_cls_map = {self.test_class_names[i]:id for i, id in enumerate(self.test_class_ids)}
 
     def convert_cls_txt_to_id(self,label_txt):
         label_dict = {}

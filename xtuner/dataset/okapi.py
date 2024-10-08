@@ -37,6 +37,8 @@ from .utils import (
     norm_box_xyxy, 
     norm_point_xyxy,
     de_norm_box_xyxy,
+    de_norm_keypoint,
+    visualize_keypoints,
     box_xyxy_to_xywh,
     de_norm_box_xyxy_square2origin,
     denorm_box_xywh_square2origin,
@@ -504,5 +506,16 @@ class OkapiDataset(Dataset):
         #         vis_box = visualize_box_single(image.copy(), denorm_box)
         #         save_path = f'vis_box_{k}.jpg'
         #         cv2.imwrite(save_path, vis_box)
+        # if 'keypoints' in data_dict['target'].keys():
+        #     keypoints = data_dict['target']['keypoints']
+        #     width = image.shape[0]
+        #     height = image.shape[1]
+        #     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        #     for p,keypoint in enumerate(keypoints):
+        #         skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]]
+        #         keypoint = de_norm_keypoint(keypoint,width,height)
+        #         keypoint = np.array(keypoint)
+        #         visualize_keypoints(image=image,keypoints=keypoint,skeleton=skeleton,index=p)
+
         # #endregion
         return data_dict

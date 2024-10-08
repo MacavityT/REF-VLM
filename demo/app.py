@@ -20,15 +20,19 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
 from xtuner.dataset.utils import (visualize_box,
                                   visualize_mask,
+                                  visualize_keypoints,
                                   mask_square2origin,
                                   draw_label_type,
-                                  denorm_box_xywh_square2origin)
+                                  denorm_box_xywh_square2origin,
+                                  de_norm_keypoint_square2origin)
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
+SKELETON = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], 
+            [6, 8], [7, 9], [8, 10], [9, 11], [2, 3], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]]
 
 def denormalize_image(image):
     OPENAI_CLIP_MEAN = [0.48145466, 0.4578275, 0.40821073]
@@ -287,12 +291,20 @@ def submit_step2(chatbot, state,prompt_image_list,radio,temperature,top_p,top_k)
 
 
     if output[0]['decoder_outputs'] is not None:
-        if output[0]['decoder_outputs']['box'] is not None:
-            boxes_output = output[0]['decoder_outputs']['box'].cpu().tolist()
-            state['boxes_output'] = boxes_output
-        if output[0]['decoder_outputs']['mask'] is not None:
-            masks_output = output[0]['decoder_outputs']['mask'].float().cpu().numpy().tolist()
-            state['masks_output'] = masks_output
+        if 'box' in output[0]['decoder_outputs'].keys():
+            if output[0]['decoder_outputs']['box'] is not None:
+                boxes_output = output[0]['decoder_outputs']['box'].cpu().tolist()
+                state['boxes_output'] = boxes_output
+        if 'mask' in output[0]['decoder_outputs'].keys():
+            if output[0]['decoder_outputs']['mask'] is not None:
+                masks_output = output[0]['decoder_outputs']['mask'].float().cpu().numpy().tolist()
+                state['masks_output'] = masks_output
+        if 'pose' in output[0]['decoder_outputs'].keys():
+            if output[0]['decoder_outputs']['pose'] is not None:
+                keypoints_output = output[0]['decoder_outputs']['pose']['pred_kpts']
+                keypoints_cls_output = output[0]['decoder_outputs']['pose']['pred_cls']
+                state['keypoints_output'] = keypoints_output
+                state['keypoints_cls'] = keypoints_cls_output
 
         if 'decode_groups' in output[0].keys():
             new_labels = []
@@ -332,8 +344,11 @@ def submit_step3(state,input_image,output_image,threshold=0.4):
             input_image = input_image['image']
     input_image = Image.fromarray(input_image)
 
+    
     boxes_output = state['boxes_output']
     masks_output = state['masks_output']
+    keypoints_output = state['keypoints_output']
+    keypoints_cls = state['keypoints_cls']
 
     if boxes_output != []:
         boxes_denorm = []
@@ -348,9 +363,16 @@ def submit_step3(state,input_image,output_image,threshold=0.4):
                                            input_image.width,
                                            input_image.height,
                                            threshold=threshold) for decode_mask in decode_masks]
-        # masks_resize = [mask_square2origin(torch.tensor(mask),input_image.width,input_image.height) for mask in masks_output]
-        # masks_resize = [mask.cpu().numpy().astype(np.uint8) for mask in masks_resize]
         output_image = visualize_mask(input_image,masks_resize,alpha=0.8)  # TODO:改visualize
+    elif keypoints_output != []:
+        
+        for i,keypoints in enumerate(keypoints_output):
+            keypoints = keypoints.float().cpu().numpy()
+            keypoints_class = keypoints_cls[i].int().cpu().numpy()
+            denorm_keypoints = de_norm_keypoint_square2origin(keypoints,input_image.width,input_image.height)
+            keypoints_combine = np.concatenate((denorm_keypoints,keypoints_class.reshape(-1,1)),axis=1)
+            visualize_keypoints(input_image,keypoints_combine,SKELETON,i)
+            
     if output_image is not None:
         output_image = Image.fromarray(output_image).resize((600,330))
 
@@ -369,6 +391,8 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
                                         'prompt_input':None,
                                         'boxes_output':[],
                                         'masks_output':[],
+                                        'keypoints_output':[],
+                                        'keypoints_cls':[],
                                         'labels':None}
 theme = gr.themes.Default()
 
@@ -430,6 +454,8 @@ with gr.Blocks(
                                  'dataloader': None,
                                  'boxes_output':[],
                                  'masks_output':[],
+                                 'keypoints_output':[],
+                                 'keypoints_cls':[],
                                  'labels':None})
     example_list_image = [
         [os.path.join(os.path.dirname(__file__), "assets/dog.jpg")],

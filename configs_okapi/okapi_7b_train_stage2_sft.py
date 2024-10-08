@@ -35,7 +35,7 @@ prompt_template = PROMPT_TEMPLATE.okapi
 
 accumulative_counts = 1
 
-max_epochs = 100
+max_epochs = 5
 lr = 2e-6 # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0
@@ -47,7 +47,8 @@ model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter2
 dataset_args_sft = [
     # train_all_dataset['lvis_box']
     # train_all_dataset['coco_rem_box']
-    train_all_dataset['train_ade20_with_instance'],
+    # train_all_dataset['train_cityscapes_instance'],
+    # train_all_dataset['train_ade20_with_instance'],
     # train_all_dataset['interact_mask_finetune']
     # train_all_dataset['interact_scribble_finetune']
     # train_all_dataset['interact_point_finetune']
@@ -66,7 +67,7 @@ dataset_args_sft = [
     # train_all_dataset['rec']
     # train_all_dataset['res_refcoco'],
     # train_all_dataset['res_refcocoa'],
-    # train_all_dataset['res_refcocog'],
+    train_all_dataset['res_refcocog'],
 ]
 
 for dataset in dataset_args_sft:

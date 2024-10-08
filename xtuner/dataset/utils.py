@@ -503,6 +503,38 @@ def de_norm_box_xyxy(box, w, h):
     box = x1, y1, x2, y2
     return box
 
+def de_norm_keypoint(keypoints,w,h):
+    de_norm_keypoints = []
+    for i,keypoint in enumerate(keypoints):
+        if keypoint[2] != 0:
+            keypoint_new = [int(keypoint[0] * w),int(keypoint[1] * h),keypoint[2]]
+            de_norm_keypoints.append(keypoint_new)
+        else:
+            de_norm_keypoints.append([0,0,0])
+    return de_norm_keypoints
+
+def de_norm_keypoint_square2origin(keypoints,origin_width,origin_height):
+    """
+    keypoints: [17,2]
+    """
+    if origin_width == origin_height:
+        return keypoints * origin_width
+    
+    origin_keypoints = []
+    for keypoint in keypoints:
+        if origin_width > origin_height:
+            x,y = [i * origin_width for i in keypoint]
+            y -= (origin_width - origin_height) // 2
+        else:
+            x,y = [i * origin_height for i in keypoint]
+            x -= (origin_height - origin_width) // 2
+        keypoint_new = [x,y]
+        origin_keypoints.append(keypoint_new)
+
+    return origin_keypoints
+        
+
+
 def de_norm_box_xywh(box, w, h):
     box = box_xywh_to_xyxy(box, w, h)
     box = de_norm_box_xyxy(box, w, h)
@@ -575,8 +607,10 @@ def visualize_mask(image, masks, alpha=0.5, beta=1.0):
         image = np.array(image)
     if not isinstance(masks, torch.Tensor):
         masks = torch.tensor(np.array(masks)).bool()
-
-    colors = random.sample(PALETTE,len(masks))
+    try:
+        colors = random.sample(PALETTE,len(masks))
+    except:
+        colors = None
     image = torch.tensor(image.transpose(2,0,1))
     image = draw_segmentation_masks(image,masks,alpha,colors)
     image = image.cpu().numpy().transpose(1,2,0)
@@ -609,6 +643,7 @@ def visualize_mask_single(image, mask, alpha=0.5, beta=1.0):
     return image
 
 def visualize_keypoints(image,keypoints,skeleton,index):
+
     x = keypoints[:,0]
     y = keypoints[:,1]
     v = keypoints[:,2]
@@ -618,10 +653,31 @@ def visualize_keypoints(image,keypoints,skeleton,index):
     for sk in skeleton:
         sk = [item-1 for item in sk]
         if np.all(v[sk] > 0): # if two joint points' visualization > 0, draw line
-            plt.plot(x[sk], y[sk], linewidth=2, color='red')
-    plt.plot(x[v > 0], y[v > 0], 'o', markersize=2, markerfacecolor='red', markeredgecolor='k', markeredgewidth=2)
+            plt.plot(x[sk], y[sk], linewidth=4, color='green')
+    plt.plot(x[v > 0], y[v > 0], 'o', markersize=4, markerfacecolor='green', markeredgecolor='k', markeredgewidth=2)
     plt.axis('off')
     plt.show()
+    plt.savefig(f"keypoint_{index}")
+
+def visualize_all_keypoints(image,keypoints_list,skeleton,index):
+    color_list = ['green','red']
+    plt.figure(figsize=(10,10))
+    plt.imshow(image)
+    for i,keypoints in enumerate(keypoints_list):
+        keypoints = np.array(keypoints)
+        color = color_list[i]
+        x = keypoints[:,0]
+        y = keypoints[:,1]
+        v = keypoints[:,2]
+
+        for sk in skeleton:
+            sk = [item-1 for item in sk]
+            if np.all(v[sk] > 0): # if two joint points' visualization > 0, draw line
+                plt.plot(x[sk], y[sk], linewidth=4, color=color)
+        plt.plot(x[v > 0], y[v > 0], 'o', markersize=4, markerfacecolor=color, markeredgecolor='k', markeredgewidth=2)
+        plt.axis('off')
+        plt.show()
+
     plt.savefig(f"keypoint_{index}")
 
 
@@ -723,3 +779,9 @@ def convert_bbox(bbox):
     ymin = y
     ymax = y + h
     return (xmin, ymin, xmax, ymax)
+
+def bbox_to_wh_coco(bbox):
+    xmin, ymin, xmax, ymax = bbox
+    w = xmax - xmin
+    h = ymax - ymin
+    return (xmin, ymin, w, h)

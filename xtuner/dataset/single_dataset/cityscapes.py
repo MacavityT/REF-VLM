@@ -196,7 +196,11 @@ class Cityscapes(MInstrDataset):
 
 
     def __len__(self):
-        return len(self.data_infos)
+        if (self.offline_processed_text_folder is not None) and \
+            os.path.exists(self.offline_processed_text_folder):
+            return len(self.text_data)
+        else:
+            return len(self.data_infos)
     
 
     def _get_target_suffix(self, mode, target_type):
@@ -212,36 +216,36 @@ class Cityscapes(MInstrDataset):
             return '{}_disparity.png'.format(mode)
 
 
-    def __getitem__(self, index):
-        offline_item = super().__getitem__(index)
-        if offline_item is not None:
-            return offline_item
-        data_info = self.data_infos[index]
-        img_path = data_info['img_path']
-        gt_mask = data_info['gt_mask']
-        # gt_id = data_info['gt_id']
-        gt_name = data_info['gt_name']
-        mask_seq = data_info['mask_seq']
-        height = data_info['height']
-        width = data_info['width']
+    # def __getitem__(self, index):
+    #     offline_item = super().__getitem__(index)
+    #     if offline_item is not None:
+    #         return offline_item
+    #     data_info = self.data_infos[index]
+    #     img_path = data_info['img_path']
+    #     gt_mask = data_info['gt_mask']
+    #     # gt_id = data_info['gt_id']
+    #     gt_name = data_info['gt_name']
+    #     mask_seq = data_info['mask_seq']
+    #     height = data_info['height']
+    #     width = data_info['width']
 
-        # get conversation
-        task = {'task_name': 'segmentation', 'element': ['phrase'], 'use_unit': True}
-        unit = ['mask']
-        system = {'from': 'system', 'value': [{'task': task, 'unit': unit}]}
-        human = {'from': 'human', 'value': self.sem_question}
-        value = PHRASE_ST_PLACEHOLDER_STAGE2 + gt_name + PHRASE_ED_PLACEHOLDER_STAGE2 +  MASKS_PLACEHOLDER + ', '
-        answer = {'from': 'gpt', 'value': value, 'masks_seq': mask_seq}
+    #     # get conversation
+    #     task = {'task_name': 'segmentation', 'element': ['phrase'], 'use_unit': True}
+    #     unit = ['mask']
+    #     system = {'from': 'system', 'value': [{'task': task, 'unit': unit}]}
+    #     human = {'from': 'human', 'value': self.sem_question}
+    #     value = PHRASE_ST_PLACEHOLDER_STAGE2 + gt_name + PHRASE_ED_PLACEHOLDER_STAGE2 +  MASKS_PLACEHOLDER + ', '
+    #     answer = {'from': 'gpt', 'value': value, 'masks_seq': mask_seq}
 
-        conversation = [system, human, answer]
+    #     conversation = [system, human, answer]
 
-        ret = {
-            'image': {'path': img_path, 'width': width, 'height': height},
-            'target':  {'mask': gt_mask},
-            'conversations': conversation
-        }
-        ret['map_placeholders'] = self.map_placeholders
-        return ret
+    #     ret = {
+    #         'image': {'path': img_path, 'width': width, 'height': height},
+    #         'target':  {'mask': gt_mask},
+    #         'conversations': conversation
+    #     }
+    #     ret['map_placeholders'] = self.map_placeholders
+    #     return ret
 
 
 
@@ -266,8 +270,10 @@ class CityscapesInstance(Cityscapes):
         ids = [iid for iid in np.unique(target) if iid >= 1000]  # <1000: sem, >=1000: ins
         return ids
 
-
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         data_info = self.data_infos[index]
         img_path = data_info['img_path']
         target_path = data_info['target_path']
@@ -323,6 +329,8 @@ class CityscapesInstance(Cityscapes):
             question = self.get_template()
         elif self.split == 'val' or self.split == 'test':
             question = self.ins_question
+            if gt_masks == []:
+                gt_masks = [np.zeros((width,height))]
         else:
             raise NotImplementedError
         

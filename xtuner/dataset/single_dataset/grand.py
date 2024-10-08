@@ -7,10 +7,12 @@ import random
 from torch.utils.data import Dataset
 from pycocotools.mask import decode
 import time
+import shutil
+import cv2
 from PIL import Image
 import re
 from .mixin import MInstrDataset
-from xtuner.dataset.utils import norm_box_xyxy,de_norm_box_xyxy
+from xtuner.dataset.utils import norm_box_xyxy,de_norm_box_xyxy,visualize_box,visualize_box_single,visualize_mask_single,visualize_mask
 from xtuner.registry import DATASETS
 from xtuner.utils.constants import (
     IMAGE_PLACEHOLDER,
@@ -711,8 +713,9 @@ class GranDDataset(MInstrDataset):
         id_map = {}
 
         for i,object in enumerate(objects):
-            box = resize_box(object['bbox'],width=ret['image']['width'],
-                             height=ret['image']['height'],ratio=ratio)
+            # box = resize_box(object['bbox'],width=ret['image']['width'],
+            #                  height=ret['image']['height'],ratio=ratio)
+            box = object['bbox']
             mask = resize_mask(object['segmentation'],width=ret['image']['width'],
                              height=ret['image']['height'],ratio=ratio)
             det_dict['bboxes'].append(box)
@@ -1163,7 +1166,7 @@ class GranDDataset(MInstrDataset):
             return ret  
         
         elif self.version == 'mix':
-            ret = self.mix(ret,objects,floating_objects,captions,random_select=True,length=self.length,ratio=ratio)
+            ret = self.mix(ret,objects,floating_objects,captions,random_select=False,length=self.length,ratio=ratio)
             return ret
         
     def __len__(self):
@@ -1195,5 +1198,35 @@ class GranDDataset(MInstrDataset):
 
         ret = self.make_conversations(ret,annotations,ratio=self.ratio)
         ret['map_placeholders'] = self.map_placeholders
+
+        # ori_path = 'vis_origin.jpg'
+        # shutil.copy(ret['image']['path'], ori_path)
+
+        # image = Image.open(ret['image']['path'])
+
+        # if 'masks' in ret['target'].keys():
+        #     masks = ret['target']['masks']
+        #     new_masks = []
+        #     for j,mask in enumerate(masks):
+        #         mask = Image.fromarray(mask)
+        #         mask = mask.resize((int(image.width),int(image.height)), Image.LANCZOS)
+        #         mask = np.array(mask)
+        #         mask[mask!=0] = 1
+        #         new_masks.append(mask)
+        #         # vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #         # save_path = f'vis_mask_{j}.jpg'
+        #         # cv2.imwrite(save_path, vis_mask)
+        #     image = visualize_mask(image,new_masks)
+        #     image = Image.fromarray(image)
+        #     image.save('vis_mask.jpg')
+        
+        # if 'boxes' in ret['target'].keys():
+        #     boxes = ret['target']['boxes']
+        #     vis_box = visualize_box(image,boxes)
+        #     # for k,box in enumerate(boxes):
+        #         # denorm_box = de_norm_box_xyxy(box,width,height)
+        #         # vis_box = visualize_box_single(image.copy(), box)
+        #     save_path = f'vis_box.jpg'
+        #     cv2.imwrite(save_path, vis_box)
 
         return ret

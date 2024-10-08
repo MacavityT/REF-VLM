@@ -382,7 +382,7 @@ class MaskDecoderModel(DecoderModel):
         )
         sequence_output = decoder_outputs[0]
         mask_embeddings = self.mask_embedder(sequence_output)
-        masks_queries_logits = torch.einsum("bqc, bchw -> bqhw", mask_embeddings, pixel_embeddings)
+        masks_queries_logits = torch.einsum("bqc, bchw -> bqhw", mask_embeddings, pixel_embeddings).float()
         
         loss = None
         if mode == 'loss':   

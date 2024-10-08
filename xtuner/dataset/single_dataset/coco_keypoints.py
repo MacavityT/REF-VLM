@@ -10,7 +10,7 @@ from xtuner.registry import DATASETS
 from pycocotools.mask import decode
 from xtuner.dataset.utils import convert_bbox
 import pycocotools.mask as mask_utils
-from xtuner.dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single
+from xtuner.dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single,visualize_box
 from xtuner.utils.constants import (
     KEYPOINTS_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
@@ -66,6 +66,9 @@ class COCOKeypointsDataset(MInstrDataset):
             return len(self.imgToAnns.keys())
 
     def __getitem__(self, index):
+        offline_item = super().__getitem__(index)
+        if offline_item is not None:
+            return offline_item
         anno_item = list(self.imgToAnns.items())[index]
         info = self.imgs[anno_item[0]]
         img_info = {
@@ -80,6 +83,7 @@ class COCOKeypointsDataset(MInstrDataset):
         all_boxes = []
         keypoints_seq = []
         question = self.get_template()
+        # question = 'Please detect the bounding boxes in the image.'
         count = 0
         for annotation in annotations:
             num_keypoints = annotation['num_keypoints']
@@ -90,6 +94,8 @@ class COCOKeypointsDataset(MInstrDataset):
                 # image = np.array(Image.open(img_info['path']).convert('RGB'))
                 # skeleton = self.cats[1]['skeleton']
                 # visualize_keypoints(image=image,keypoints=keypoints,skeleton=skeleton,index=count)
+                # box_image = visualize_box(image,[bbox],labels=['person'])
+                # Image.fromarray(box_image).save(f'bbox_{count}.jpg')
                 # end
 
                 all_boxes.append(bbox)
@@ -101,11 +107,13 @@ class COCOKeypointsDataset(MInstrDataset):
         if all_keypoints != []:
             # answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{KEYPOINTS_PLACEHOLDER*len(all_keypoints)}'
             PLACE_HOLDER = BOXES_PLACEHOLDER + KEYPOINTS_PLACEHOLDER
+            # PLACE_HOLDER = BOXES_PLACEHOLDER
             answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{PLACE_HOLDER*len(all_keypoints)}'
             
             ret = {
                 'image':img_info,
                 'target': {'boxes':all_boxes,'keypoints':all_keypoints},
+                # 'target': {'boxes':all_boxes},
                 'conversations':[
                     # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
                     {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
