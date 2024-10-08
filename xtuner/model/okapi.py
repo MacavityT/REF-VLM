@@ -726,8 +726,8 @@ class OkapiModel(BaseModel):
     def forward(self, data, data_samples=None, mode='loss'):
         metas = dict()
         meta_keys = [
-            'pixel_values', 'image_path',
-            'ori_height', 'ori_width',
+            # 'pixel_values', 'image_path',
+            # 'ori_height', 'ori_width',
             'decode_labels', 'decode_units',
             'decode_seqs', 'conversations',
             'pixel_masks'
