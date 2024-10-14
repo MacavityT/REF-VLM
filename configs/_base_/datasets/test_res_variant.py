@@ -1,0 +1,44 @@
+res_test_common_cfg = dict(
+    type='RESDataset',
+    image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
+    max_dynamic_size=None,
+    template_name=r'RES',
+    map_placeholders=dict(
+        input=["<masks>"],
+    ),     
+)
+
+test_res_variant = dict(
+    res_refcoco_testa=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco/testA.jsonl',
+    ),
+    res_refcoco_testb=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco/testB.jsonl',
+    ),
+    res_refcoco_val=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco/val.jsonl',
+    ),
+    res_refcocoa_testa=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco+/testA.jsonl',
+    ),
+    res_refcocoa_testb=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco+/testB.jsonl',
+    ),
+    res_refcocoa_val=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco+/val.jsonl',
+    ),
+    res_refcocog_test=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcocog/test.jsonl',
+    ),
+    res_refcocog_val=dict(
+        **res_test_common_cfg,
+        text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcocog/val.jsonl',
+    ),
+)
