@@ -56,8 +56,7 @@ accelerate config
 
 
 ## Checkpoint
-Download our [LCL-2WAY-WEIGHT](https://huggingface.co/ISEKAI-Portal/LCL_2WAY_WEIGHT/tree/main) and [LCL-MIX](https://huggingface.co/ISEKAI-Portal/LCL-Mix) checkpoints in huggingface. 
-
+Coming soon.
 
 
 ## Demo
