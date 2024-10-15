@@ -1,38 +1,16 @@
 # VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning
 
 <p align="center" width="100%">
-<img src="ISEKAI_overview.png"  width="80%" height="80%">
+<img src="images/A_00_First.jpg"  width="80%" height="80%">
 </p>
 
-<div>
-<div align="center">
-    <a href='https://macavityt.github.io/' target='_blank'>Yan Tai<sup>*,2,3,4</sup></a>&emsp;
-    <a href='https://weichenfan.github.io/Weichen/' target='_blank'>Luhao Zhu<sup>*,†,3</sup></a>&emsp;
-    <a href='https://zhaozhang.net/' target='_blank'>Zhao Zhang<sup>3</sup></a>&emsp;
-    <a href='https://liuziwei7.github.io/' target='_blank'>Ziwei Liu<sup>&#x2709,1</sup></a>
-</div>
-<div>
-<div align="center">
-    <sup>1</sup>S-Lab, Nanyang Technological University&emsp;
-    <sup>2</sup>Shanghai Jiao Tong University&emsp;
-    <sup>3</sup>SenseTime Research&emsp;
-    <br><sup>4</sup>Ningbo Institute of Digital Twin, Eastern Institute of Technology, Ningbo, China<br>&emsp;
-    </br>
-    <sup>*</sup> Equal Contribution&emsp;
-    <sup>†</sup> Project Lead&emsp;
-    <sup>&#x2709</sup> Corresponding Author
-</div>
+
  
  -----------------
 
-![](https://img.shields.io/badge/ISEKAI-v0.1-darkcyan)
-![](https://img.shields.io/github/stars/isekai-portal/Link-Context-Learning)
-![](https://black.readthedocs.io/en/stable/_static/license.svg)
-[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fisekai-portal%2FLink-Context-Learning&count_bg=%23BDC4B7&title_bg=%2342C4A8&icon=octopusdeploy.svg&icon_color=%23E7E7E7&title=visitors&edge_flat=true)](https://hits.seeyoufarm.com)
-[![Dataset](https://img.shields.io/badge/Dataset-Download-blue)](https://huggingface.co/ISEKAI-Portal) 
-[![Generic badge](https://img.shields.io/badge/DEMO-LCL_Demo-<COLOR>.svg)](http://117.144.81.99:20488/)
 
-Official PyTorch implementation of "[Link-Context Learning for Multimodal LLMs](https://arxiv.org/pdf/2308.07891.pdf)" [CVPR 2024].
+
+Official PyTorch implementation of "[VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning](https://openreview.net/forum?id=a4PBF1YInZ)" [ICLR 2025 under review].
 
 ## Updates
 <!-- - **28 Feb, 2024** :boom::boom: Our paper has been accepted by CVPR 2024! 🎉
@@ -43,10 +21,10 @@ Official PyTorch implementation of "[Link-Context Learning for Multimodal LLMs](
 ---
 This repository contains the **official implementation** and **dataset** of the following paper:
 
-> **Link-Context Learning for Multimodal LLMs**<br>
-> https://arxiv.org/abs/2308.07891
+> **VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning**<br>
+> https://openreview.net/forum?id=a4PBF1YInZ
 >
-> **Abstract:** *The ability to learn from context with novel concepts, and deliver appropriate responses are essential in human conversations. Despite current Multimodal Large Language Models (MLLMs) and Large Language Models (LLMs) being trained on mega-scale datasets, recognizing unseen images or understanding novel concepts in a training-free manner remains a challenge. In-Context Learning (ICL) explores training-free few-shot learning, where models are encouraged to "learn to learn" from limited tasks and generalize to unseen tasks. In this work, we propose link-context learning (LCL), which emphasizes "reasoning from cause and effect" to augment the learning capabilities of MLLMs. LCL goes beyond traditional ICL by explicitly strengthening the causal relationship between the support set and the query set. By providing demonstrations with causal links, LCL guides the model to discern not only the analogy but also the underlying causal associations between data points, which empowers MLLMs to recognize unseen images and understand novel concepts more effectively. To facilitate the evaluation of this novel approach, we introduce the ISEKAI dataset, comprising exclusively of unseen generated image-label pairs designed for link-context learning. Extensive experiments show that our LCL-MLLM exhibits strong link-context learning capabilities to novel concepts over vanilla MLLMs.*
+> **Abstract:** *Multimodal Large Language Models (MLLMs) demonstrate robust zero-shot capabilities across diverse vision-language tasks after training on mega-scale datasets. However, dense prediction tasks, such as semantic segmentation and keypoint detection, pose significant challenges for MLLMs when represented solely as text outputs. These challenges often necessitate task-specific visual decoders, leading to the underutilization of MLLMs' multi-task potential. In this work, we propose VT-PLUG, a novel framework that leverages modular visual components as scalable plugins for a variety of visual applications. During the joint training of vision-language tasks with varying prediction densities, we propose a Visual Decoding Chain-of-Thought (VD-CoT) mechanism to prevent task conflicts. VD-CoT requires the model to predict the current task's recognition entities, decoding unit type, and other specific details, while also providing learnable queries for precise decoding. Additionally, we construct VT-Instruct, a large-scale multi-task dataset containing over 100 million multimodal dialogue samples across 25 task types. Beyond text inputs and outputs, VT-Instruct incorporates various visual prompts such as point, box, scribble, and mask, and generates outputs composed of text and visual units like point, box, keypoint, and mask. The combination of different visual prompts and visual units generates a wide variety of task types, expanding the applicability of VT-PLUG significantly.*
 
   
 ## Todo
@@ -54,7 +32,7 @@ This repository contains the **official implementation** and **dataset** of the 
 1. [x] Release the training and inference code.
 2. [ ] Release the checkpoints.
 3. [ ] Release the VT-Instruct dataset.
-4. [ ] Release the demo.
+4. [x] Release the demo.
 
 ## Get Start
 
