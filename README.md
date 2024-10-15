@@ -42,10 +42,12 @@ This repository contains the **official implementation** and **dataset** of the 
 - [Demo](#demo)
 
 ## Install
+### Dependencies
+1. This project is built on [Xtuner](https://github.com/InternLM/xtuner). Please refer to the official documents of these toolkits for installation guidance.
+2. The version of [transformers](https://github.com/huggingface/transformers) used in this project is v4.39.1. And we
+find using versions beyond v4.40.0 cannot reproduce the performances (we are debugging on this issue). 
+3. Accelerate is used to build the evaluation pipeline of our models. Please refer to its official [webpage](https://github.com/huggingface/accelerate) for installation.
 
-```shell
-pip install -r requirements.txt
-```
 
 ### configure accelerate
 
@@ -53,7 +55,7 @@ pip install -r requirements.txt
 accelerate config
 ```
 ## Dataset
-
+Coming soon.
 
 ## Checkpoint
 Coming soon.
@@ -64,7 +66,7 @@ Coming soon.
 To launch a Gradio web demo, use the following command. Please note that the model evaluates in the torch.float16 format, which requires a GPU with at least 16GB of memory.
 
 ```shell
-python  --model_path /path/to/ckpt
+python demo/app.py --config /path/to/config
 ```
 
 <!-- It is also possible to use it in 8-bit quantization, albeit at the expense of sacrificing some performance.
@@ -79,28 +81,18 @@ After preparing [data](), you can train the model using the command:
 
 ### Stage1
 ```shell
-accelerate launch --num_processes 4 \
-        --main_process_port 23786 \
-        mllm/pipeline/finetune.py \
-        config/lcl_train_2way_weight.py \
-        --cfg-options data_args.use_icl=True \
-        --cfg-options model_args.model_name_or_path=/path/to/init/checkpoint
+NPROC_PER_NODE=8 xtuner train configs/train_stage1.py --deepspeed deepspeed_zero2
 ```
 
 ### Stage2
 ```shell
-accelerate launch --num_processes 4 \
-        --main_process_port 23786 \
-        mllm/pipeline/finetune.py \
-        config/lcl_train_mix1.py \
-        --cfg-options data_args.use_icl=True \
-        --cfg-options model_args.model_name_or_path=/path/to/init/checkpoint
+NPROC_PER_NODE=8 xtuner train configs/train_stage2.py --deepspeed deepspeed_zero2
 ```
 
 ### Stage3
-
-## Inference
-
+```shell
+NPROC_PER_NODE=8 xtuner train configs/train_stage2_keypoint.py --deepspeed deepspeed_zero2
+```
 
 ## Cite
 
