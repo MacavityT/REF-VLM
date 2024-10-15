@@ -20,7 +20,6 @@ with read_base():
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-
 # Data configs
 max_length = 2048 - 576 # use cutoff lens instead  4096 
 cutoff_len = 2048
