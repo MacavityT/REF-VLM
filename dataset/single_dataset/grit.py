@@ -9,8 +9,8 @@ from pycocotools.mask import decode
 from .mixin import MInstrDataset
 from ..utils import de_norm_box_xyxy
 import re
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import (
+from registry import DATASETS
+from utils.constants import (
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     OBJS_PLACEHOLDER,

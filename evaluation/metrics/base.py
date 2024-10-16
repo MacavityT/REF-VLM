@@ -12,7 +12,7 @@ from mmengine.logging import print_log
 from xtuner.registry import BUILDER
 from rich.console import Console
 from rich.table import Table
-from xtuner.utils.constants import (
+from utils.constants import (
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,

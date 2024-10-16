@@ -1,7 +1,7 @@
 import re
 
-from xtuner.registry import DATASETS, METRICS
-from xtuner.utils.constants import (
+from registry import DATASETS, METRICS
+from utils.constants import (
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
     QUESTION_PLACEHOLDER,

@@ -9,8 +9,8 @@ import re
 import random
 # from .stage2_data import CustomDataset
 # from osprey.train.train import preprocess, preprocess_multimodal
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import (
+from registry import DATASETS
+from utils.constants import (
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     BOXES_PLACEHOLDER,

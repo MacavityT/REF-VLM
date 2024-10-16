@@ -14,7 +14,7 @@ from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.dataset.utils import mask_square2origin,visualize_mask
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
+from utils.constants import BOT_TOKEN,EOT_TOKEN
 from enum import Enum
 from ..base import BaseComputeMetrics
 

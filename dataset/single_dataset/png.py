@@ -6,13 +6,13 @@ import numpy as np
 from collections import namedtuple
 from typing import Dict, List
 from PIL import Image
-from xtuner.registry import DATASETS
+from registry import DATASETS
 from collections import defaultdict
 import pycocotools.mask as mask_utils
 from pycocotools.mask import decode,encode
 from tqdm import tqdm
 import pickle
-from xtuner.utils.constants import (
+from utils.constants import (
     IMAGE_PLACEHOLDER,
     QUESTION_PLACEHOLDER, 
     OBJS_PLACEHOLDER,
@@ -27,8 +27,8 @@ from .mixin import MInstrDataset
 from mmengine.fileio import get
 from panopticapi import utils
 from mmdet.datasets.api_wrappers.coco_api import COCOPanoptic
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import IMAGE_PLACEHOLDER
+from registry import DATASETS
+from utils.constants import IMAGE_PLACEHOLDER
 from xtuner.dataset.utils import imfrombytes
 
 @DATASETS.register_module()

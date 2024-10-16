@@ -10,7 +10,7 @@ from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
+from utils.constants import BOT_TOKEN,EOT_TOKEN
 from ..base import BaseComputeMetrics
 
 

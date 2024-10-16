@@ -8,7 +8,7 @@ from typing import Dict, Any, Union, Sequence,List
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import (
+from utils.constants import (
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,

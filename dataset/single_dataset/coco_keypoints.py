@@ -6,12 +6,12 @@ import numpy as np
 import cv2
 import json
 from torch.utils.data import Dataset
-from xtuner.registry import DATASETS
+from registry import DATASETS
 from pycocotools.mask import decode
 from xtuner.dataset.utils import convert_bbox
 import pycocotools.mask as mask_utils
 from xtuner.dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single,visualize_box
-from xtuner.utils.constants import (
+from utils.constants import (
     KEYPOINTS_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     REGION_PLACEHOLDER,

@@ -6,8 +6,8 @@ import numpy as np
 from collections import namedtuple
 from typing import Dict, List
 from PIL import Image
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import (
+from registry import DATASETS
+from utils.constants import (
     IMAGE_PLACEHOLDER,
     QUESTION_PLACEHOLDER, 
     OBJS_PLACEHOLDER,
@@ -19,10 +19,7 @@ from xtuner.utils.constants import (
     CLASS_PLACEHOLDER
 )
 from .mixin import MInstrDataset
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import IMAGE_PLACEHOLDER
-
-
+from registry import DATASETS
 
 
 """

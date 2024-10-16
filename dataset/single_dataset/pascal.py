@@ -2,8 +2,8 @@ import os
 import random
 from PIL import Image
 import numpy as np
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import MASKS_PLACEHOLDER, IMAGE_PLACEHOLDER, PHRASE_ST_PLACEHOLDER_STAGE2, PHRASE_ED_PLACEHOLDER_STAGE2
+from registry import DATASETS
+from utils.constants import MASKS_PLACEHOLDER, IMAGE_PLACEHOLDER, PHRASE_ST_PLACEHOLDER_STAGE2, PHRASE_ED_PLACEHOLDER_STAGE2
 from .mixin import MInstrDataset
 
 def get_categories_with_prompt_eng(path, ignore_invalid):

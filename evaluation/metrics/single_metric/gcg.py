@@ -17,7 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from PIL import Image
 
-from xtuner.utils.constants import IGNORE_INDEX
+from utils.constants import IGNORE_INDEX
 from xtuner.dataset.utils import box_xywh_to_xyxy,mask_square2origin
 from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
 from .utils.process import SEGDETProcessor

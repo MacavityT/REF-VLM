@@ -5,7 +5,8 @@ from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
 from torch.utils.data import Subset as TorchSubset
 
-from xtuner.registry import BUILDER, DATASETS
+from xtuner.registry import BUILDER
+from registry import DATASETS
 
 # stolen from huggingface/datasets
 # https://github.com/huggingface/datasets/blob/074925b9b7c1dfd33b8675aa99c07cc26375665c/src/datasets/arrow_dataset.py#L5987

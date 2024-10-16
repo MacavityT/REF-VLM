@@ -1,8 +1,8 @@
 import json
 import re
 
-from xtuner.registry import DATASETS, METRICS
-from xtuner.utils.constants import (IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER, QUESTION_PLACEHOLDER,
+from registry import DATASETS, METRICS
+from utils.constants import (IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER, QUESTION_PLACEHOLDER,
                                     PHRASE_ST_PLACEHOLDER, PHRASE_ED_PLACEHOLDER)
 from xtuner.evaluation.metrics import BaseComputeMetrics
 from xtuner.dataset.single_dataset.mixin import MInstrDataset

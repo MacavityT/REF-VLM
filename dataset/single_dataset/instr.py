@@ -1,4 +1,4 @@
-from xtuner.registry import DATASETS
+from registry import DATASETS
 from .mixin import MInstrDataset
 
 

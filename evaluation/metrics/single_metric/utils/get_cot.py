@@ -1,9 +1,9 @@
 import re
-from xtuner.utils.constants import PHRASE_ST_PLACEHOLDER_STAGE2,PHRASE_ED_PLACEHOLDER_STAGE2
+from utils.constants import PHRASE_ST_PLACEHOLDER_STAGE2,PHRASE_ED_PLACEHOLDER_STAGE2
 
 
 import torch
-from xtuner.utils.constants import (
+from utils.constants import (
     SPECIAL_TOKENS,
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,

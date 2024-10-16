@@ -14,7 +14,7 @@ import random
 from PIL import Image
 
 from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
-from xtuner.utils.constants import MASKS_PLACEHOLDER
+from utils.constants import MASKS_PLACEHOLDER
 from xtuner.dataset import OkapiDataset
 from xtuner.dataset.collate_fns import okapi_collate_fn
 from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements

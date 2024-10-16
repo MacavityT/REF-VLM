@@ -412,7 +412,7 @@ class VTInstructDataset(Dataset):
                 )
                 data_dict['decode_labels'] = decode_labels
         except Exception as e:
-            from xtuner.model.utils import save_wrong_data
+            from model.utils import save_wrong_data
             print(e)
             save_wrong_data(f"wrong_data_dict", data_dict)
             raise ValueError('Error in get data process')

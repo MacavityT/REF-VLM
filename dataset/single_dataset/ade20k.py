@@ -5,9 +5,9 @@ from PIL import Image
 import numpy as np
 import json
 from torch.utils.data import Dataset
-from xtuner.registry import DATASETS
 from pycocotools.mask import decode
-from xtuner.utils.constants import (
+from registry import DATASETS
+from utils.constants import (
     MASKS_PLACEHOLDER,
     IMAGE_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,

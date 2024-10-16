@@ -5,14 +5,14 @@ from PIL import Image
 import numpy as np
 import json
 from torch.utils.data import Dataset
-from xtuner.registry import DATASETS
+from registry import DATASETS
 from pycocotools.mask import decode
 import shutil
 import cv2
 from xtuner.dataset.utils import convert_bbox,visualize_mask,visualize_box
 import pycocotools.mask as mask_utils
 
-from xtuner.utils.constants import (
+from utils.constants import (
     MASKS_PLACEHOLDER,
     BOXES_PLACEHOLDER,
     IMAGE_PLACEHOLDER,

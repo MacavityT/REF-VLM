@@ -1,7 +1,7 @@
 import re
 from mmengine.registry.root import METRICS
 from typing import Dict, Any, Union, Sequence,List
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
+from utils.constants import BOT_TOKEN,EOT_TOKEN
 from ..base import BaseComputeMetrics
 
 ANS_EXTRACT_PAT = re.compile(r'(?:(?:(?:(?:(?:So t)|(?:T)|(?:t))he answer is)|(?:Answer:)) (.+))')

@@ -15,13 +15,9 @@ from xtuner.tools.utils import get_stop_criteria
 from xtuner.dataset.utils import masks_expand2square,mask_transform
 from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
-from xtuner.utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
+from utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
-
-
-
-
 
 class OkapiInference:
 

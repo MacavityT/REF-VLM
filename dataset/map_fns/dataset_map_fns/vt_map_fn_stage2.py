@@ -4,7 +4,7 @@ import numpy as np
 import os
 import copy
 from typing import List, Dict, Any, Tuple, Union
-from xtuner.utils.constants import (
+from utils.constants import (
     DEFAULT_IMAGE_TOKEN,
     BOXES_PLACEHOLDER,
     MASKS_PLACEHOLDER,

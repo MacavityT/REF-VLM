@@ -10,8 +10,8 @@ from torchvision.ops import box_iou
 #     BoxFormatter,
 # )
 
-from xtuner.registry import DATASETS, METRICS
-from xtuner.utils.constants import (
+from registry import DATASETS, METRICS
+from utils.constants import (
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,
     IMAGE_PLACEHOLDER,

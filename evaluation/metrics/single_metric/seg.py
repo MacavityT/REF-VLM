@@ -18,7 +18,7 @@ from xtuner.dataset.utils import mask_square2origin
 from detectron2.utils.memory import retry_if_cuda_oom
 
 from xtuner.utils import IGNORE_INDEX
-from xtuner.utils.constants import BOT_TOKEN,EOT_TOKEN
+from utils.constants import BOT_TOKEN,EOT_TOKEN
 from .utils.register_ade20k_panoptic import register_all_ade20k_panoptic,register_all_ade20k_semantic
 from .utils.register_cityscapes_panoptic import register_all_cityscapes_panoptic
 from .utils.get_cot import get_matches_from_text

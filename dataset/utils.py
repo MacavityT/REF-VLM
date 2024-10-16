@@ -12,12 +12,13 @@ import requests
 import random
 from PIL import Image
 
-from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
-from ..utils import VISUAL_PROMPT_PLACEHOLDER ,VISUAL_PROMPT_INDEX
-import matplotlib.pyplot as plt
 import cv2
-import mmengine.fileio as fileio
+import matplotlib.pyplot as plt
 from mmengine.utils import is_str
+import mmengine.fileio as fileio
+from xtuner.utils import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
+from utils import VISUAL_PROMPT_PLACEHOLDER ,VISUAL_PROMPT_INDEX
+
 from cv2 import (IMREAD_COLOR, IMREAD_GRAYSCALE, IMREAD_IGNORE_ORIENTATION,
                  IMREAD_UNCHANGED)
 imread_flags = {

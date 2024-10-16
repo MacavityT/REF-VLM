@@ -1,6 +1,6 @@
-from xtuner.registry import DATASETS
+from registry import DATASETS
 import json
-from xtuner.utils.constants import (
+from utils.constants import (
     QUESTION_PLACEHOLDER,
     IMAGE_PLACEHOLDER)
 

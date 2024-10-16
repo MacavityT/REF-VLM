@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 from pycocotools.coco import COCO
 from pycocotools.mask import decode,encode
 from PIL import Image
-from xtuner.registry import DATASETS
+from registry import DATASETS
 import cv2
 import random
 import numpy as np
@@ -13,7 +13,7 @@ import jsonlines
 import pickle
 from tqdm import tqdm
 from xtuner.dataset.utils import convert_bbox, visualize_box_single
-from xtuner.utils.constants import (
+from utils.constants import (
     BOXES_PLACEHOLDER, 
     MASKS_PLACEHOLDER,
     REGION_PLACEHOLDER,

@@ -1,7 +1,7 @@
 import json
-from xtuner.registry import DATASETS
+from registry import DATASETS
 import os
-from xtuner.utils.constants import IMAGE_PLACEHOLDER,DEPTH_PLACEHOLDER
+from utils.constants import IMAGE_PLACEHOLDER,DEPTH_PLACEHOLDER
 from PIL import Image
 import numpy as np
 import re

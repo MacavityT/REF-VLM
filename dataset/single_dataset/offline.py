@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 from mmengine import print_log
 from torch.utils.data import Dataset
-from xtuner.registry import DATASETS
+from registry import DATASETS
 
 @DATASETS.register_module()
 class OfflineDataset(Dataset):

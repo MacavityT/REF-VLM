@@ -1,14 +1,14 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import re
 from typing import List, Dict, Any, Tuple, Union
-from xtuner.utils.constants import (
+from xtuner.utils import IGNORE_INDEX
+from xtuner.dataset.map_fns import llava_map_fn
+from utils.constants import (
     BOXES_PLACEHOLDER, 
     POINTS_PLACEHOLDER, 
     MASKS_PLACEHOLDER,
     DEFAULT_IMAGE_TOKEN
     )
-from xtuner.utils import IGNORE_INDEX
-from xtuner.dataset.map_fns import llava_map_fn
 
 Box = List[Union[float, int]]
 Boxes = List[Box]

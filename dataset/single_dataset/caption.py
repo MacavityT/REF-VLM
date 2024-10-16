@@ -1,6 +1,6 @@
 import json
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import IMAGE_PLACEHOLDER
+from utils.constants import IMAGE_PLACEHOLDER
+from registry import DATASETS
 from .mixin import MInstrDataset
 
 

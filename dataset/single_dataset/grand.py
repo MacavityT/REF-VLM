@@ -13,8 +13,8 @@ from PIL import Image
 import re
 from .mixin import MInstrDataset
 from xtuner.dataset.utils import norm_box_xyxy,de_norm_box_xyxy,visualize_box,visualize_box_single,visualize_mask_single,visualize_mask
-from xtuner.registry import DATASETS
-from xtuner.utils.constants import (
+from registry import DATASETS
+from utils.constants import (
     IMAGE_PLACEHOLDER,
     OBJS_PLACEHOLDER,
     BOXES_PLACEHOLDER,
