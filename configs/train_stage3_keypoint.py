@@ -30,7 +30,6 @@ batch_size = 8  # per_device
 dataloader_num_workers = 4
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
-ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
 
 accumulative_counts = 1
@@ -106,9 +105,6 @@ train_dataset = dict(
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_keypoint_map_fn,
-        args = dict(
-            ref_len=ref_length
-        )
     ),
     template_map_fn=dict(
         type=okapi_template_map_fn_factory, template=prompt_template),

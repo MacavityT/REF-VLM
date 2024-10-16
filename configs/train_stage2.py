@@ -28,7 +28,6 @@ batch_size = 15  # per_device
 dataloader_num_workers = 4
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
-ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
 
 
@@ -41,7 +40,6 @@ train_dataset = dict(
         function=okapi_map_fn_stage2,
         args = dict(
             # use_cot=False,   # use_cot
-            ref_len=ref_length
         )
     ),
     template_map_fn=dict(

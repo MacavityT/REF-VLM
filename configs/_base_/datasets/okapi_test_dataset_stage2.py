@@ -1,4 +1,6 @@
 from mmengine.config import read_base
+from utils import PROMPT_TEMPLATE
+from model import VTPlugModel
 
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
@@ -15,10 +17,16 @@ with read_base():
     from .test_cocodet_variant import test_cocodet_variant
     from .test_cocogcg_variant import test_cocogcg_variant
 
-from utils import PROMPT_TEMPLATE
+# Params
+max_length = 2048 - 576 # use cutoff lens instead
+cutoff_len = 2048
+visual_hidden_size = 1024 # visual_encoder.config.hidden_size
+vpt_num_patches = 9
+vpt_patch_size = 8 # sqrt(576/9)=8
 prompt_template = PROMPT_TEMPLATE.vd_cot
-test_cfg = dict(type='TestLoop')
 
+# Datasets
+test_cfg = dict(type='TestLoop')
 test_all_dataset = dict(
     caption=dict(
         type='CaptionDataset',

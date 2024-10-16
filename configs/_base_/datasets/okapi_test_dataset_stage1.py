@@ -8,14 +8,13 @@ with read_base():
     from ..models.all_visual_encoders import clip_patch14_336
     from .test_reg_variant import test_reg_variant
 
-# Functions
+# Params
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
 cutoff_len = 2048
 visual_hidden_size = 1024
 
 # Datasets
-dataloader_num_workers = 5
 test_cfg = dict(type='TestLoop')
 
 test_all_dataset = dict(

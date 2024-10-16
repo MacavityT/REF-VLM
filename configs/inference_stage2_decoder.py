@@ -21,10 +21,8 @@ cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
-ref_length = 1
 
 model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter14500'
-
 
 projector = dict(
     type=AutoModel.from_pretrained,
@@ -67,9 +65,6 @@ infer_dataset = dict(
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=vt_map_fn_stage2,
-        args = dict(
-            ref_len=ref_length
-        )
     ),
     template_map_fn=dict(
         type=vt_template_map_fn_factory, template=prompt_template),

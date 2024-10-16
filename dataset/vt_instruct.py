@@ -78,7 +78,7 @@ class VTInstructDataset(Dataset):
             isinstance(dataset_map_fn, ConfigDict):
             self.dataset_map_fn = partial(
                 dataset_map_fn['function'], 
-                **dataset_map_fn['args']
+                **dataset_map_fn['args'] if 'args' in dataset_map_fn else dict()
             )
 
         if isinstance(template_map_fn, dict) or \

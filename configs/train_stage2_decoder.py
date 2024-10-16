@@ -28,12 +28,7 @@ dataloader_num_workers = 4
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
-ref_box_num = 100
-ref_mask_num = 30
-ref_box_queries = ref_box_num * ref_length
-ref_mask_queries = ref_mask_num * ref_length
 prompt_template = PROMPT_TEMPLATE.okapi
-
 
 # dataset grand det and seg
 # dataset_args = [
@@ -61,9 +56,6 @@ train_dataset = dict(
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
-        args = dict(
-            ref_len=ref_length
-        )
     ),
     template_map_fn=dict(
         type=okapi_template_map_fn_factory, template=prompt_template),
@@ -130,7 +122,7 @@ model=dict(
     visual_decoder=dict(
         box=dict(
             use_group_matcher=True,
-            num_queries=ref_box_queries,
+            num_queries=100,
             # quries_input_dim=256,
             quries_input_dim=4096,
             encoder_input_transform='resize_concat',
@@ -157,7 +149,7 @@ model=dict(
         ),
         mask=dict(
             use_group_matcher=True,
-            num_queries=ref_mask_queries,
+            num_queries=30,
             # quries_input_dim=256,
             quries_input_dim=4096,
             encoder_input_transform='multiple_select',
