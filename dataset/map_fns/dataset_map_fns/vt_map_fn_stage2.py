@@ -242,7 +242,7 @@ def target_map_fn(example):
         result['decode_labels'] = decode_labels
     return result
 
-def conversation_map_fn(example, vrt_len=64, ref_len=1, use_cot=True):
+def conversation_map_fn(example, ref_len=1, use_cot=True):
     messages = example['conversations']
 
     system_list = []
@@ -273,11 +273,7 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1, use_cot=True):
         if msg['from'] == 'human':
             if DEFAULT_IMAGE_TOKEN in msg['value']:
                 msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN, '').strip()
-                if vrt_len > 0:
-                    vrt = f"{BOV_TOKEN}{VISUAL_REPRESENTATION_TOKEN * vrt_len}{EOV_TOKEN}\n"
-                else:
-                    vrt = ''
-                msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + vrt + msg['value']
+                msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + msg['value']
                 msg['value'] = msg['value'].strip()
             input += msg['value']
 
@@ -336,18 +332,18 @@ def conversation_map_fn(example, vrt_len=64, ref_len=1, use_cot=True):
     return {'conversation': res_conversation}
 
 
-def vt_map_fn_stage2(example, vrt_len=256, ref_len=1, use_cot=True):
+def vt_map_fn_stage2(example, ref_len=1, use_cot=True):
     messages = example['conversations']
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt
         example['conversations'] = example['conversations'][1:]
 
     res = target_map_fn(example)
-    conversation = conversation_map_fn(example, vrt_len, ref_len, use_cot)
+    conversation = conversation_map_fn(example, ref_len, use_cot)
     res.update(conversation)
     return res
 
-def vt_keypoint_map_fn(example, vrt_len=256, ref_len=1, use_cot=True):
+def vt_keypoint_map_fn(example, ref_len=1, use_cot=True):
     messages = example['conversations']
     while messages and messages[0]['from'] == 'gpt':
         # Skip the first one if it is from gpt
@@ -374,6 +370,6 @@ def vt_keypoint_map_fn(example, vrt_len=256, ref_len=1, use_cot=True):
         new_messages.append(msg)
     example['conversations'] = new_messages
 
-    conversation = conversation_map_fn(example, vrt_len, ref_len, use_cot)
+    conversation = conversation_map_fn(example, ref_len, use_cot)
     res.update(conversation)
     return res

@@ -19,7 +19,6 @@ with read_base():
 max_length = 2048 - 576 
 cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-vrt_length = 0
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
@@ -69,7 +68,6 @@ infer_dataset = dict(
     dataset_map_fn=dict(
         function=vt_map_fn_stage2,
         args = dict(
-            vrt_len=vrt_length, 
             ref_len=ref_length
         )
     ),

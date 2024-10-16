@@ -5,6 +5,9 @@ with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
+from xtuner.utils import PROMPT_TEMPLATE
+prompt_template = PROMPT_TEMPLATE.vicuna
+
 gc = dict(
     type='SubSet',
     portion=1/20,

@@ -33,7 +33,6 @@ clip_convnext_320 = dict(
     )
 )
 
-
 clip_convnext_512 = dict(
     image_processor=dict(
         type=_build_convnext_processor,

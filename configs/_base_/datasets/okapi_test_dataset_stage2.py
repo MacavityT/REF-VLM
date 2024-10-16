@@ -1,5 +1,4 @@
 from mmengine.config import read_base
-from utils import PROMPT_TEMPLATE
 
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
@@ -16,6 +15,7 @@ with read_base():
     from .test_cocodet_variant import test_cocodet_variant
     from .test_cocogcg_variant import test_cocogcg_variant
 
+from utils import PROMPT_TEMPLATE
 prompt_template = PROMPT_TEMPLATE.vd_cot
 test_cfg = dict(type='TestLoop')
 

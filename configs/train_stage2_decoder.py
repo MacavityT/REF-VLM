@@ -11,13 +11,12 @@ from xtuner.dataset.collate_fns import okapi_collate_fn
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320, clip_convnext_512
+    from ._base_.models.all_visual_encoders import *
     from ._base_.datasets.okapi_train_dataset_stage2 import *
     from ._base_.datasets.okapi_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
-
 
 
 # Data configs
@@ -26,7 +25,6 @@ cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 15  # per_device
 dataloader_num_workers = 4
-vrt_length = 0  # 256
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
@@ -64,7 +62,6 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
         args = dict(
-            vrt_len=vrt_length, 
             ref_len=ref_length
         )
     ),

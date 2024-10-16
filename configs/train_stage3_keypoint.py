@@ -28,7 +28,6 @@ cutoff_len = 2048
 visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 8  # per_device
 dataloader_num_workers = 4
-vrt_length = 0
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
@@ -99,9 +98,6 @@ param_scheduler = [
 # train, val, test setting
 train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
-
-
-
 train_dataset = dict(
     type=OkapiDataset,
     dataset=dataset_args_sft,
@@ -111,7 +107,6 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_keypoint_map_fn,
         args = dict(
-            vrt_len=vrt_length, 
             ref_len=ref_length
         )
     ),

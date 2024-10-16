@@ -36,7 +36,6 @@ max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
 visual_hidden_size = 1024
-vrt_length = 0
 ref_length = 1
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
@@ -356,7 +355,6 @@ test_dataset = dict(
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
         args = dict(
-            vrt_len=vrt_length, 
             ref_len=ref_length
         )
     ),

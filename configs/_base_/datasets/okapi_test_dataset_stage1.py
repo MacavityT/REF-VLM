@@ -1,10 +1,6 @@
-from xtuner.dataset.collate_fns import default_collate_fn
-from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory, okapi_map_fn
-
 from mmengine.config import read_base
 from xtuner.utils import PROMPT_TEMPLATE
 
-from dataset import VTInstructDataset
 from evaluation.metrics.single_metric import VQAComputeMetrics
 
 with read_base():
@@ -12,11 +8,13 @@ with read_base():
     from ..models.all_visual_encoders import clip_patch14_336
     from .test_reg_variant import test_reg_variant
 
-# Data
+# Functions
 prompt_template = PROMPT_TEMPLATE.vicuna
 max_length = int(2048 - (336 / 14)**2)
+cutoff_len = 2048
+visual_hidden_size = 1024
 
-
+# Datasets
 dataloader_num_workers = 5
 test_cfg = dict(type='TestLoop')
 
@@ -58,11 +56,3 @@ test_dataset_args = [
 
 test_evaluator = dict(
     type=VQAComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='vqa')
-
-# test_evaluator = dict(
-#     type=ImgCapComputeMetrics, tokenizer=vicuna_7b_path_tokenizer, prefix='caption')
-
-
-
-
-
