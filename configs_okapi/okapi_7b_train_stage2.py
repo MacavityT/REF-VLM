@@ -64,7 +64,7 @@ val_cfg = None
 # config models
 # pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/iter_3558.pth'
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_nodecoder_iter64500'
+model_dir = 'checkpoints/vicuna_7b/hf_model/0828_nodecoder_iter64500'
 projector = dict(
     type=AutoModel.from_pretrained,
     pretrained_model_name_or_path=f"{model_dir}/projector",

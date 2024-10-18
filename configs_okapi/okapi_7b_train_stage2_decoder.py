@@ -85,7 +85,7 @@ val_cfg = None
 # config models
 # pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0828_nodecoder_iter64500'
+model_dir = 'checkpoints/vicuna_7b/hf_model/0828_nodecoder_iter64500'
 
 
 projector = dict(

@@ -42,7 +42,7 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter23000"
+model_dir = "checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
 
 dataset_args_sft = [
     # train_all_dataset['lvis_box']

@@ -24,7 +24,7 @@ vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter14500'
+model_dir = 'checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter14500'
 
 
 projector = dict(

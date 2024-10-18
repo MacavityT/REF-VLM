@@ -43,7 +43,7 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000"
+model_dir = "checkpoints/vicuna_7b/hf_model/0929_keypoint_iter14000"
 
 dataset_args_sft = [
     train_all_dataset['keypoints2017_det'],
@@ -168,7 +168,7 @@ mask_decoder = dict(
 
 model=dict(
     type=OkapiModel,
-    freeze_llm=False,
+    freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
