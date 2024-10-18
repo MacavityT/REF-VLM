@@ -4,11 +4,9 @@ from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336
-    from ._base_.datasets.okapi_train_dataset_stage1 import *
-    from ._base_.datasets.okapi_val_dataset_stage1 import *
+    from ._base_.datasets.vt_train_dataset_stage1 import *
+    from ._base_.datasets.vt_val_dataset_stage1 import *
     from ._base_.models.vt_plug_vicuna_7b import *
-    # from ._base_.models.okapi_llama3_8b import *
-    # from ._base_.models.okapi_mistral_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
@@ -19,7 +17,7 @@ batch_size = 32  # per_device
 dataloader_num_workers = 5
 
 train_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
@@ -53,7 +51,7 @@ train_dataloader = dict(
     collate_fn=dict(type=default_collate_fn))
 
 okapi_dataset_val = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=val_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,

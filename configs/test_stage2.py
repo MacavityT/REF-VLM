@@ -1,9 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-from xtuner.utils import PROMPT_TEMPLATE
+
 from transformers import AutoModelForCausalLM
-from xtuner.model import OkapiModel
-from xtuner.evaluation.metrics.single_metric import (
+from model import VTPlugModel
+from utils import PROMPT_TEMPLATE
+from evaluation.metrics.single_metric import (
     ImgCapComputeMetrics,
     VQAComputeMetrics,
     COTComputeMetrics,
@@ -15,28 +15,27 @@ from xtuner.evaluation.metrics.single_metric import (
     DETComputeMetrics,
     SEGComputeMetrics,
 )
-from xtuner.dataset.map_fns import (
-    okapi_map_fn_stage2,
-    okapi_template_map_fn_factory
+from dataset.map_fns import (
+    vt_map_fn_stage2,
+    vt_template_map_fn_factory
 )
-from xtuner.dataset.collate_fns import okapi_collate_fn
+from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
     from ._base_.models.all_visual_encoders import *
-    from ._base_.datasets.okapi_test_dataset_stage2 import *
+    from ._base_.datasets.vt_test_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
 # Data
-prompt_template = PROMPT_TEMPLATE.okapi
+prompt_template = PROMPT_TEMPLATE.vd_cot
 max_length = 10000  # use cutoff lens instead
 cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
 visual_hidden_size = 1024
-ref_length = 1
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 
@@ -45,7 +44,7 @@ eval_type = 'reg'
 prefix = 'res'
 chunk = 8
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/1001_mask_512_nomatcher/eval3355'
+save_dir = 'checkpoints/vicuna_7b/stage2/1001_mask_512_nomatcher/eval3355'
 
 if prefix == 'okvqa':
     test_evaluator = dict( 
@@ -343,16 +342,16 @@ elif prefix == 'label':
 
 
 test_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
-        function=okapi_map_fn_stage2,
+        function=vt_map_fn_stage2,
     ),
     template_map_fn=dict(
-        type=okapi_template_map_fn_factory, template=prompt_template),
+        type=vt_template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
 
@@ -365,7 +364,7 @@ test_dataloader = dict(
 
 
 model=dict(
-    type=OkapiModel,
+    type=VTPlugModel,
     freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,

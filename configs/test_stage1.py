@@ -8,7 +8,7 @@ from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
     from ._base_.models.all_visual_encoders import *
-    from ._base_.datasets.okapi_test_dataset_stage1 import *
+    from ._base_.datasets.vt_test_dataset_stage1 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
@@ -20,7 +20,7 @@ SYSTEM = ''
 evaluation_images = 'https://llava-vl.github.io/static/images/view.jpg'
 evaluation_inputs = ['请描述一下这张照片', 'Please describe this picture']
 
-save_dir = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage1/0510_1_20_gc_rvg/eval3558'
+save_dir = 'checkpoints/vicuna_7b/stage1/0510_1_20_gc_rvg/eval3558'
 
 
 # test_dataset_args = [
@@ -69,8 +69,8 @@ test_dataset_args = [
         )
 ]
 
-okapi_dataset_test = dict(
-    type=OkapiDataset,
+dataset_test = dict(
+    type=VTInstructDataset,
     pretokenize=False,
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
@@ -84,7 +84,7 @@ okapi_dataset_test = dict(
 test_dataloader = dict(
     batch_size=1,
     num_workers=dataloader_num_workers,
-    dataset=okapi_dataset_test,
+    dataset=dataset_test,
     sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=default_collate_fn))
 

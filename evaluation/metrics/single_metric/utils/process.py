@@ -227,8 +227,8 @@ class SEGDETProcessor:
                 self.text_tokenizer = AutoTokenizer.from_pretrained(model_path)
                 self.text_model = AutoModel.from_pretrained(model_path)
             else:
-                self.text_tokenizer = AutoTokenizer.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
-                self.text_model = AutoModel.from_pretrained("/model/Aaronzhu/OkapiModel/bert_base/bert-base-uncased")
+                self.text_tokenizer = AutoTokenizer.from_pretrained("checkpoints/bert_base/bert-base-uncased")
+                self.text_model = AutoModel.from_pretrained("checkpoints/bert_base/bert-base-uncased")
         elif text_model_type == 'clip':
             if model_path is not None:
                 self.text_tokenizer = AutoTokenizer.from_pretrained(model_path)

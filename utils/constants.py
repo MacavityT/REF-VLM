@@ -28,7 +28,7 @@ PHRASE_ST_PLACEHOLDER_STAGE2 = '<Phrase>'
 PHRASE_ED_PLACEHOLDER_STAGE2 = '</Phrase>'
 CLASS_PLACEHOLDER = '<cls>'
 
-""" Okapi constants: 
+""" VT-PLUG constants: 
 1. "xx_TOKEN" means special token and will be added into "added_tokens.json", denote as "<xxx>";
 2. "xx_PLACEHOLDER" means placeholder and will be replace with processed features, denote as "[xxx]"
 """

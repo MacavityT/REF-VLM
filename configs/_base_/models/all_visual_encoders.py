@@ -3,7 +3,7 @@ from model.modules.encoder import _build_convnext_processor, CLIPConvNextModel
 
 # openai/clip-vit-large-patch14-336
 clip_patch14_336_path = '/model/Aaronzhu/clip-14-336'
-clip_convnext_path = '/model/Aaronzhu/OkapiModel/CLIP-ConvNext'
+clip_convnext_path = 'checkpoints/CLIP-ConvNext'
 
 clip_patch14_336 = dict(
     image_processor = dict(

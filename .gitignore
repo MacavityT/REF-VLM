@@ -103,17 +103,6 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# custom
-data/
-data
-.vscode
-.idea
-.DS_Store
-*.pkl
-*.pkl.json
-*.log.json
-work_dirs/
-
 # Pytorch
 *.pth
 *.py~
@@ -124,6 +113,16 @@ work_dirs/
 batchscript-*
 
 # custom
+data/
+data
+.vscode
+.idea
+.DS_Store
+*.pkl
+*.pkl.json
+*.log.json
+work_dirs/
+checkpoints
 *sketch*
 *core*
 myhostfile.txt

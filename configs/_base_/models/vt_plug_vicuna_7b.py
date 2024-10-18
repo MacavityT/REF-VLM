@@ -5,7 +5,6 @@ with read_base():
     from .all_tokenizers import vicuna_7b_path, vicuna_7b_path_tokenizer
     from .all_visual_encoders import clip_patch14_336
 
-
 tokenizer = vicuna_7b_path_tokenizer
 model = dict(
     type=VTPlugModel,

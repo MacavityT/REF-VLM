@@ -7,13 +7,13 @@ from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_template_map_fn_factory
 )
-from xtuner.dataset.collate_fns import okapi_collate_fn
+from dataset.collate_fns import vt_collate_fn
 
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320, clip_convnext_512
-    from ._base_.datasets.okapi_train_dataset_stage2 import *
-    from ._base_.datasets.okapi_val_dataset_stage2 import *
+    from ._base_.datasets.vt_train_dataset_stage2 import *
+    from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
@@ -50,7 +50,7 @@ prompt_template = PROMPT_TEMPLATE.okapi
 #         dataset['stage'] = 2
 
 train_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     image_tower_processor=clip_convnext_512['image_processor'],
@@ -73,9 +73,9 @@ train_dataloader = dict(
 val_cfg = None
 
 # config models
-# pretrained_pth = '/model/Aaronzhu/OkapiModel/vicuna_7b/stage2/0828/iter_64500.pth'
+# pretrained_pth = 'checkpoints/vicuna_7b/stage2/0828/iter_64500.pth'
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_iter68871'
+model_dir = 'checkpoints/vicuna_7b/hf_model/0914_full_512_0124_iter68871'
 
 
 projector = dict(

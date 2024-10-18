@@ -13,18 +13,20 @@ import time
 import random
 from PIL import Image
 
-from xtuner.utils import PROMPT_TEMPLATE,DEFAULT_IMAGE_TOKEN,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
+from utils import PROMPT_TEMPLATE,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
 from utils.constants import MASKS_PLACEHOLDER
-from xtuner.dataset import OkapiDataset
-from xtuner.dataset.collate_fns import okapi_collate_fn
-from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
-from xtuner.dataset.utils import (visualize_box,
-                                  visualize_mask,
-                                  visualize_keypoints,
-                                  mask_square2origin,
-                                  draw_label_type,
-                                  denorm_box_xywh_square2origin,
-                                  de_norm_keypoint_square2origin)
+from dataset import VTInstructDataset
+from dataset.collate_fns import vt_collate_fn
+from dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
+from dataset.utils import (
+    visualize_box,
+    visualize_mask,
+    visualize_keypoints,
+    mask_square2origin,
+    draw_label_type,
+    denorm_box_xywh_square2origin,
+    de_norm_keypoint_square2origin
+)
 from inference import OkapiInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction

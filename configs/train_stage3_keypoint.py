@@ -11,13 +11,13 @@ from xtuner.dataset.map_fns import (
     okapi_keypoint_map_fn,
     okapi_template_map_fn_factory
 )
-from xtuner.dataset.collate_fns import okapi_collate_fn
+from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_512
-    from ._base_.datasets.okapi_train_dataset_stage2 import *
-    from ._base_.datasets.okapi_val_dataset_stage2 import *
+    from ._base_.datasets.vt_train_dataset_stage2 import *
+    from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.default_runtime import *
 
@@ -41,7 +41,7 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000"
+model_dir = "checkpoints/vicuna_7b/hf_model/0929_keypoint_iter14000"
 
 dataset_args_sft = [
     train_all_dataset['keypoints2017_det'],
@@ -98,7 +98,7 @@ param_scheduler = [
 train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
 train_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=dataset_args_sft,
     image_processor=clip_patch14_336['image_processor'],
     image_tower_processor=clip_convnext_512['image_processor'],

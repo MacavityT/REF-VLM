@@ -10,13 +10,13 @@ from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_template_map_fn_factory
 )
-from xtuner.dataset.collate_fns import okapi_collate_fn
+from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_512
-    from ._base_.datasets.okapi_train_dataset_stage2 import *
-    from ._base_.datasets.okapi_val_dataset_stage2 import *
+    from ._base_.datasets.vt_train_dataset_stage2 import *
+    from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.default_runtime import *
 
@@ -29,7 +29,6 @@ batch_size = 15  # per_device
 dataloader_num_workers = 4
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
-ref_length = 1
 prompt_template = PROMPT_TEMPLATE.okapi
 
 accumulative_counts = 1
@@ -41,7 +40,7 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter23000"
+model_dir = "checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
 
 dataset_args_sft = [
     # train_all_dataset['lvis_box']
@@ -122,16 +121,13 @@ train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
 
 train_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=dataset_args_sft,
     image_processor=clip_patch14_336['image_processor'],
     image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=okapi_map_fn_stage2,
-        args = dict(
-            ref_len=ref_length
-        )
     ),
     template_map_fn=dict(
         type=okapi_template_map_fn_factory, template=prompt_template),

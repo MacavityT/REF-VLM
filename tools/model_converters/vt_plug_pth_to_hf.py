@@ -9,8 +9,7 @@ from mmengine.fileio import PetrelBackend, get_file_backend
 from xtuner.configs import cfgs_name_path
 from xtuner.model.utils import guess_load_checkpoint
 from xtuner.registry import BUILDER
-from xtuner.model import OkapiModel
-
+from model import VTPlugModel
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -78,7 +77,7 @@ def main():
 
     print(f'Load PTH model from {args.pth_model}')
 
-    assert 'OkapiModel' in model_name
+    assert 'OkapiModel' in model_name or 'VTPlugModel' in model_name
     if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
                                     or cfg.model.get('llm_lora')):
         if 'PeftModel' in model.llm.__class__.__name__:

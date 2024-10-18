@@ -57,9 +57,30 @@ accelerate config
 ## Dataset
 Coming soon.
 
+```text
+VT-PLUG/
+├── checkpoints
+    ├── vicuna_7b
+        ├──stage1
+            ├──instances.json
+            ├──refs(unc).p
+        ├── stage2
+        ├── hf_model
+```
+
 ## Checkpoint
 Coming soon.
 
+```text
+VT-PLUG/
+├── checkpoints
+    ├── vicuna_7b
+        ├──stage1
+            ├──instances.json
+            ├──refs(unc).p
+        ├── stage2
+        ├── hf_model
+```
 
 ## Demo
 
@@ -91,7 +112,7 @@ NPROC_PER_NODE=8 xtuner train configs/train_stage2.py --deepspeed deepspeed_zero
 
 ### Stage3
 ```shell
-NPROC_PER_NODE=8 xtuner train configs/train_stage2_keypoint.py --deepspeed deepspeed_zero2
+NPROC_PER_NODE=8 xtuner train configs/train_stage3_keypoint.py --deepspeed deepspeed_zero2
 ```
 
 ## Cite

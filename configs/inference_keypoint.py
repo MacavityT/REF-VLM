@@ -5,13 +5,13 @@ from dataset.map_fns import (
 )
 import os
 from dataset.collate_fns import vt_collate_fn
-from transformers import AutoModel
+from transformers import AutoModel, AutoModelForCausalLM
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_320, clip_convnext_512
-    from ._base_.datasets.okapi_train_dataset_stage2 import *
-    from ._base_.datasets.okapi_val_dataset_stage2 import *
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320, clip_convnext_512
+    from ._base_.datasets.vt_train_dataset_stage2 import *
+    from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
 
 max_length = 2048 - 576 
@@ -20,8 +20,7 @@ visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000'
-
+model_dir = 'checkpoints/vicuna_7b/hf_model/0929_keypoint_iter14000'
 
 projector = dict(
     type=AutoModel.from_pretrained,
@@ -44,7 +43,7 @@ pose_decoder = dict(
 
 
 infer_dataset = dict(
-    type=OkapiDataset,
+    type=VTInstructDataset,
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     image_tower_processor=clip_convnext_512['image_processor'],
