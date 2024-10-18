@@ -24,9 +24,6 @@ from .utils.process import SEGDETProcessor
 from .utils.get_cot import get_matches_from_text, get_caption_text
 from ..base import BaseComputeMetrics
 
-
-
-
 @METRICS.register_module()
 class DETComputeMetrics(BaseComputeMetrics):
     def __init__(self, *args, eval_type, **kwargs):

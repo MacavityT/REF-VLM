@@ -360,7 +360,7 @@ test_dataloader = dict(
     num_workers=dataloader_num_workers,
     dataset=test_dataset,
     sampler=dict(type=DefaultSampler, shuffle=False),
-    collate_fn=dict(type=okapi_collate_fn))
+    collate_fn=dict(type=vt_collate_fn))
 
 
 model=dict(

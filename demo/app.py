@@ -255,7 +255,7 @@ def submit_step1(input_text, input_image, chatbot, radio, state, prompt_image_li
     state['input_data'].append_message_question(input_text,system_value,cur_prompt_image_list)
     state['input_data'].add_one_conversation()
     state['input_data_okapi'].add_dataset(state['input_data'])
-    state['dataloader'] = DataLoader(batch_size=1,num_workers=0,dataset=state['input_data_okapi'],collate_fn=okapi_collate_fn)
+    state['dataloader'] = DataLoader(batch_size=1,num_workers=0,dataset=state['input_data_okapi'],collate_fn=vt_collate_fn)
 
 
     return "", chatbot, state, prompt_image_list,radio,input_image
@@ -399,9 +399,9 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
 theme = gr.themes.Default()
 
 # title_markdown = ("""
-# ![LOGO](/code/okapi-mllm/demo/assets/logo/logo3.png)
+# ![LOGO](/code/vt_plug/demo/assets/logo/logo3.png)
 # # 🌋 Ladon: Multi-Visual Tasks Multimodal Large Language Model
-# [[Project Page]](https://github.com/MacavityT/okapi-mllm/) [[Paper]](https://github.com/MacavityT/okapi-mllm/) [[Code]](https://github.com/MacavityT/okapi-mllm/) [[Model]](https://github.com/MacavityT/okapi-mllm/)
+# [[Project Page]](https://github.com/MacavityT/VT-PLUG/) [[Paper]](https://github.com/MacavityT/VT-PLUG/) [[Code]](https://github.com/MacavityT/VT-PLUG/) [[Model]](https://github.com/MacavityT/VT-PLUG/)
 # """)
 
 # title_markdown = ("""
@@ -410,9 +410,9 @@ theme = gr.themes.Default()
 # <img src="https://i.mij.rip/2024/06/12/845590e05554cc3b25907dcb0649469a.md.png" alt="Logo" width="130"></a>
 #   <h4 align="center"><font color="#966661">Ladon</font>: Multi-Visual Tasks Multimodal Large Language Model</h4>
 #   <p align="center">
-#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
-#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
-#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Online-Demo-green'></a>
+#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
+#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
+#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Online-Demo-green'></a>
 #   </p>
 # </p>
 # """)
@@ -541,7 +541,7 @@ with gr.Blocks(
 
     with gr.Row():
         gr.Markdown(
-            "[![Website](https://img.shields.io/badge/Project-Website-87CEEB)](https://github.com/MacavityT/okapi-mllm)"
+            "[![Website](https://img.shields.io/badge/Project-Website-87CEEB)](https://github.com/MacavityT/VT-PLUG)"
         )
 
     with gr.Row():

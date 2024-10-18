@@ -1,5 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.config import read_base
+from dataset.map_fns import (
+    vt_map_fn_stage2,
+    vt_template_map_fn_factory
+)
+from dataset import VTInstructDataset
+from dataset.collate_fns import vt_collate_fn
+
 with read_base():
     from .train_all_dataset import train_all_dataset
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer

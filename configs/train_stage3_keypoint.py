@@ -9,7 +9,7 @@ from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.dataset.map_fns import (
     okapi_map_fn_stage2,
     okapi_keypoint_map_fn,
-    okapi_template_map_fn_factory
+    vt_template_map_fn_factory
 )
 from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
@@ -107,7 +107,7 @@ train_dataset = dict(
         function=okapi_keypoint_map_fn,
     ),
     template_map_fn=dict(
-        type=okapi_template_map_fn_factory, template=prompt_template),
+        type=vt_template_map_fn_factory, template=prompt_template),
     max_length=max_length,
     pad_image_to_square=True)
 
@@ -116,7 +116,7 @@ train_dataloader = dict(
     num_workers=dataloader_num_workers,
     dataset=train_dataset,
     sampler=dict(type=DefaultSampler, shuffle=True),
-    collate_fn=dict(type=okapi_collate_fn))
+    collate_fn=dict(type=vt_collate_fn))
 
 val_cfg = None
 

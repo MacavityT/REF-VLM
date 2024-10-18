@@ -272,17 +272,17 @@ class SEGDETProcessor:
             ]
 
         elif "lvis" in self.task:
-            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/lvis_classes.json') as f:
+            with open('/code/vt_plug/xtuner/evaluation/metrics/single_metric/utils/lvis_classes.json') as f:
                 self.test_class_names = json.load(f)
                 f.close()
-            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/lvis_class_clip.pkl','rb') as f2:
+            with open('/code/vt_plug/xtuner/evaluation/metrics/single_metric/utils/lvis_class_clip.pkl','rb') as f2:
                 self.test_class_features = pickle.load(f2)
                 f2.close()
             self.test_class_ids = [i for i in range(len(self.test_class_names))]
             
 
         elif "ade20k_instance" in self.task:
-            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_instance_classes.json') as f:
+            with open('/code/vt_plug/xtuner/evaluation/metrics/single_metric/utils/ade20k_instance_classes.json') as f:
                 ade20k_category_dict = json.load(f)
                 f.close()
             self.test_class_names = []
@@ -291,7 +291,7 @@ class SEGDETProcessor:
                 self.test_class_ids.append(category['id'])
                 self.test_class_names.append(category['name'])
 
-            with open('/code/okapi-mllm/xtuner/evaluation/metrics/single_metric/utils/ade20k_class_clip.pkl','rb') as f2:
+            with open('/code/vt_plug/xtuner/evaluation/metrics/single_metric/utils/ade20k_class_clip.pkl','rb') as f2:
                 self.test_class_features = pickle.load(f2)
                 f2.close()
         

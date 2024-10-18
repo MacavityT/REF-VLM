@@ -13,7 +13,6 @@ with read_base():
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-
 # Evaluate the generation performance during the training
 evaluation_freq = 500
 SYSTEM = ''
