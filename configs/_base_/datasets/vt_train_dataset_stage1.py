@@ -10,7 +10,7 @@ from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 
 from dataset.map_fns import vt_map_fn
 from dataset import VTInstructDataset
-from evaluation.metrics import ImgCapComputeMetrics
+from evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
 
 with read_base():
     from .train_all_dataset import train_all_dataset

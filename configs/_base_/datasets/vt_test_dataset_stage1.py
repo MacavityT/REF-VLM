@@ -1,12 +1,22 @@
 from mmengine.config import read_base
-from xtuner.utils import PROMPT_TEMPLATE
+from mmengine.dataset import DefaultSampler
 
-from evaluation.metrics.single_metric import VQAComputeMetrics
+from xtuner.utils import PROMPT_TEMPLATE
+from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
+from xtuner.dataset import LLaVADataset, ConcatDataset
+from xtuner.dataset.collate_fns import default_collate_fn
+from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
+
+from dataset.map_fns import vt_map_fn
+from dataset import VTInstructDataset
+from evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
 
 with read_base():
+    from .train_all_dataset import train_all_dataset
+    from .test_reg_variant import test_reg_variant
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
-    from .test_reg_variant import test_reg_variant
+    
 
 # Params
 prompt_template = PROMPT_TEMPLATE.vicuna

@@ -13,6 +13,9 @@ with read_base():
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
+batch_size = 32  # per_device
+dataloader_num_workers = 8
+
 # Evaluate the generation performance during the training
 evaluation_freq = 500
 SYSTEM = ''

@@ -24,9 +24,8 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data
+batch_size = 15  # per_device
 dataloader_num_workers = 8
-visual_hidden_size = 1024
-
 dataset_name = 'res_refcocog_test'
 eval_type = 'reg'
 prefix = 'res'

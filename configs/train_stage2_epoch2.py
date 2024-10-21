@@ -10,13 +10,8 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data configs
-max_length = 2048 - 576 # use cutoff lens instead
-cutoff_len = 2048
-visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 15  # per_device
 dataloader_num_workers = 4
-vpt_num_patches = 9
-vpt_patch_size = 8 # sqrt(576/9)=8
 
 # dataset grand det and seg
 # dataset_args = [

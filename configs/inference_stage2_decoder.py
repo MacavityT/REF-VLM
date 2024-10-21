@@ -1,12 +1,4 @@
-from functools import partial
-from xtuner.utils import PROMPT_TEMPLATE
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-from dataset.map_fns import (
-    vt_map_fn_stage2,
-    vt_template_map_fn_factory
-)
 import os
-from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 
 from mmengine.config import read_base
@@ -15,12 +7,6 @@ with read_base():
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
-
-max_length = 2048 - 576 
-cutoff_len = 2048
-visual_hidden_size = 1024 # visual_encoder.config.hidden_size
-vpt_num_patches = 9
-vpt_patch_size = 8 # sqrt(576/9)=8
 
 model_dir = 'checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter14500'
 
