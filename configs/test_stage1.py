@@ -2,7 +2,7 @@
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 from transformers import AutoModelForCausalLM
-from model import VTPlugModel
+from vt_plug.model import VTPlugModel
 
 from mmengine.config import read_base
 with read_base():

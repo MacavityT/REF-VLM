@@ -1,6 +1,6 @@
-pycocoevalcap
-detectron2
+# gradio
+xtuner==0.1.18
+deepspeed
+jsonlines
 pycocotools
-gradio
-panopticapi
-mmdet
+pycocoevalcap

@@ -1,5 +1,5 @@
 from transformers import AutoModelForCausalLM
-from model import VTPlugModel
+from vt_plug.model import VTPlugModel
 from mmengine.config import read_base
 with read_base():
     from .all_tokenizers import vicuna_7b_path, vicuna_7b_path_tokenizer

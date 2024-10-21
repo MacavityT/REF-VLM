@@ -8,9 +8,9 @@ from xtuner.dataset import LLaVADataset, ConcatDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 
-from dataset.map_fns import vt_map_fn
-from dataset import VTInstructDataset
-from evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
+from vt_plug.dataset.map_fns import vt_map_fn
+from vt_plug.dataset import VTInstructDataset
+from vt_plug.evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
 
 with read_base():
     from .train_all_dataset import train_all_dataset

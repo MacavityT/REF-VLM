@@ -1,11 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.config import read_base
-from dataset.map_fns import (
+from vt_plug.dataset.map_fns import (
     vt_map_fn_stage2,
     vt_template_map_fn_factory
 )
-from dataset import VTInstructDataset
-from dataset.collate_fns import vt_collate_fn
+from vt_plug.dataset import VTInstructDataset
+from vt_plug.dataset.collate_fns import vt_collate_fn
 from mmengine.dataset import DefaultSampler
 
 with read_base():
@@ -13,7 +13,7 @@ with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
-from utils import PROMPT_TEMPLATE
+from vt_plug.utils import PROMPT_TEMPLATE
 prompt_template = PROMPT_TEMPLATE.vd_cot
 
 # Data configs

@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
 from transformers import AutoModelForCausalLM
-from evaluation.metrics.single_metric import (
+from vt_plug.evaluation.metrics.single_metric import (
     ImgCapComputeMetrics,
     VQAComputeMetrics,
     COTComputeMetrics,

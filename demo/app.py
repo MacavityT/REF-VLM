@@ -13,12 +13,12 @@ import time
 import random
 from PIL import Image
 
-from utils import PROMPT_TEMPLATE,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
-from utils.constants import MASKS_PLACEHOLDER
-from dataset import VTInstructDataset
-from dataset.collate_fns import vt_collate_fn
-from dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
-from dataset.utils import (
+from vt_plug.utils import PROMPT_TEMPLATE,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
+from vt_plug.utils.constants import MASKS_PLACEHOLDER
+from vt_plug.dataset import VTInstructDataset
+from vt_plug.dataset.collate_fns import vt_collate_fn
+from vt_plug.dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
+from vt_plug.dataset.utils import (
     visualize_box,
     visualize_mask,
     visualize_keypoints,

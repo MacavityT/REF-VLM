@@ -5,7 +5,7 @@ from PIL import ImageFont
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
-from utils.constants import IMAGE_PLACEHOLDER
+from vt_plug.utils.constants import IMAGE_PLACEHOLDER
 
 class ImageBoxState:
     def __init__(self, draw_size=512):

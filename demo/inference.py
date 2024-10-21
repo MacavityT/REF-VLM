@@ -10,15 +10,15 @@ from transformers import (AutoModel, AutoModelForCausalLM, AutoTokenizer,
                           CLIPVisionModel, GenerationConfig)
 from mmengine.config import Config, DictAction
 from xtuner.dataset.utils import expand2square, load_image
-from xtuner.model.utils import prepare_inputs_labels_for_multimodal
 from xtuner.tools.utils import get_stop_criteria
-from xtuner.dataset.utils import masks_expand2square,mask_transform
 from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
-from utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
+from vt_plug.utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
+from vt_plug.model.utils import prepare_inputs_labels_for_multimodal
+from vt_plug.dataset.utils import masks_expand2square,mask_transform
 class VTPlugInference:
 
     def __init__(self,

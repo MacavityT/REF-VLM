@@ -44,10 +44,9 @@ This repository contains the **official implementation** and **dataset** of the 
 ## Install
 ### Dependencies
 1. This project is built on [Xtuner](https://github.com/InternLM/xtuner). Please refer to the official documents of these toolkits for installation guidance.
-2. The version of [transformers](https://github.com/huggingface/transformers) used in this project is v4.39.1. And we
-find using versions beyond v4.40.0 cannot reproduce the performances (we are debugging on this issue). 
-3. Accelerate is used to build the evaluation pipeline of our models. Please refer to its official [webpage](https://github.com/huggingface/accelerate) for installation.
-
+2. Dataset load is base on [detectron2](https://github.com/facebookresearch/detectron2).
+3. [MMDetection]()
+4. [COCO 2018 Panoptic Segmentation Task API](https://github.com/cocodataset/panopticapi)
 
 ### configure accelerate
 

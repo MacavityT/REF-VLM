@@ -1,5 +1,5 @@
 from transformers import CLIPImageProcessor, CLIPVisionModel
-from model.modules.encoder import _build_convnext_processor, CLIPConvNextModel
+from vt_plug.model.modules.encoder import _build_convnext_processor, CLIPConvNextModel
 
 # openai/clip-vit-large-patch14-336
 clip_patch14_336_path = '/model/Aaronzhu/clip-14-336'

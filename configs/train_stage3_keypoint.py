@@ -140,7 +140,7 @@ mask_decoder = dict(
 
 model=dict(
     type=VTPlugModel,
-    freeze_llm=False,
+    freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,

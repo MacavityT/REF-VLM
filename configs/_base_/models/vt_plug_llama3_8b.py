@@ -1,5 +1,5 @@
 from transformers import AutoModelForCausalLM
-from model import VTPlugModel
+from vt_plug.model import VTPlugModel
 from xtuner.utils import PROMPT_TEMPLATE, SYSTEM_TEMPLATE
 from mmengine.config import read_base
 with read_base():
