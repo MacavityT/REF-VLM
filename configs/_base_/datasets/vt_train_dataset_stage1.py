@@ -1,7 +1,16 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.config import read_base
+from mmengine.dataset import DefaultSampler
+
 from xtuner.utils import PROMPT_TEMPLATE
-from model import VTPlugModel
+from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
+from xtuner.dataset import LLaVADataset, ConcatDataset
+from xtuner.dataset.collate_fns import default_collate_fn
+from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
+
+from dataset.map_fns import vt_map_fn
+from dataset import VTInstructDataset
+from evaluation.metrics import ImgCapComputeMetrics
 
 with read_base():
     from .train_all_dataset import train_all_dataset

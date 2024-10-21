@@ -97,7 +97,7 @@ mask_decoder = dict(
 
 
 model=dict(
-    type=OkapiModel,
+    type=VTPlugModel,
     # pretrained_pth=pretrained_pth,
     freeze_llm=False,
     tokenizer=tokenizer,

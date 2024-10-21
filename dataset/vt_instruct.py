@@ -56,12 +56,12 @@ class VTInstructDataset(Dataset):
 
         if mode == 'train' or mode == 'test':
             # Build datasets
-            print_log("Okapi Datasets Building ...")
+            print_log("VTInstruct Datasets Building ...")
             self.dataset = self.build_dataset(dataset)
-            print_log("Okapi Datasets Build Success.")
+            print_log("VTInstruct Datasets Build Success.")
             self.data = TorchConcatDataset(self.dataset)
         else:
-            print_log("Mode = inference, Okapi Datasets is empty ...")
+            print_log("Mode = inference, VTInstruct Datasets is empty ...")
             self.data = []
 
         if isinstance(dataset_map_fn, str):

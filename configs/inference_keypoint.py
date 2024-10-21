@@ -1,15 +1,9 @@
-from dataset.map_fns import (
-    vt_keypoint_map_fn,
-    vt_map_fn_stage2,
-    vt_template_map_fn_factory
-)
 import os
-from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel, AutoModelForCausalLM
-
 from mmengine.config import read_base
+
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_320, clip_convnext_512
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *

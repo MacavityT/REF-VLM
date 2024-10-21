@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-
 from mmengine.config import read_base
+
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336
     from ._base_.datasets.vt_train_dataset_stage1 import *
@@ -10,9 +9,7 @@ with read_base():
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-
 # Data configs
-max_length = int(2048 - (336 / 14)**2)
 batch_size = 32  # per_device
 dataloader_num_workers = 5
 
@@ -21,7 +18,7 @@ train_dataset = dict(
     dataset=dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=okapi_map_fn,
+    dataset_map_fn=vt_map_fn,
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
@@ -50,12 +47,12 @@ train_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=True),
     collate_fn=dict(type=default_collate_fn))
 
-okapi_dataset_val = dict(
+val_dataset = dict(
     type=VTInstructDataset,
     dataset=val_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=okapi_map_fn,
+    dataset_map_fn=vt_map_fn,
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
@@ -64,7 +61,7 @@ okapi_dataset_val = dict(
 val_dataloader = dict(
     batch_size=1,
     num_workers=dataloader_num_workers,
-    dataset=okapi_dataset_val,
+    dataset=val_dataset,
     sampler=dict(type=DefaultSampler, shuffle=False),
     collate_fn=dict(type=default_collate_fn))
 

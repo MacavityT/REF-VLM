@@ -1,6 +1,12 @@
 from mmengine.config import read_base
+from mmengine.dataset import DefaultSampler
+from dataset.map_fns import (
+    vt_map_fn_stage2,
+    vt_template_map_fn_factory
+)
+from dataset import VTInstructDataset
+from dataset.collate_fns import vt_collate_fn
 from utils import PROMPT_TEMPLATE
-from model import VTPlugModel
 
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer

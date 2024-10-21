@@ -19,7 +19,7 @@ from utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_P
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
-class OkapiInference:
+class VTPlugInference:
 
     def __init__(self,
                  config=None,

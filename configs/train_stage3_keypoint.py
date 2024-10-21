@@ -1,39 +1,22 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-from functools import partial
-from mmengine.optim import AmpOptimWrapper, CosineAnnealingLR, LinearLR
+from mmengine.optim import AmpOptimWrapper, LinearLR
 from torch.optim import AdamW
 from xtuner.engine.runner import TrainLoop
-from xtuner.utils import PROMPT_TEMPLATE
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-from xtuner.dataset.map_fns import (
-    okapi_map_fn_stage2,
-    okapi_keypoint_map_fn,
-    vt_template_map_fn_factory
-)
 from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_512
+    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.default_runtime import *
 
-
 # Data configs
-max_length = 2048 - 576 # use cutoff lens instead  4096 
-cutoff_len = 2048
-visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 8  # per_device
 dataloader_num_workers = 4
-vpt_num_patches = 9
-vpt_patch_size = 8 # sqrt(576/9)=8
-prompt_template = PROMPT_TEMPLATE.okapi
-
 accumulative_counts = 1
-
 max_epochs = 20
 lr = 1e-4 # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
@@ -95,7 +78,7 @@ param_scheduler = [
 
 
 # train, val, test setting
-train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
+train_cfg = dict(type=TrainLoop, max_epochs=max_epochs, val_interval=500)
 
 train_dataset = dict(
     type=VTInstructDataset,
@@ -104,7 +87,7 @@ train_dataset = dict(
     image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
-        function=okapi_keypoint_map_fn,
+        function=vt_keypoint_map_fn,
     ),
     template_map_fn=dict(
         type=vt_template_map_fn_factory, template=prompt_template),
@@ -158,7 +141,7 @@ mask_decoder = dict(
 )
 
 model=dict(
-    type=OkapiModel,
+    type=VTPlugModel,
     freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,

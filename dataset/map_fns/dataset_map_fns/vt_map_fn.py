@@ -20,7 +20,7 @@ small_brackets_point_pat = re.compile(r'\(\d(?:\.\d*)?(?:,\d(?:\.\d*)?)(?:;\d(?:
 middle_brackets_pat = re.compile(r'\[\d(?:\.\d*)?(?:,\d(?:\.\d*)?){3}(?:;\d(?:\.\d*)?(?:,\d(?:\.\d*)?){3})*\]')
 middle_brackets_point_pat = re.compile(r'\[\d(?:\.\d*)?(?:,\d(?:\.\d*)?)(?:;\d(?:\.\d*)?(?:,\d(?:\.\d*)?))*\]')
 
-# extract points from language, but not useful for okapi
+# extract points from language, but not useful for us
 def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
     point_pat = small_brackets_point_pat if use_small_brackets else middle_brackets_point_pat
     """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
@@ -34,7 +34,7 @@ def extract_point(string: str, use_small_brackets = False) -> List[Boxes]:
         ret.append(bboxes)
     return ret
 
-# extract boxes from language, but not useful for okapi
+# extract boxes from language, but not useful for us
 def extract(string: str, use_small_brackets = False) -> List[Boxes]:
     """ balabala<boxes>balabala<boxes> -> [boxes, boxes] """
     pat = small_brackets_pat if use_small_brackets else middle_brackets_pat
@@ -80,7 +80,7 @@ def format_box_or_points(boxes: Boxes,
         return "(" + box_str + ")"
     return "[" + box_str + "]"
 
-def okapi_box_map_fn(example):
+def box_map_fn(example):
     if 'target' not in example.keys(): 
         return
     bboxes_token_pat = re.compile(BOXES_PLACEHOLDER)
@@ -104,7 +104,7 @@ def okapi_box_map_fn(example):
             # sentence['raw_value'] = sentence['value']
             sentence['value'] = converted
 
-def okapi_point_map_fn(example):
+def point_map_fn(example):
     if 'target' not in example.keys(): 
         return
     
@@ -129,7 +129,7 @@ def okapi_point_map_fn(example):
             sentence['value'] = converted
 
 def vt_map_fn(example):
-    okapi_box_map_fn(example)
-    okapi_point_map_fn(example)
+    box_map_fn(example)
+    point_map_fn(example)
     res = llava_map_fn(example)
     return res

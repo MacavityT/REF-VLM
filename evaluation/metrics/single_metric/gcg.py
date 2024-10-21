@@ -19,7 +19,7 @@ from PIL import Image
 
 from utils.constants import IGNORE_INDEX
 from xtuner.dataset.utils import box_xywh_to_xyxy,mask_square2origin
-from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_elements
+from xtuner.dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
 from .utils.process import SEGDETProcessor
 from .utils.get_cot import get_matches_from_text, get_caption_text
 from ..base import BaseComputeMetrics

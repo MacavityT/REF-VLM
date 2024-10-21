@@ -1,16 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from functools import partial
-from xtuner.utils import PROMPT_TEMPLATE
-from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
-from xtuner.dataset.map_fns import (
-    okapi_map_fn_stage2,
-    vt_template_map_fn_factory
-)
-# import os
 from transformers import AutoModel
-from dataset.collate_fns import vt_collate_fn
-
 from mmengine.config import read_base
+
 with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
@@ -19,20 +10,9 @@ with read_base():
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
-
-
-
 # Data configs
-max_length = 2048 - 576 # use cutoff lens instead
-cutoff_len = 2048
-visual_hidden_size = 1024 # visual_encoder.config.hidden_size
 batch_size = 24  # per_device  24
 dataloader_num_workers = 4
-vrt_length = 0  # 256
-vpt_num_patches = 9
-vpt_patch_size = 8 # sqrt(576/9)=8
-prompt_template = PROMPT_TEMPLATE.okapi
-
 
 # dataset grand det and seg
 dataset_args = [
@@ -103,10 +83,7 @@ train_dataset = dict(
     image_tower_processor=clip_convnext_512['image_processor'],
     tokenizer=tokenizer,
     dataset_map_fn=dict(
-        function=okapi_map_fn_stage2,
-        args = dict(
-            vrt_len=vrt_length, 
-        )
+        function=vt_map_fn_stage2,
     ),
     template_map_fn=dict(
         type=vt_template_map_fn_factory, template=prompt_template),
@@ -147,7 +124,7 @@ llm=dict(
 
 
 model=dict(
-    type=OkapiModel,
+    type=VTPlugModel,
     # pretrained_pth=pretrained_pth,
     freeze_llm=True,
     tokenizer=tokenizer,

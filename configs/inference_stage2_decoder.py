@@ -73,7 +73,6 @@ infer_dataset = dict(
     mode='inference')
 
 
-
 model = dict(
     type=VTPlugModel,
     freeze_llm=True,

@@ -2,18 +2,27 @@
 from mmengine.config import read_base
 from dataset.map_fns import (
     vt_map_fn_stage2,
+    vt_keypoint_map_fn,
     vt_template_map_fn_factory
 )
 from dataset import VTInstructDataset
 from dataset.collate_fns import vt_collate_fn
+from mmengine.dataset import DefaultSampler
 
 with read_base():
     from .train_all_dataset import train_all_dataset
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
-    from ..models.all_visual_encoders import clip_patch14_336
+    from ..models.all_visual_encoders import clip_patch14_336, clip_convnext_512
 
 from utils import PROMPT_TEMPLATE
 prompt_template = PROMPT_TEMPLATE.vd_cot
+
+# Data configs
+max_length = 2048 - 576 # use cutoff lens instead
+cutoff_len = 2048
+visual_hidden_size = 1024 # visual_encoder.config.hidden_size
+vpt_num_patches = 9
+vpt_patch_size = 8 # sqrt(576/9)=8
 
 gc = dict(
     type='SubSet',

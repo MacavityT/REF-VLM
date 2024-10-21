@@ -1,8 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
 from transformers import AutoModelForCausalLM
-from model import VTPlugModel
-from utils import PROMPT_TEMPLATE
 from evaluation.metrics.single_metric import (
     ImgCapComputeMetrics,
     VQAComputeMetrics,
@@ -15,11 +13,6 @@ from evaluation.metrics.single_metric import (
     DETComputeMetrics,
     SEGComputeMetrics,
 )
-from dataset.map_fns import (
-    vt_map_fn_stage2,
-    vt_template_map_fn_factory
-)
-from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
@@ -31,13 +24,8 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data
-prompt_template = PROMPT_TEMPLATE.vd_cot
-max_length = 10000  # use cutoff lens instead
-cutoff_len = 4096  # 4096
 dataloader_num_workers = 8
 visual_hidden_size = 1024
-vpt_num_patches = 9
-vpt_patch_size = 8 # sqrt(576/9)=8
 
 dataset_name = 'res_refcocog_test'
 eval_type = 'reg'

@@ -1,11 +1,27 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from mmengine.config import read_base
+from mmengine.dataset import DefaultSampler
+
+from xtuner.utils import PROMPT_TEMPLATE
+from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
+from xtuner.dataset import LLaVADataset, ConcatDataset
+from xtuner.dataset.collate_fns import default_collate_fn
+from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
+
+from dataset.map_fns import vt_map_fn
+from dataset import VTInstructDataset
+from evaluation.metrics import ImgCapComputeMetrics
 
 with read_base():
+    from .train_all_dataset import train_all_dataset
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
-from xtuner.utils import PROMPT_TEMPLATE
+# Params
 prompt_template = PROMPT_TEMPLATE.vicuna
+max_length = int(2048 - (336 / 14)**2)
+cutoff_len = 2048
+visual_hidden_size = 1024
 
 # Data
 val_cfg = dict(type='ValLoop')

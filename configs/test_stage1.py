@@ -74,7 +74,7 @@ dataset_test = dict(
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     tokenizer=tokenizer,
-    dataset_map_fn=okapi_map_fn,
+    dataset_map_fn=vt_map_fn,
     template_map_fn=dict(
         type=template_map_fn_factory, template=prompt_template),
     max_length=max_length,
