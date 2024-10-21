@@ -12,7 +12,7 @@ import cv2
 from PIL import Image
 import re
 from .mixin import MInstrDataset
-from xtuner.dataset.utils import norm_box_xyxy,de_norm_box_xyxy,visualize_box,visualize_box_single,visualize_mask_single,visualize_mask
+from dataset.utils import norm_box_xyxy,de_norm_box_xyxy,visualize_box,visualize_box_single,visualize_mask_single,visualize_mask
 from registry import DATASETS
 from utils.constants import (
     IMAGE_PLACEHOLDER,

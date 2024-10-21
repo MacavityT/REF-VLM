@@ -4,8 +4,8 @@ import re
 from registry import DATASETS, METRICS
 from utils.constants import (IMAGE_PLACEHOLDER, BOXES_PLACEHOLDER, QUESTION_PLACEHOLDER,
                                     PHRASE_ST_PLACEHOLDER, PHRASE_ED_PLACEHOLDER)
-from xtuner.evaluation.metrics import BaseComputeMetrics
-from xtuner.dataset.single_dataset.mixin import MInstrDataset
+from evaluation.metrics import BaseComputeMetrics
+from dataset.single_dataset.mixin import MInstrDataset
 
 REFID_PAT = re.compile(r'(\s\((?:(?:\d+(?:,\d+)*)|-)\)\s?)')
 ANS_EXTRACT_PAT = re.compile(r'(?:(?:(?:(?:(?:So t)|(?:T)|(?:t))he answer is)|(?:Answer:)) (.+))')

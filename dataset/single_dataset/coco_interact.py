@@ -12,7 +12,7 @@ import numpy as np
 import jsonlines
 import pickle
 from tqdm import tqdm
-from xtuner.dataset.utils import convert_bbox, visualize_box_single
+from dataset.utils import convert_bbox, visualize_box_single
 from utils.constants import (
     BOXES_PLACEHOLDER, 
     MASKS_PLACEHOLDER,

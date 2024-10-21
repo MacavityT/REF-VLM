@@ -9,7 +9,7 @@ from utils.constants import (
     BOXES_PLACEHOLDER,
     POINTS_PLACEHOLDER,
 )
-from xtuner.evaluation.metrics import BaseComputeMetrics
+from evaluation.metrics import BaseComputeMetrics
 from .mixin import MInstrDataset
 
 

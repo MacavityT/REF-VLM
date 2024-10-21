@@ -8,9 +8,8 @@ import json
 from torch.utils.data import Dataset
 from registry import DATASETS
 from pycocotools.mask import decode
-from xtuner.dataset.utils import convert_bbox
 import pycocotools.mask as mask_utils
-from xtuner.dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single,visualize_box
+from dataset.utils import visualize_keypoints,visualize_box_single,visualize_mask_single,visualize_box, convert_bbox
 from utils.constants import (
     KEYPOINTS_PLACEHOLDER,
     IMAGE_PLACEHOLDER,

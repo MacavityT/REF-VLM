@@ -1,9 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-
 from mmengine.optim import AmpOptimWrapper, LinearLR
 from torch.optim import AdamW
 from xtuner.engine.runner import TrainLoop
-from dataset.collate_fns import vt_collate_fn
 from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():

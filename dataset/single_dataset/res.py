@@ -14,7 +14,7 @@ from utils.constants import (
     MASKS_PLACEHOLDER,
     EXPR_PLACEHOLDER,
 )
-from xtuner.evaluation.metrics import BaseComputeMetrics
+from evaluation.metrics import BaseComputeMetrics
 from .mixin import MInstrDataset
 
 

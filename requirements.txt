@@ -1,0 +1,6 @@
+pycocoevalcap
+detectron2
+pycocotools
+gradio
+panopticapi
+mmdet

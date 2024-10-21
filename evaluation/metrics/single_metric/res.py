@@ -12,8 +12,8 @@ from typing import Dict, Any, Union, Sequence,List
 from pycocoevalcap.eval import Cider, Meteor, Bleu, Spice, PTBTokenizer
 from mmengine.logging import print_log
 from mmengine.registry.root import METRICS
-from xtuner.dataset.utils import mask_square2origin,visualize_mask
 from xtuner.utils import IGNORE_INDEX
+from dataset.utils import mask_square2origin,visualize_mask
 from utils.constants import BOT_TOKEN,EOT_TOKEN
 from enum import Enum
 from ..base import BaseComputeMetrics

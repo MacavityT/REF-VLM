@@ -9,7 +9,7 @@ from registry import DATASETS
 from pycocotools.mask import decode
 import shutil
 import cv2
-from xtuner.dataset.utils import convert_bbox,visualize_mask,visualize_box
+from dataset.utils import convert_bbox,visualize_mask,visualize_box
 import pycocotools.mask as mask_utils
 
 from utils.constants import (

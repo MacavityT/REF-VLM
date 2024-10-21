@@ -8,7 +8,8 @@ from typing import List
 from mmengine import print_log
 
 from torch.utils.data import Dataset
-from xtuner.registry import BUILDER, DATASETS
+from xtuner.registry import BUILDER
+from registry import DATASETS
 from .offline import OfflineDataset
 from .dataset_templates import dataset_template_path
 from ..utils import imfrombytes

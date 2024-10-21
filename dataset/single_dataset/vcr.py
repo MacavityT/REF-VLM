@@ -6,7 +6,7 @@ from utils.constants import (
     BOXES_PLACEHOLDER,
     QUESTION_PLACEHOLDER,
 )
-from xtuner.evaluation.metrics import BaseComputeMetrics
+from evaluation.metrics import BaseComputeMetrics
 from .mixin import MInstrDataset
 
 

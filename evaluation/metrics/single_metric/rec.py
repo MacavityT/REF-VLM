@@ -7,7 +7,7 @@ from torchvision.ops import box_iou
 from mmengine.registry.root import METRICS
 from xtuner.utils import IGNORE_INDEX
 from utils.constants import BOT_TOKEN,EOT_TOKEN
-from xtuner.dataset.utils import box_xywh_to_xyxy
+from dataset.utils import box_xywh_to_xyxy
 from ..base import BaseComputeMetrics
 
 # TODO: need to fix, because our model has decoders, bboxes do not generate in llm words
