@@ -124,12 +124,14 @@ work_dirs/
 batchscript-*
 
 
-# taiyan
+
 *sketch*
 work_dirs
 
-# aaronzhu
-Aaronzhu/
+
 *core*
 myhostfile.txt
 *wrong_output*
+models/
+datasets/
+checkpoints/

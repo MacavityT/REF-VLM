@@ -676,9 +676,14 @@ class OkapiModel(BaseModel):
             decode_groups = all_decode_groups
         )
     
-    def prepare_ref_feats(self, hidden_states, metas, mode='loss'):
+    def prepare_ref_feats(self, hidden_states, metas, mode='loss',shift=False):
         token_masks = metas.get('token_masks', None)
         ref_masks = token_masks == TOKEN_MASK_IDS['ref_masks']
+        if shift:
+            true_indices = ref_masks.nonzero(as_tuple=True)
+            ref_masks[true_indices] = False
+            ref_masks[true_indices[0], true_indices[1] - 1] = True
+            
         if ref_masks.sum() == 0 and mode != 'loss':
             return None, None
 
@@ -764,7 +769,7 @@ class OkapiModel(BaseModel):
 
         # prepare data for train/predict
         try:
-            if mode == 'loss':
+            if mode == 'loss' or mode == 'tensor':
                 data['token_masks'] = self.prepare_token_masks(data['input_ids'])
             
             if mode == 'predict':
@@ -785,7 +790,7 @@ class OkapiModel(BaseModel):
                     if value.shape[1] > self.cutoff_len:
                         data[key] = value[:, :self.cutoff_len]
             
-            if mode == 'loss':
+            if mode == 'loss' or mode == 'tensor':
                 metas['token_masks'] = data.pop('token_masks')
         except Exception as e:
             print(e)
@@ -802,10 +807,42 @@ class OkapiModel(BaseModel):
             raise NotImplementedError
 
     def _forward(self, data, data_samples=None, metas=None):
+        def _pad_token_masks(token_masks, target_size, pad_side):
+            if token_masks is not None:
+                dtype = token_masks.dtype
+                device = token_masks.device
+                padded_token_masks = torch.zeros(
+                    target_size).to(dtype).to(device)
+                cur_length = token_masks.shape[1]
+                if pad_side == 'left':
+                    padded_token_masks[:, -cur_length:] = token_masks
+                elif pad_side == 'right':
+                    padded_token_masks[:, :cur_length] = token_masks
+                else:
+                    raise ValueError('only support left or right side')
+            else:
+                padded_token_masks = None
+            return padded_token_masks
 
-        outputs = self.llm(**data)
+        for key in data.keys():
+            if data[key] is not None:
+                data[key] = data[key].to(self.llm.dtype)
+            
+        data['labels'] = data['labels'].to(torch.long)
+        llm_outputs = self.llm(**data,output_attentions=True,output_hidden_states=True)
+        output_sequences = llm_outputs.logits.argmax(dim=-1)
+        results = []
 
-        return outputs
+        results.append(
+            {
+                'generate_ids': output_sequences,
+                'attentions':llm_outputs['attentions'],
+            }
+        )
+
+        # outputs = self.llm(**data)
+
+        return results
     
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
@@ -826,10 +863,19 @@ class OkapiModel(BaseModel):
                                           for feats in decode_feats['ref_feats']]):
                 return results
             
+
+            # ref_hidden_states, ref_mask = self.prepare_ref_feats(
+            #     hidden_states,
+            #     metas=metas,
+            #     mode=mode,
+            #     shift=True
+            # )
+            
             ref_outputs = self.ref_adapter(
                 decode_feats['phrase_feats'],
                 decode_feats['unit_feats'],
                 decode_feats['ref_feats'],
+                # ref_hidden_states,
                 metas=metas,
                 mode=mode
             )
@@ -891,6 +937,7 @@ class OkapiModel(BaseModel):
                 max_new_tokens=self.max_new_tokens,
                 generation_config=self.gen_config,
                 bos_token_id=self.tokenizer.bos_token_id,
+                output_attentions=True,
                 stopping_criteria=self.stop_criteria)
         
         # prepare hidden_states for modules
@@ -945,7 +992,8 @@ class OkapiModel(BaseModel):
                 {
                     'generate_ids': generate_id,
                     'decode_groups': decode_group,
-                    'decoder_outputs': decoder_output
+                    'decoder_outputs': decoder_output,
+                    'attentions':llm_outputs['attentions'],
                 }
             )
 

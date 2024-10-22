@@ -87,22 +87,24 @@ class COCOKeypointsDataset(MInstrDataset):
         count = 0
         for annotation in annotations:
             num_keypoints = annotation['num_keypoints']
-            if num_keypoints > 0:
-                keypoints = np.array(annotation['keypoints']).reshape(-1,3)
-                bbox = list(convert_bbox(annotation['bbox']))
-                # start
-                # image = np.array(Image.open(img_info['path']).convert('RGB'))
-                # skeleton = self.cats[1]['skeleton']
-                # visualize_keypoints(image=image,keypoints=keypoints,skeleton=skeleton,index=count)
-                # box_image = visualize_box(image,[bbox],labels=['person'])
-                # Image.fromarray(box_image).save(f'bbox_{count}.jpg')
-                # end
+            # if num_keypoints > 0:
+            keypoints = np.array(annotation['keypoints']).reshape(-1,3)
+            bbox = list(convert_bbox(annotation['bbox']))
+            # start
+            # image = np.array(Image.open(img_info['path']).convert('RGB'))
+            # skeleton = self.cats[1]['skeleton']
+            # visualize_keypoints(image=image,keypoints=keypoints,skeleton=skeleton,index=count)
+            # box_image = visualize_box(image,[bbox],labels=['person'])
+            # Image.fromarray(box_image).save(f'bbox_{count}.jpg')
+            # end
 
-                all_boxes.append(bbox)
-                all_keypoints.append(keypoints)
-                keypoints_seq.append(count)
+            all_boxes.append(bbox)
+            all_keypoints.append(keypoints)
+            keypoints_seq.append(count)
 
-                count += 1
+            count += 1
+
+
         
         if all_keypoints != []:
             # answer = f'{PHRASE_ST_PLACEHOLDER_STAGE2}person{PHRASE_ED_PLACEHOLDER_STAGE2}{KEYPOINTS_PLACEHOLDER*len(all_keypoints)}'
@@ -122,16 +124,17 @@ class COCOKeypointsDataset(MInstrDataset):
                 ]
             }
         else:
-            answer = 'In this image, we cannot find valid keypoints!'
-            ret = {
-                'image':img_info,
-                'conversations':[
-                    # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
-                    {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
-                    {'from':'human','value':question},
-                    {'from':'gpt','value':answer}
-                ]
-            }
+            raise 'No keypoints available!'
+            # answer = 'In this image, we cannot find valid keypoints!'
+            # ret = {
+            #     'image':img_info,
+            #     'conversations':[
+            #         # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+            #         {'from':'system','value':[{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}]},
+            #         {'from':'human','value':question},
+            #         {'from':'gpt','value':answer}
+            #     ]
+            # }
 
         ret['map_placeholders'] = self.map_placeholders
         return ret
@@ -185,7 +188,7 @@ class COCOKeypointsRECDataset(MInstrDataset):
         
         if self.version == 'box':
             question = question.replace(REGION_PLACEHOLDER,BOXES_PLACEHOLDER)
-            bbox = [annotation['bbox']]
+            bbox = [list(convert_bbox(annotation['bbox']))]
             box_seq = [[0]]
             conversation_human = {'from':'human','value':question,'boxes_seq':box_seq}
             target['boxes'] = bbox
@@ -217,24 +220,25 @@ class COCOKeypointsRECDataset(MInstrDataset):
             conversation_gpt = {'from':'gpt','value':answer}
 
         # start
-        if num_keypoints > 0:
-            image = np.array(Image.open(img_info['path']))
-            skeleton = self.dataset['categories'][0]['skeleton']
-            visualize_keypoints(image=image,keypoints=keypoints[0],skeleton=skeleton,index=index)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            if 'boxes'  in target.keys():
-                image_with_boxes = visualize_box_single(image,bbox[0])
-                save_path = f'vis_box_{index}.jpg'
-                cv2.imwrite(save_path, image_with_boxes)
-            if 'masks' in target.keys():
-                image_with_masks = visualize_mask_single(image,mask[0],alpha=1.0, beta=1.0)
-                save_path_mask = f'vis_mask_{index}.jpg'
-                cv2.imwrite(save_path_mask, image_with_masks)
+        # if num_keypoints > 0:
+        #     image = np.array(Image.open(img_info['path']))
+        #     skeleton = self.dataset['categories'][0]['skeleton']
+        #     visualize_keypoints(image=image,keypoints=keypoints[0],skeleton=skeleton,index=index)
+        #     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        #     if 'boxes'  in target.keys():
+        #         bbox = [int(item) for item in bbox[0]]
+        #         image_with_boxes = visualize_box_single(image,bbox)
+        #         save_path = f'vis_box_{index}.jpg'
+        #         cv2.imwrite(save_path, image_with_boxes)
+        #     if 'masks' in target.keys():
+        #         image_with_masks = visualize_mask_single(image,mask[0],alpha=1.0, beta=1.0)
+        #         save_path_mask = f'vis_mask_{index}.jpg'
+        #         cv2.imwrite(save_path_mask, image_with_masks)
 
-                bbox = [annotation['bbox']]
-                image_with_boxes = visualize_box_single(image,bbox[0])
-                save_path_box = f'vis_box_{index}.jpg'
-                cv2.imwrite(save_path_box, image_with_boxes)
+        #         bbox = [annotation['bbox']]
+        #         image_with_boxes = visualize_box_single(image,bbox[0])
+        #         save_path_box = f'vis_box_{index}.jpg'
+        #         cv2.imwrite(save_path_box, image_with_boxes)
         # end
 
         ret = {

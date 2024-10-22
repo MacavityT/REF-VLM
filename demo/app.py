@@ -21,6 +21,8 @@ from xtuner.dataset.map_fns.dataset_map_fns.okapi_map_fn_stage2 import get_cot_e
 from xtuner.dataset.utils import (visualize_box,
                                   visualize_mask,
                                   visualize_keypoints,
+                                  visualize_all_keypoints,
+                                  visualize_keypoints_pytorch,
                                   mask_square2origin,
                                   draw_label_type,
                                   denorm_box_xywh_square2origin,
@@ -108,7 +110,7 @@ class ImageSketcher(gr.Image):
     """
     Code is from https://github.com/jshilong/GPT4RoI/blob/7c157b5f33914f21cfbc804fb301d3ce06324193/gpt4roi/app.py#L365
 
-    Fix the bug of gradio.Image that cannot upload with tool == 'sketch'.
+    Fix the bug of gradio.Image that cannot upload with tool == 'sketch'. 
     """
 
     is_template = True  # Magic to make this work with gradio.Block, don't remove unless you know what you're doing.
@@ -365,13 +367,18 @@ def submit_step3(state,input_image,output_image,threshold=0.4):
                                            threshold=threshold) for decode_mask in decode_masks]
         output_image = visualize_mask(input_image,masks_resize,alpha=0.8)  # TODO:改visualize
     elif keypoints_output != []:
-        
+        keypoints_processed = []
+        visibility = []
         for i,keypoints in enumerate(keypoints_output):
             keypoints = keypoints.float().cpu().numpy()
             keypoints_class = keypoints_cls[i].int().cpu().numpy()
             denorm_keypoints = de_norm_keypoint_square2origin(keypoints,input_image.width,input_image.height)
-            keypoints_combine = np.concatenate((denorm_keypoints,keypoints_class.reshape(-1,1)),axis=1)
-            visualize_keypoints(input_image,keypoints_combine,SKELETON,i)
+            # keypoints_combine = np.concatenate((denorm_keypoints,keypoints_class.reshape(-1,1)),axis=1)
+            keypoints_processed.append(denorm_keypoints)
+            visibility.append(keypoints_class)
+            # visualize_keypoints(input_image,keypoints_combine,SKELETON,i)
+        
+        output_image = visualize_keypoints_pytorch(input_image,keypoints_processed,SKELETON,visibility)
             
     if output_image is not None:
         output_image = Image.fromarray(output_image).resize((600,330))
@@ -471,6 +478,7 @@ with gr.Blocks(
          ["VQA","Please describe the image in more details."],
          ["VQA","Where is the dog?"],
          ["Detection","Detect objects in this image."],
+         ["Detection","Identify keypoints for each person captured in the image."],
          ["Segmentation","segment objects in this image."],
          ["Grounding Detection", "Please identify the position of young boy in the image and give the bounding box coordinates."],
          ["Grounding Segmentation", "Can you segment bears in the image and provide the masks for this class?"],

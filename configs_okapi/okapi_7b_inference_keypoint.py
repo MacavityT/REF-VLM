@@ -24,8 +24,9 @@ vrt_length = 0
 vpt_num_patches = 9
 vpt_patch_size = 8 # sqrt(576/9)=8
 ref_length = 1
+prompt_template = PROMPT_TEMPLATE.okapi
 
-model_dir = '/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000'
+model_dir = '/code/okapi-mllm/checkpoints/vicuna_7b/hf_model/1016_keypoint_iter34160'
 
 
 projector = dict(

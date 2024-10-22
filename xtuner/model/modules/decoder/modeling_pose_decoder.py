@@ -18,6 +18,36 @@ from transformers.models.detr.modeling_detr import (
 from transformers.image_transforms import center_to_corners_format
 from xtuner.model.utils import save_wrong_data,traverse_dict
 
+
+def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+    """
+    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
+    Args:
+        inputs: A float tensor of arbitrary shape.
+                The predictions for each example.
+        targets: A float tensor with the same shape as inputs. Stores the binary
+                 classification label for each element in inputs
+                (0 for the negative class and 1 for the positive class).
+        alpha: (optional) Weighting factor in range (0,1) to balance
+                positive vs negative examples. Default = -1 (no weighting).
+        gamma: Exponent of the modulating factor (1 - p_t) to
+               balance easy vs hard examples.
+    Returns:
+        Loss tensor
+    """
+    prob = inputs.sigmoid()
+    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+    p_t = prob * targets + (1 - prob) * (1 - targets)
+    loss = ce_loss * ((1 - p_t) ** gamma)
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+
+
+    return loss.mean(1).sum() / num_boxes
+
+
 class PoseDecoderLoss(BoxDecoderLoss):
 
     def __init__(self, matcher=None, num_body_points=17, eps=1e-6):
@@ -39,7 +69,7 @@ class PoseDecoderLoss(BoxDecoderLoss):
         self.pdist = nn.PairwiseDistance(p=2)
 
     # removed logging parameter, which was part of the original implementation
-    def compute_loss_labels(self, preds, targets):
+    def compute_loss_labels(self, preds, targets,num_boxes):
         """
         Classification loss (NLL) targets dicts must contain the key "class_labels" containing a tensor of dim
         [nb_target_boxes]
@@ -47,8 +77,12 @@ class PoseDecoderLoss(BoxDecoderLoss):
         origin_type = preds.dtype
         preds = preds.view(-1, preds.shape[-1]).to(torch.float32)
         targets = targets.view(-1).to(torch.int64)
-        loss_ce = nn.functional.cross_entropy(preds, targets)
+        one_hot_targets = torch.zeros((targets.size(0),2)).to(preds.dtype).to(preds.device)
+        one_hot_targets[targets == 0, 0] = 1.
+        one_hot_targets[(targets == 1) | (targets == 2), 1] = 1.
+        # loss_ce = nn.functional.cross_entropy(preds, targets)
         # loss_ce = loss_ce.to(origin_type)
+        loss_ce = sigmoid_focal_loss(preds,one_hot_targets,num_boxes)
         losses = {"loss_ce": loss_ce}
         return losses
 
@@ -110,11 +144,11 @@ class PoseDecoderLoss(BoxDecoderLoss):
         target_kpts_cls = target_kpts[..., -1]
         valid_kpts = (target_kpts_cls > 0).to(torch.bool).to(target_kpts_cls.device)
         kpt_areas = target_boxes[:, 2] * target_boxes[:, 3]
-        
+        num_boxes = target_boxes.shape[0]
         loss_dict = dict()
         loss_dict.update(self.compute_loss_box(pred_boxes, target_boxes))
         loss_dict.update(self.compute_loss_keypoints(pred_kpts, target_kpts_coord, valid_kpts))
-        loss_dict.update(self.compute_loss_labels(pred_kpts_cls, target_kpts_cls))
+        loss_dict.update(self.compute_loss_labels(pred_kpts_cls, target_kpts_cls,num_boxes))
         loss_dict.update(self.compute_loss_oks(pred_kpts, target_kpts_coord, valid_kpts, kpt_areas))
         return loss_dict
 
@@ -163,7 +197,7 @@ class KeypointDecoderModel(DecoderModel):
             output_dim=2, 
             num_layers=3
         )
-        self.kpt_classifier = nn.Linear(config.d_model, 3)
+        self.kpt_classifier = nn.Linear(config.d_model, 2)   # change to 2
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -174,6 +208,7 @@ class KeypointDecoderModel(DecoderModel):
         visual_mask=None,
         ref_mask=None,
         metas=None,
+        expand=True,
         mode='loss'
     ):
         # prepare visual hidden states
@@ -191,12 +226,16 @@ class KeypointDecoderModel(DecoderModel):
         # prepare learnable queries
         batch_size = ref_hidden_states.shape[0]
         ref_hidden_states = self.in_proj_queries(ref_hidden_states)
+        if expand:
+            ref_hidden_states_expand = ref_hidden_states.repeat(1, self.config.num_body_points + 1, 1)
+            empty_tensor = torch.zeros((1, 1, self.config.d_model)).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
+            kpt_queries_init = torch.cat([empty_tensor, self.kpt_embedding(self.kpt_ids)], dim=1)
+            kpt_queries_init = kpt_queries_init.repeat(1, self.config.num_queries, 1)
+            ref_hidden_states_expand = ref_hidden_states_expand + kpt_queries_init  # cancel 
+        else:
+            empty = torch.zeros((ref_hidden_states.shape[0],self.config.num_body_points*ref_hidden_states.shape[1],ref_hidden_states.shape[2])).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
+            ref_hidden_states_expand = torch.cat([ref_hidden_states,empty],dim=1)
 
-        ref_hidden_states_expand = ref_hidden_states.repeat(1, self.config.num_body_points + 1, 1)
-        empty_tensor = torch.zeros((1, 1, self.config.d_model)).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
-        kpt_queries_init = torch.cat([empty_tensor, self.kpt_embedding(self.kpt_ids)], dim=1)
-        kpt_queries_init = kpt_queries_init.repeat(1, self.config.num_queries, 1)
-        ref_hidden_states_expand = ref_hidden_states_expand + kpt_queries_init
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         assert ref_hidden_states_expand.shape == query_position_embeddings.shape
 
@@ -229,7 +268,6 @@ class KeypointDecoderModel(DecoderModel):
         box_logits = self.box_predictor(box_queries_logits).sigmoid().float()
         kpt_logits = self.kpt_predictor(kpt_queries_logits).sigmoid().float()
         kpt_cls_logits = self.kpt_classifier(kpt_queries_logits).float()
-        
         return dict(
             hidden_states = sequence_output,
             box_logits = box_logits,
@@ -404,6 +442,28 @@ class PoseDecoderModel(PreTrainedModel):
                     loss += self.config.aux_loss_coefficient * loss_aux
             else:
                 loss = pred_boxes1.sum() * 0.0 + pred_kpts.sum() * 0.0 + pred_boxes2.sum() * 0.0 + pred_kpts_cls.sum() * 0.0
+
+            # image = metas['pixel_values'].numpy()[0].transpose((1, 2, 0))
+            # image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+            # image = image.astype(np.uint8)
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # res_path = 'vis_normed.jpg'
+            # cv2.imwrite(res_path, image)
+            
+            # from xtuner.dataset.utils import de_norm_keypoint_square2origin,visualize_keypoints
+            # import cv2
+            # from PIL import Image
+            # keypoints = target_kpts.cpu().numpy()
+            # image = Image.fromarray(image)
+            # width_origin = image.width
+            # height_origin = image.height
+            # image = np.array(image)
+            # for p,keypoint in enumerate(keypoints):
+            #     skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]] 
+            #     keypoint = de_norm_keypoint_square2origin(np.array(keypoint),width_origin,height_origin)
+            #     keypoint = np.array(keypoint)
+            #     visualize_keypoints(image=image,keypoints=keypoint,skeleton=skeleton,index=p)
+
             return dict(
                 loss=loss,
                 preds=pred_kpts,
@@ -413,7 +473,7 @@ class PoseDecoderModel(PreTrainedModel):
             preds = []
             for queries_logits, cls_logits, mask in zip(kpts_queries_logits, kpts_cls_logits, ref_mask):
                 keypoints = queries_logits[mask, :]
-                cls = F.softmax(cls_logits[mask,:],dim=-1).argmax(-1)
+                cls = cls_logits[mask,:].sigmoid().argmax(-1)
                 preds.append({'pred_kpts':keypoints,'pred_cls':cls})
 
             return dict(

@@ -37,13 +37,14 @@ prompt_template = PROMPT_TEMPLATE.okapi
 accumulative_counts = 1
 
 max_epochs = 20
-lr = 1e-4 # 2e-5 4e-6 2e-6
+lr = 1e-4 # 2e-5 4e-6 2e-6 1e-4
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000"
+# model_dir = "/code/okapi-mllm/sketch_checkpoints/0929_keypoint_iter14000"
+model_dir = "/code/okapi-mllm/sketch_checkpoints/0914_full_512_0124_epoch2_iter23000"
 
 dataset_args_sft = [
     train_all_dataset['keypoints2017_det'],
@@ -64,7 +65,7 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
     accumulative_counts=accumulative_counts,
     loss_scale='dynamic',
-    dtype='float16')
+    dtype='bfloat16')
 
 # learning policy
 # More information: https://github.com/open-mmlab/mmengine/blob/main/docs/en/tutorials/param_scheduler.md  # noqa: E501
@@ -178,47 +179,47 @@ model=dict(
     projector=projector,
     vpt_encoder=vpt_encoder,
     visual_decoder=dict(
-        pose=pose_decoder
-        # pose=dict(
-        #     num_queries=100,
-        #     encoder_input_transform='resize_concat',
-        #     encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-        #     encoder_input_dim=[192, 384, 768, 1024],
-        #     use_group_matcher=True,  # True
-        #     use_auxiliary_loss=False,
-        #     aux_loss_coefficient=0.5,
-        #     # box_config=dict(
-        #     #     quries_input_dim=4096,
-        #     #     decoder_layers=6,
-        #     #     decoder_ffn_dim=2048,
-        #     #     decoder_attention_heads=8,
-        #     #     decoder_layerdrop=0.0,
-        #     #     activation_function="relu",
-        #     #     d_model=256,
-        #     #     dropout=0.1,
-        #     #     attention_dropout=0.0,
-        #     #     activation_dropout=0.0,
-        #     #     bbox_loss_coefficient=5, # 5
-        #     #     giou_loss_coefficient=2, # 2
-        #     # ),
-        #     box_config=box_decoder,
-        #     keypoint_config=dict(
-        #         quries_input_dim=256,
-        #         decoder_layers=6,
-        #         decoder_ffn_dim=2048,
-        #         decoder_attention_heads=8,
-        #         decoder_layerdrop=0.0,
-        #         activation_function="relu",
-        #         d_model=256,
-        #         dropout=0.1,
-        #         attention_dropout=0.0,
-        #         activation_dropout=0.0,
-        #         num_body_points=17,
-        #         keypoint_loss_coefficient=2,  #2
-        #         oks_loss_coefficient=2,  #2
-        #         cls_loss_coefficient=1,  #1
-        #     )
-        # )
+        # pose=pose_decoder
+        pose=dict(
+            num_queries=100,
+            encoder_input_transform='resize_concat',
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
+            use_group_matcher=True,  # True
+            use_auxiliary_loss=True,
+            aux_loss_coefficient=0.5,
+            # box_config=dict(
+            #     quries_input_dim=4096,
+            #     decoder_layers=6,
+            #     decoder_ffn_dim=2048,
+            #     decoder_attention_heads=8,
+            #     decoder_layerdrop=0.0,
+            #     activation_function="relu",
+            #     d_model=256,
+            #     dropout=0.1,
+            #     attention_dropout=0.0,
+            #     activation_dropout=0.0,
+            #     bbox_loss_coefficient=5, # 5
+            #     giou_loss_coefficient=2, # 2
+            # ),
+            box_config=box_decoder,
+            keypoint_config=dict(
+                quries_input_dim=256,
+                decoder_layers=6,
+                decoder_ffn_dim=2048,
+                decoder_attention_heads=8,
+                decoder_layerdrop=0.0,
+                activation_function="relu",
+                d_model=256,
+                dropout=0.1,
+                attention_dropout=0.0,
+                activation_dropout=0.0,
+                num_body_points=17,
+                keypoint_loss_coefficient=10,  #2
+                oks_loss_coefficient=4,  #2
+                cls_loss_coefficient=2,  #1
+            )
+        )
     ),
     loss_coefficient=dict(
         llm=1,

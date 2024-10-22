@@ -12,6 +12,7 @@ class REFAdapterConfig(PretrainedConfig):
         unit_max_length=50,
         ref_max_length=100,
         max_position_embedding=2048,
+        v_input=1024,
         d_input=4096,
         d_model=1024,
         n_heads=8,
@@ -22,13 +23,14 @@ class REFAdapterConfig(PretrainedConfig):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        assert mode in ['encode', 'decode']
+        assert mode in ['encode', 'decode', 'projector','visual_encode']
         self.mode = mode
         # in fact, CLIP-text encoder only support max positional embedding as 77
         self.phrase_max_length = phrase_max_length
         self.unit_max_length = unit_max_length
         self.ref_max_length = ref_max_length
         self.max_position_embedding = max_position_embedding
+        self.v_input = v_input
         self.d_input = d_input
         self.d_model = d_model
         self.n_heads = n_heads
