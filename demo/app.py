@@ -25,7 +25,8 @@ from vt_plug.dataset.utils import (
     mask_square2origin,
     draw_label_type,
     denorm_box_xywh_square2origin,
-    de_norm_keypoint_square2origin
+    de_norm_keypoint_square2origin,
+    visualize_keypoints_pytorch
 )
 from inference import VTPlugInference
 from utils import SingleInferDataset
@@ -68,7 +69,7 @@ def choose_system(task_name):
 def parse_args():
     parser = argparse.ArgumentParser(description='Chat with a HF model')
     parser.add_argument(
-        '--config', default='configs/inference_stage2_decoder.py', help='config file name or path.')
+        '--config', help='config file name or path.')
     parser.add_argument(
         '--seed',
         type=int,
@@ -110,7 +111,7 @@ class ImageSketcher(gr.Image):
     """
     Code is from https://github.com/jshilong/GPT4RoI/blob/7c157b5f33914f21cfbc804fb301d3ce06324193/gpt4roi/app.py#L365
 
-    Fix the bug of gradio.Image that cannot upload with tool == 'sketch'.
+    Fix the bug of gradio.Image that cannot upload with tool == 'sketch'. 
     """
 
     is_template = True  # Magic to make this work with gradio.Block, don't remove unless you know what you're doing.
@@ -367,13 +368,16 @@ def submit_step3(state,input_image,output_image,threshold=0.4):
                                            threshold=threshold) for decode_mask in decode_masks]
         output_image = visualize_mask(input_image,masks_resize,alpha=0.8)  # TODO:改visualize
     elif keypoints_output != []:
-        
+        keypoints_processed = []
+        visibility = []
         for i,keypoints in enumerate(keypoints_output):
             keypoints = keypoints.float().cpu().numpy()
             keypoints_class = keypoints_cls[i].int().cpu().numpy()
             denorm_keypoints = de_norm_keypoint_square2origin(keypoints,input_image.width,input_image.height)
-            keypoints_combine = np.concatenate((denorm_keypoints,keypoints_class.reshape(-1,1)),axis=1)
-            visualize_keypoints(input_image,keypoints_combine,SKELETON,i)
+            keypoints_processed.append(denorm_keypoints)
+            visibility.append(keypoints_class)
+        
+        output_image = visualize_keypoints_pytorch(input_image,keypoints_processed,SKELETON,visibility)
             
     if output_image is not None:
         output_image = Image.fromarray(output_image).resize((600,330))
@@ -399,9 +403,9 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
 theme = gr.themes.Default()
 
 # title_markdown = ("""
-# ![LOGO](/code/vt_plug/demo/assets/logo/logo3.png)
+# ![LOGO](/code/okapi-mllm/demo/assets/logo/logo3.png)
 # # 🌋 Ladon: Multi-Visual Tasks Multimodal Large Language Model
-# [[Project Page]](https://github.com/MacavityT/VT-PLUG/) [[Paper]](https://github.com/MacavityT/VT-PLUG/) [[Code]](https://github.com/MacavityT/VT-PLUG/) [[Model]](https://github.com/MacavityT/VT-PLUG/)
+# [[Project Page]](https://github.com/MacavityT/okapi-mllm/) [[Paper]](https://github.com/MacavityT/okapi-mllm/) [[Code]](https://github.com/MacavityT/okapi-mllm/) [[Model]](https://github.com/MacavityT/okapi-mllm/)
 # """)
 
 # title_markdown = ("""
@@ -410,9 +414,9 @@ theme = gr.themes.Default()
 # <img src="https://i.mij.rip/2024/06/12/845590e05554cc3b25907dcb0649469a.md.png" alt="Logo" width="130"></a>
 #   <h4 align="center"><font color="#966661">Ladon</font>: Multi-Visual Tasks Multimodal Large Language Model</h4>
 #   <p align="center">
-#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
-#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
-#     <a href='https://github.com/MacavityT/VT-PLUG/'><img src='https://img.shields.io/badge/Online-Demo-green'></a>
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
+#     <a href='https://github.com/MacavityT/okapi-mllm/'><img src='https://img.shields.io/badge/Online-Demo-green'></a>
 #   </p>
 # </p>
 # """)
@@ -473,6 +477,7 @@ with gr.Blocks(
          ["VQA","Please describe the image in more details."],
          ["VQA","Where is the dog?"],
          ["Detection","Detect objects in this image."],
+         ["Detection","Identify keypoints for each person captured in the image."],
          ["Segmentation","segment objects in this image."],
          ["Grounding Detection", "Please identify the position of young boy in the image and give the bounding box coordinates."],
          ["Grounding Segmentation", "Can you segment bears in the image and provide the masks for this class?"],
@@ -541,7 +546,7 @@ with gr.Blocks(
 
     with gr.Row():
         gr.Markdown(
-            "[![Website](https://img.shields.io/badge/Project-Website-87CEEB)](https://github.com/MacavityT/VT-PLUG)"
+            "[![Website](https://img.shields.io/badge/Project-Website-87CEEB)](https://github.com/MacavityT/okapi-mllm)"
         )
 
     with gr.Row():

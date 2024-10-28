@@ -8,7 +8,7 @@ with read_base():
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
 
-model_dir = 'checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter14500'
+model_dir = 'checkpoints/vicuna_7b/hf_model/1024_all_self_attn_lr2e-6_iter11000'
 
 projector = dict(
     type=AutoModel.from_pretrained,
@@ -23,11 +23,11 @@ vpt_encoder = dict(
 )
 
 
-# ref_adapter = dict(
-#     type=AutoModel.from_pretrained,
-#     pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
-#     trust_remote_code=True,
-# )
+ref_adapter = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
+    trust_remote_code=True,
+)
 
 box_decoder = dict(
     type=AutoModel.from_pretrained,
@@ -73,9 +73,9 @@ model = dict(
     visual_tower=clip_convnext_512['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
-    # ref_adapter=ref_adapter,
+    ref_adapter=ref_adapter,
     visual_decoder=dict(
         box=box_decoder,
-        mask=mask_decoder
+        # mask=mask_decoder
     )
 )

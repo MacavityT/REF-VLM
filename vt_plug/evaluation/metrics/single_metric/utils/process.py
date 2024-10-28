@@ -242,6 +242,8 @@ class SEGDETProcessor:
         self.text_sim_threshold = text_sim_threshold
         self.cos = CosineSimilarity(dim=1, eps=1e-6)
         self.test_class_features = None
+        self.test_class_ids = None
+        self.test_class_names = None
         if self.task in ['ade_panoptic','ade_semantic','cityscapes_panoptic']:
             self.process_config()
         elif "coco" in self.task:
@@ -296,8 +298,8 @@ class SEGDETProcessor:
                 f2.close()
         
 
-
-        self.id_cls_map = {self.test_class_names[i]:id for i, id in enumerate(self.test_class_ids)}
+        if self.test_class_names is not None and self.test_class_ids is not None:
+            self.id_cls_map = {self.test_class_names[i]:id for i, id in enumerate(self.test_class_ids)}
 
     def convert_cls_txt_to_id(self,label_txt):
         label_dict = {}

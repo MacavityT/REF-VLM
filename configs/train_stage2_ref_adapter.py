@@ -11,7 +11,7 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data configs
-batch_size = 24  # per_device  24
+batch_size = 16  # per_device  24
 dataloader_num_workers = 4
 
 # dataset grand det and seg
@@ -44,35 +44,35 @@ for dataset in dataset_args:
         # dataset['target'] = True
 
 
-# max_epochs = 1
-# lr = 1e-5 # 2e-5 4e-6 2e-6
-# betas = (0.9, 0.999)
-# weight_decay = 0
-# max_norm = 1  # grad clip
-# warmup_ratio = 0.5
+max_epochs = 1
+lr = 2e-5 # 2e-5 4e-6 2e-6
+betas = (0.9, 0.999)
+weight_decay = 0
+max_norm = 1  # grad clip
+warmup_ratio = 0.5
 
-# # optimizer
-# optim_wrapper = dict(
-#     type=AmpOptimWrapper,
-#     optimizer=dict(
-#         type=AdamW, lr=lr, betas=betas, weight_decay=weight_decay),
-#     clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
-#     accumulative_counts=accumulative_counts,
-#     loss_scale='dynamic',
-#     dtype='float16')
+# optimizer
+optim_wrapper = dict(
+    type=AmpOptimWrapper,
+    optimizer=dict(
+        type=AdamW, lr=lr, betas=betas, weight_decay=weight_decay),
+    clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
+    accumulative_counts=accumulative_counts,
+    loss_scale='dynamic',
+    dtype='float16')
 
-# param_scheduler = [
-#     dict(
-#         type=LinearLR,
-#         start_factor=1e-6,
-#         by_epoch=True,
-#         begin=0,
-#         end=max_epochs,
-#         convert_to_iter_based=True),
-# ]
+param_scheduler = [
+    dict(
+        type=LinearLR,
+        start_factor=1e-6,
+        by_epoch=True,
+        begin=0,
+        end=max_epochs,
+        convert_to_iter_based=True),
+]
 
-# # train, val, test setting
-# train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
+# train, val, test setting
+train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
 
 
 
@@ -126,11 +126,11 @@ llm=dict(
 model=dict(
     type=VTPlugModel,
     # pretrained_pth=pretrained_pth,
-    freeze_llm=True,
+    freeze_llm=False,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
-    freeze_projector=True,
-    freeze_vpt_encoder=True,
+    freeze_projector=False,
+    freeze_vpt_encoder=False,
     cutoff_len=cutoff_len,
     llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
@@ -152,20 +152,21 @@ model=dict(
         # ref_max_length=300,
 
         mode='encode',
-        max_position_embedding=2048,
+        modality='text',
+        max_position_embedding=4096,
         d_input=4096,
-        d_model=1024,
+        d_model=4096,
         n_heads=8,
         dropout=0.1,
-        d_ffn=2048,
+        d_ffn=8192,
         num_layers=3,
     ),
     visual_decoder=dict(
         box=dict(
             use_group_matcher=True,
             num_queries=100,
-            quries_input_dim=1024, # ref adapter
-            # quries_input_dim=4096, # no ref adapter
+            # quries_input_dim=1024, # ref adapter
+            quries_input_dim=4096, # no ref adapter
             encoder_input_transform='resize_concat',
             # encoder_input_index=[8, 16, 23], # clip-vit features
             # encoder_input_dim=[1024, 1024, 1024],
@@ -187,46 +188,46 @@ model=dict(
             bbox_loss_coefficient=5,
             giou_loss_coefficient=2,
         ),
-        mask=dict(
-            use_group_matcher=True,
-            num_queries=30,
-            quries_input_dim=1024, # ref adapter
-            # quries_input_dim=4096, # no ref adapter
-            encoder_input_transform='multiple_select',
-            # encoder_input_index=[8, 16, 23], # clip-vit features
-            # encoder_input_dim=[1024, 1024, 1024],
-            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-            # encoder_input_dim=[192, 384, 768, 1536],  
+        # mask=dict(
+        #     use_group_matcher=True,
+        #     num_queries=30,
+        #     quries_input_dim=1024, # ref adapter
+        #     # quries_input_dim=4096, # no ref adapter
+        #     encoder_input_transform='multiple_select',
+        #     # encoder_input_index=[8, 16, 23], # clip-vit features
+        #     # encoder_input_dim=[1024, 1024, 1024],
+        #     # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+        #     # encoder_input_dim=[192, 384, 768, 1536],  
 
-            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-            encoder_input_dim=[192, 384, 768, 1024],
+        #     encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+        #     encoder_input_dim=[192, 384, 768, 1024],
             
-            #region query decoder config
-            decoder_layers=6,
-            decoder_ffn_dim=2048,
-            decoder_attention_heads=8,
-            decoder_layerdrop=0.0,
-            pre_norm=False,
-            activation_function="relu",
-            d_model=256,
-            dropout=0.1,
-            attention_dropout=0.0,
-            activation_dropout=0.0,
-            #endregion
-            #region pixel decoder config
-            encoder_layers=6, 
-            fpn_feature_size=256,
-            mask_feature_size=256,
-            feature_strides=[4, 8, 16, 32],
-            common_stride=4,
-            encoder_feedforward_dim=1024,
-            mask_loss_coefficient=20,
-            dice_loss_coefficient=1,
-            #endregion
-        ),
+        #     #region query decoder config
+        #     decoder_layers=6,
+        #     decoder_ffn_dim=2048,
+        #     decoder_attention_heads=8,
+        #     decoder_layerdrop=0.0,
+        #     pre_norm=False,
+        #     activation_function="relu",
+        #     d_model=256,
+        #     dropout=0.1,
+        #     attention_dropout=0.0,
+        #     activation_dropout=0.0,
+        #     #endregion
+        #     #region pixel decoder config
+        #     encoder_layers=6, 
+        #     fpn_feature_size=256,
+        #     mask_feature_size=256,
+        #     feature_strides=[4, 8, 16, 32],
+        #     common_stride=4,
+        #     encoder_feedforward_dim=1024,
+        #     mask_loss_coefficient=20,
+        #     dice_loss_coefficient=1,
+        #     #endregion
+        # ),
     ),
     loss_coefficient=dict(
         llm=1,
         box=1,
-        mask=1
+        # mask=1
     ))

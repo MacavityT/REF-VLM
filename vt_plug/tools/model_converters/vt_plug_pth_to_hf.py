@@ -77,7 +77,7 @@ def main():
 
     print(f'Load PTH model from {args.pth_model}')
 
-    assert 'OkapiModel' in model_name or 'VTPlugModel' in model_name
+    assert 'VTPlugModel' in model_name
     if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
                                     or cfg.model.get('llm_lora')):
         if 'PeftModel' in model.llm.__class__.__name__:

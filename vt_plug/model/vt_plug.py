@@ -764,6 +764,7 @@ class VTPlugModel(BaseModel):
                 data.update(visual_prompts) 
             data['pixel_values'] = visual_feats
 
+        metas['pixel_values_proj'] = data['pixel_values']
         # prepare data for train/predict
         try:
             if mode == 'loss':
@@ -805,9 +806,23 @@ class VTPlugModel(BaseModel):
 
     def _forward(self, data, data_samples=None, metas=None):
 
-        outputs = self.llm(**data)
+        for key in data.keys():
+            if data[key] is not None:
+                data[key] = data[key].to(self.llm.dtype)
+            
+        data['labels'] = data['labels'].to(torch.long)
+        llm_outputs = self.llm(**data,output_attentions=True,output_hidden_states=True)
+        output_sequences = llm_outputs.logits.argmax(dim=-1)
+        results = []
 
-        return outputs
+        results.append(
+            {
+                'generate_ids': output_sequences,
+                'attentions':llm_outputs['attentions'],
+            }
+        )
+
+        return results
     
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
@@ -833,7 +848,8 @@ class VTPlugModel(BaseModel):
                 decode_feats['unit_feats'],
                 decode_feats['ref_feats'],
                 metas=metas,
-                mode=mode
+                mode=mode,
+                hidden_states=hidden_states
             )
             ref_hidden_states = ref_outputs['ref_hidden_states']
             ref_mask = ref_outputs['ref_mask']

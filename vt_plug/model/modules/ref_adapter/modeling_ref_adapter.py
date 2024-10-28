@@ -9,6 +9,15 @@ from torch.utils.checkpoint import checkpoint
 
 from .configuration_ref_adapter import REFAdapterConfig
 
+
+TOKEN_MASK_IDS = {
+    'ref_masks': 1,
+    'bou_masks': 2,
+    'eou_masks': 3,
+    'bop_masks': 4,
+    'eop_masks': 5,
+}
+
 class PositionalEncoding(nn.Module):
     
     def __init__(self, d_model, dropout=0.1, max_len=256, batch_first=False):
@@ -76,6 +85,7 @@ class REFAdapterEncoder(PreTrainedModel):
     def __init__(self, config: REFAdapterConfig):
         super().__init__(config)
         self.config = config
+        v_input = config.v_input
         d_input = config.d_input
         d_model = config.d_model
         n_heads = config.n_heads
@@ -85,6 +95,8 @@ class REFAdapterEncoder(PreTrainedModel):
 
         if d_input != d_model:
             self.in_proj = nn.Linear(d_input, d_model)
+        if v_input != d_model:
+            self.visual_in_proj = nn.Linear(v_input, d_model)
         self.positional_encoding = PositionalEncoding(
             d_model, 
             dropout=0, 
@@ -108,11 +120,18 @@ class REFAdapterEncoder(PreTrainedModel):
 
     def forward(self,
         hidden_states,
+        visual_hidden_states=None,
         attention_mask=None, 
         mode='loss'
     ):
         if self.config.d_input != self.config.d_model:
             hidden_states = self.in_proj(hidden_states)
+        if visual_hidden_states is not None:
+            if isinstance(visual_hidden_states,List):
+                visual_hidden_states = visual_hidden_states[-1]
+            if visual_hidden_states.shape[-1] != self.config.d_model:
+                visual_hidden_states = self.visual_in_proj(visual_hidden_states)
+            hidden_states = torch.cat([hidden_states,visual_hidden_states],dim=1)
         hidden_states = self.positional_encoding(hidden_states)
 
         all_hidden_states = ()
@@ -268,12 +287,13 @@ class REFAdapterModel(PreTrainedModel):
         self.config = config
         if config.mode == 'encode':
             self.model = REFAdapterEncoder(config)
-        else:
-            assert config.mode == 'decode'
+        elif config.mode == 'decode':
             if config.packing:
                 self.register_buffer("split_ids", torch.arange(2).unsqueeze(1), persistent=False)
                 self.split_embedding = nn.Embedding(2, config.d_input)
             self.model = REFAdapterDecoder(config)
+        else:
+            raise NotImplementedError
         self.post_init()
 
     def enable_input_require_grads(self):
@@ -395,6 +415,8 @@ class REFAdapterModel(PreTrainedModel):
     def reform_packed_sequences(self, hidden_states, masks):
         new_hidden_states = []
         max_length = 0
+        if hidden_states.shape[1] != masks.shape[1]:
+            hidden_states = hidden_states[:,hidden_states.shape[1]-masks.shape[1]:,:]
         for feats, mask in zip(hidden_states, masks):
             feats = feats[mask]
             new_hidden_states.append(feats)
@@ -421,6 +443,38 @@ class REFAdapterModel(PreTrainedModel):
         ref_hidden_states = torch.stack(ref_hidden_states, dim=0)
         ref_masks = torch.stack(ref_masks)
         return ref_hidden_states, ref_masks
+    
+    def prepare_ref_feats(self, hidden_states, metas, mode='loss',shift=False):
+        token_masks = metas.get('token_masks', None)
+        ref_masks = token_masks == TOKEN_MASK_IDS['ref_masks']
+        if shift:
+            true_indices = ref_masks.nonzero(as_tuple=True)
+            ref_masks[true_indices] = False
+            ref_masks[true_indices[0], true_indices[1] - 1] = True
+
+        if ref_masks.sum() == 0 and mode != 'loss':
+            return None, None
+
+        max_num_queries = self.config.ref_max_length
+        if max_num_queries == 0:
+            return None, None
+
+        batch_size, _, dim_feats = hidden_states.shape
+        ref_hidden_states = torch.zeros((batch_size, max_num_queries, dim_feats),
+                                    dtype=hidden_states.dtype,
+                                    device=hidden_states.device)
+        ref_attention_masks = torch.zeros((batch_size, max_num_queries),
+                                    dtype=torch.bool,
+                                    device=hidden_states.device)
+
+        for batch_idx, (feats, mask) in enumerate(zip(hidden_states, ref_masks)):
+            ref_feats = feats[mask, :]
+            ref_feats_len = ref_feats.shape[0]
+            valid_len = min(max_num_queries, ref_feats_len)
+            ref_hidden_states[batch_idx, :valid_len, :] = ref_feats[:valid_len,:]
+            ref_attention_masks[batch_idx, :valid_len] = True
+        return ref_hidden_states, ref_attention_masks
+
 
     def packing_encode_sequences(self, phrase_seqs, unit_seqs, ref_seqs):
         encode_feats = []
@@ -482,33 +536,74 @@ class REFAdapterModel(PreTrainedModel):
         unit_sequences, 
         ref_sequences,
         metas, 
-        mode='loss'
+        mode='loss',
+        hidden_states=None,
     ):
         encode_feats, ref_masks = self.packing_encode_sequences(
             phrase_sequences, 
             unit_sequences, 
             ref_sequences
         )
-        if self.gradient_checkpointing and self.training:
-            outputs = checkpoint(
-                self.model, 
-                encode_feats,
-                None,
-                mode,
-                use_reentrant=True
-            )
+
+        if 'visual' in self.config.modality:
+            if self.config.modality == 'visual_map':
+                visual_hidden_states = metas['pixel_values_proj']
+            else:
+                visual_hidden_states = metas['visual_hidden_states']
+            if self.gradient_checkpointing and self.training:
+                outputs = checkpoint(
+                    self.model, 
+                    encode_feats,
+                    visual_hidden_states,
+                    None,
+                    mode,
+                    use_reentrant=True
+                )
+            else:
+                outputs = self.model(
+                    encode_feats,
+                    visual_hidden_states=visual_hidden_states,
+                    mode=mode,
+                )            
         else:
-            outputs = self.model(
-                encode_feats,
-                mode=mode
-            )
-        
+            if self.config.modality == 'all':
+                assert hidden_states is not None
+                encode_feats = hidden_states
+
+            if self.gradient_checkpointing and self.training:
+                outputs = checkpoint(
+                    self.model, 
+                    encode_feats,
+                    None,
+                    None,
+                    mode,
+                    use_reentrant=True
+                )
+            else:
+                outputs = self.model(
+                    encode_feats,
+                    attention_mask=None, 
+                    mode=mode
+                )
+            
         last_hidden_states = outputs['last_hidden_states']
-        ref_feats, ref_mask = self.reform_packed_sequences(last_hidden_states, ref_masks)
+        if self.config.modality == 'all':
+            ref_feats, ref_mask = self.prepare_ref_feats(last_hidden_states, metas, mode, shift=True)
+        else:
+            ref_feats, ref_mask = self.reform_packed_sequences(last_hidden_states, ref_masks)
+        
+        ref_feats_orig = torch.zeros_like(ref_feats).to(ref_feats.device).to(ref_feats.dtype)
+        for i,ref_sequence_batch in enumerate(ref_sequences):
+            ref_feats_cat = torch.cat(ref_sequence_batch,axis=0)
+            ref_feats_orig[i,:ref_feats_cat.shape[0],:] = ref_feats_cat      
+                  
+        ref_feats = ref_feats + ref_feats_orig
         return dict(
             ref_hidden_states = ref_feats,
             ref_mask = ref_mask
         )
+
+
 
     def forward_decode(
         self, 
@@ -516,7 +611,8 @@ class REFAdapterModel(PreTrainedModel):
         unit_sequences, 
         ref_sequences,
         metas, 
-        mode='loss'
+        mode='loss',
+        hidden_states=None,
     ):
         if self.config.packing:
             phrase_feats, _ = self.packing_sequences(phrase_sequences)
@@ -557,13 +653,15 @@ class REFAdapterModel(PreTrainedModel):
             ref_mask = hidden_states_mask
         )
 
+
     def forward(
         self, 
         phrase_sequences, 
         unit_sequences, 
         ref_sequences,
         metas, 
-        mode='loss'
+        mode='loss',
+        hidden_states=None,
     ):
         if self.config.mode == 'encode':
             results = self.forward_encode(
@@ -571,15 +669,19 @@ class REFAdapterModel(PreTrainedModel):
                 unit_sequences, 
                 ref_sequences,
                 metas, 
-                mode
+                mode,
+                hidden_states
             )
-        else:
-            assert self.config.mode == 'decode'
+        elif self.config.mode == 'decode':
             results = self.forward_decode(
                 phrase_sequences, 
                 unit_sequences, 
                 ref_sequences,
                 metas, 
-                mode
+                mode,
+                hidden_states
             )
+        else:
+            raise NotImplementedError
+            
         return results
