@@ -31,8 +31,9 @@ eval_type = 'reg'
 prefix = 'gcg_box'
 chunk = 8
 
-save_dir = 'checkpoints/vicuna_7b/stage2_ref/1011_det_self_attn_4096/eval7644'
-model_dir = 'checkpoints/vicuna_7b/hf_model/0914_nodecoder_iter11500'
+save_dir = 'checkpoints/vicuna_7b/stage2_ref/1030_text_unfreezeprojector/eval7644'
+# model_dir = 'checkpoints/vicuna_7b/hf_model/0914_nodecoder_iter11500'
+model_dir = 'checkpoints/vicuna_7b/hf_model/1030_text_unfreezeprojector_iter7644'
 
 
 
@@ -416,7 +417,7 @@ model=dict(
         # ref_max_length=300,
 
         mode='encode',
-        modality='text',
+        modality='visual',
         max_position_embedding=4096,
         d_input=4096,
         d_model=4096,

@@ -8,7 +8,7 @@ with read_base():
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
 
-model_dir = 'checkpoints/vicuna_7b/hf_model/1024_all_self_attn_lr2e-6_iter11000'
+model_dir = 'checkpoints/vicuna_7b/hf_model/1030_text_unfreezeprojector_iter7644'
 
 projector = dict(
     type=AutoModel.from_pretrained,

@@ -24,7 +24,7 @@ train_grand_variant = dict(
             output=["<boxes>"],
         ),     
         placeholders=('<image>',),
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_det',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_det_nofilter',
     ),
     grand_s=dict(
         **grand_train_common_cfg, 
@@ -35,7 +35,7 @@ train_grand_variant = dict(
             output=["<masks>"],
         ),     
         placeholders=('<image>',),
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg_nofilter',
     ),
     grand_cond_d=dict(
         **grand_train_common_cfg, 
@@ -46,7 +46,7 @@ train_grand_variant = dict(
             output=["<boxes>"],
         ),     
         placeholders=('<image>','<cls>'),
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_det',        
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_det_class',        
     ),
     grand_cond_s=dict(
         **grand_train_common_cfg,
@@ -57,7 +57,7 @@ train_grand_variant = dict(
             output=["<masks>"],
         ), 
         placeholders=('<image>','<cls>'),
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_seg',        
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_cond_seg_class',        
     ),
     grand_r_det=dict(
         **grand_train_common_cfg, 
@@ -127,7 +127,7 @@ train_grand_variant = dict(
             output=["<masks>"],
         ),     
         placeholders=('<image>',),
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_0904',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_nofilter',
     ),
     grand_mix = dict(
         **grand_train_common_cfg, 

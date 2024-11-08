@@ -196,6 +196,9 @@ class VTPlugModel(BaseModel):
 
         if self.freeze_llm:
             self.llm.requires_grad_(False)
+            # unfreeze_layers = list(self.llm.named_parameters())[-11:]
+            # for name, param in unfreeze_layers:
+            #     param.requires_grad = True
         if self.freeze_visual_encoder:
             self.visual_encoder.requires_grad_(False)
         if self.freeze_projector:

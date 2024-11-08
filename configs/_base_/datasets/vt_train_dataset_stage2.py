@@ -43,7 +43,8 @@ grand_re_cap = dict(
 
 grand_cond_d = dict(
     type='SubSet',
-    portion=1/13,
+    # portion=1/13,
+    portion=3/4,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_cond_d'],
@@ -84,8 +85,8 @@ dataset_s1 = [
     train_all_dataset['point_twice_oq_bp'],
     train_all_dataset['point_twice_sq_bp'],
     train_all_dataset['point_twice_gq_bp'],
-    train_all_dataset['point_v7w_p'],
-    train_all_dataset['point_v7w_b'],
+    # train_all_dataset['point_v7w_p'],
+    # train_all_dataset['point_v7w_b'],
 ]
 
 

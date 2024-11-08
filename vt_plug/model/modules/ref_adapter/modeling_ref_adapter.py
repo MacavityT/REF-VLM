@@ -52,7 +52,8 @@ class REFAdapterEncoderLayer(nn.Module):
         # FFN
         self.ffn = nn.Sequential(
             nn.Linear(d_model, dim_feedforward),
-            nn.ReLU(),
+            #  nn.ReLU(),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(dim_feedforward, d_model)
         )
@@ -103,6 +104,12 @@ class REFAdapterEncoder(PreTrainedModel):
             max_len=max_position_embedding,
             batch_first=True
         )
+        self.register_buffer(
+            "query_ids", 
+            torch.arange(config.max_position_embedding).unsqueeze(0), 
+            persistent=False
+            )
+        self.query_embedding = nn.Embedding(config.max_position_embedding, config.d_model)
 
         self.layers = nn.ModuleList()
         for _ in range(config.num_layers):
@@ -132,8 +139,10 @@ class REFAdapterEncoder(PreTrainedModel):
             if visual_hidden_states.shape[-1] != self.config.d_model:
                 visual_hidden_states = self.visual_in_proj(visual_hidden_states)
             hidden_states = torch.cat([hidden_states,visual_hidden_states],dim=1)
-        hidden_states = self.positional_encoding(hidden_states)
 
+        learnable_queries = self.query_embedding.weight.unsqueeze(0).repeat(hidden_states.shape[0], 1, 1)
+        hidden_states = hidden_states + learnable_queries[:, :hidden_states.shape[1], :]
+        hidden_states = self.positional_encoding(hidden_states)
         all_hidden_states = ()
         for layer in self.layers:
             all_hidden_states += (hidden_states,)
@@ -164,7 +173,8 @@ class REFAdapterDecoderLayer(nn.Module):
         # FFN
         self.ffn = nn.Sequential(
             nn.Linear(d_model, dim_feedforward),
-            nn.ReLU(),
+            # nn.ReLU(),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(dim_feedforward, d_model)
         )

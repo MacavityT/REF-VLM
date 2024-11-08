@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from transformers import AutoModel
 from mmengine.config import read_base
-
+from peft import LoraConfig
 with read_base():
     from ._base_.models.all_visual_encoders import *
     from ._base_.datasets.vt_train_dataset_stage2 import *
@@ -84,6 +84,13 @@ model=dict(
     type=VTPlugModel,
     # pretrained_pth=pretrained_pth,
     freeze_llm=False,
+    # llm_lora=dict(
+    #     type=LoraConfig,
+    #     r=512,
+    #     lora_alpha=256,
+    #     lora_dropout=0.05,
+    #     bias='none',
+    #     task_type='CAUSAL_LM'),  # use lora
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,

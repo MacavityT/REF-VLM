@@ -190,7 +190,8 @@ class GRITDataset(MInstrDataset):
                 question = question.replace(CLASS_PLACEHOLDER,cls_name)
                 box_seq = [i]
                 conversation_human = {'from': 'human','value': question}
-                value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+                # value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
                 conversation_gpt = {'from': 'gpt', 'value': value,'boxes_seq': [box_seq]}
 
                 single_conversation = [conversation_human,conversation_gpt]
@@ -241,7 +242,8 @@ class GRITDataset(MInstrDataset):
                     question = self.get_template_from_dict('REC')
                 question = question.replace(EXPR_PLACEHOLDER,expr_name)
                 conversation_human = {'from': 'human','value': question}
-                value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+                # value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + expr_name + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
                 conversation_gpt = {'from': 'gpt', 'value': value}
 
                 # find box_seq for expr in class_names

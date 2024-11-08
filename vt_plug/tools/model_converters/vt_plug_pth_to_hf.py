@@ -78,8 +78,9 @@ def main():
     print(f'Load PTH model from {args.pth_model}')
 
     assert 'VTPlugModel' in model_name
-    if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
-                                    or cfg.model.get('llm_lora')):
+    # if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
+    #                                 or cfg.model.get('llm_lora')):
+    if cfg.model.get('llm'):
         if 'PeftModel' in model.llm.__class__.__name__:
             llm_path = osp.join(args.save_dir, 'llm_adapter')
             print(f'Saving LLM adapter to {llm_path}')
@@ -116,15 +117,17 @@ def main():
         model.visual_encoder.save_pretrained(
             visual_encoder_path, max_shard_size=args.max_shard_size)
 
-    if hasattr(model, 'projector') and (
-            not cfg.model.get('freeze_projector', False)):
+    # if hasattr(model, 'projector') and (
+    #         not cfg.model.get('freeze_projector', False)):
+    if hasattr(model, 'projector'):
         projector_path = osp.join(args.save_dir, 'projector')
         print(f'Saving projector to {projector_path}')
         model.projector.save_pretrained(
             projector_path, max_shard_size=args.max_shard_size)
         
-    if hasattr(model, 'vpt_encoder') and (
-            not cfg.model.get('freeze_vpt_encoder', False)):
+    # if hasattr(model, 'vpt_encoder') and (
+    #         not cfg.model.get('freeze_vpt_encoder', False)):
+    if hasattr(model, 'vpt_encoder'):
         vpt_encoder_path = osp.join(args.save_dir, 'vpt_encoder')
         print(f'Saving vpt_encoder to {vpt_encoder_path}')
         model.vpt_encoder.save_pretrained(

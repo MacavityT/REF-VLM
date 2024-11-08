@@ -45,6 +45,7 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_name=r'REC',
+        target=True,
         map_placeholders=dict(
             output=["<boxes>"],
         )
