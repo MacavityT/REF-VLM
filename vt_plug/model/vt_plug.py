@@ -10,7 +10,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
 from mmengine.logging import print_log
-from peft import get_peft_model, prepare_model_for_kbit_training
+from peft import get_peft_model, prepare_model_for_kbit_training,PeftModel
 from transformers import AutoConfig, GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
@@ -64,6 +64,7 @@ class VTPlugModel(BaseModel):
     def __init__(self,
                  llm,
                  tokenizer=None,
+                 llm_adapter=None,
                  visual_encoder=None,
                  visual_tower=None,
                  vpt_encoder=None,
@@ -132,6 +133,13 @@ class VTPlugModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder).to(self.llm.dtype)
+            if llm_adapter is not None:
+                self.llm.model = PeftModel.from_pretrained(
+                    self.llm.model,
+                    llm_adapter,
+                    trust_remote_code=True,
+                ) 
+
             if visual_tower is not None:
                 self.visual_tower = self._build_from_cfg_or_module(
                     visual_tower).to(self.llm.dtype)
@@ -906,7 +914,6 @@ class VTPlugModel(BaseModel):
         for key in data.keys():
             if data[key] is not None:
                 data[key] = data[key].to(self.llm.dtype)
-        
         llm_outputs = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,

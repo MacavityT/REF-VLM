@@ -78,9 +78,9 @@ def main():
     print(f'Load PTH model from {args.pth_model}')
 
     assert 'VTPlugModel' in model_name
-    # if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
-    #                                 or cfg.model.get('llm_lora')):
-    if cfg.model.get('llm'):
+    if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
+                                    or cfg.model.get('llm_lora')):
+    # if cfg.model.get('llm'):
         if 'PeftModel' in model.llm.__class__.__name__:
             llm_path = osp.join(args.save_dir, 'llm_adapter')
             print(f'Saving LLM adapter to {llm_path}')
