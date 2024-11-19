@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from transformers import AutoConfig, AutoModel
 
+from .modeling_decoder import DecoderModel
 from .configuration_box_decoder import BoxDecoderConfig
 from .modeling_box_decoder import BoxDecoderModel
 from .configuration_mask_decoder import MaskDecoderConfig
@@ -21,6 +22,7 @@ AutoConfig.register('depth_decoder', DepthDecoderConfig)
 AutoModel.register(DepthDecoderConfig, DepthDecoderModel)
 
 __all__ = [
+    'DecoderModel',
     'BoxDecoderConfig', 'BoxDecoderModel',
     'MaskDecoderConfig', 'MaskDecoderModel',
     'PoseDecoderConfig', 'PoseDecoderModel',
