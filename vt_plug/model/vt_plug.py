@@ -744,6 +744,8 @@ class VTPlugModel(BaseModel):
         selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
 
         if self.visual_tower is None:
+            if 'pixel_values_tower' in data.keys():
+                metas['pixel_values_tower'] = data['pixel_values_tower'].to(self.llm.dtype)
             metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
         else:
             visual_tower_outputs = self.visual_tower(data['pixel_values_tower'].to(self.visual_tower.dtype))
@@ -764,7 +766,6 @@ class VTPlugModel(BaseModel):
                 data.update(visual_prompts) 
             data['pixel_values'] = visual_feats
 
-        metas['pixel_values_proj'] = data['pixel_values']
         # prepare data for train/predict
         try:
             if mode == 'loss':
