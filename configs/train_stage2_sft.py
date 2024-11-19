@@ -9,23 +9,73 @@ with read_base():
     from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
+    from ._base_.datasets.vt_test_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     from ._base_.default_runtime import *
 
 
 # Data configs
-batch_size = 15  # per_device
-dataloader_num_workers = 4
+batch_size = 16  # per_device
+dataloader_num_workers = 8
 accumulative_counts = 1
 
-max_epochs = 5
-lr = 2e-6 # 2e-5 4e-6 2e-6
+max_epochs = 10
+lr = 2e-5 # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
 model_dir = "checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
+
+coco_pope_random_q_a = dict(
+    type='SubSet',
+    portion=1/4,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_random_q_a'],
+)
+
+coco_pope_random_q_bca = dict(
+    type='SubSet',
+    portion=1/4,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_random_q_bca'],
+)
+
+
+coco_pope_popular_q_a = dict(
+    type='SubSet',
+    portion=1/4,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_popular_q_a'],
+)
+
+coco_pope_popular_q_bca = dict(
+    type='SubSet',
+    portion=1/4,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_popular_q_bca'],
+)
+
+coco_pope_adversarial_q_a = dict(
+    type='SubSet',
+    portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_adversarial_q_a'],
+)
+
+coco_pope_adversarial_q_bca = dict(
+    type='SubSet',
+    portion=1/3,
+    do_shuffle=True,
+    seed=42,
+    cfg=test_all_dataset['coco_pope_adversarial_q_bca'],
+)
 
 dataset_args_sft = [
     # train_all_dataset['lvis_box']
@@ -50,7 +100,27 @@ dataset_args_sft = [
     # train_all_dataset['rec']
     # train_all_dataset['res_refcoco'],
     # train_all_dataset['res_refcocoa'],
-    train_all_dataset['res_refcocog'],
+    # train_all_dataset['res_refcocog'],
+    # train_all_dataset['rec_refcoco'],
+    # train_all_dataset['rec_refcocog'],
+    # test_all_dataset['coco_pope_random_q_a'],
+    # test_all_dataset['coco_pope_random_q_bca'],
+    # test_all_dataset['coco_pope_popular_q_a'],
+    # test_all_dataset['coco_pope_popular_q_bca'],
+    # test_all_dataset['coco_pope_adversarial_q_a'],
+    # test_all_dataset['coco_pope_adversarial_q_bca'],
+    # train_all_dataset['reg_refcocog_train_mask'],
+    # coco_pope_random_q_a,
+    # coco_pope_random_q_bca,
+    # coco_pope_popular_q_a,
+    # coco_pope_popular_q_bca,
+    # coco_pope_adversarial_q_a,
+    # coco_pope_adversarial_q_bca
+    train_all_dataset['flickr_caption'],
+    train_all_dataset['caption'],
+    # train_all_dataset['vqav2_train'],
+    # train_all_dataset['vqae_train'],
+    # train_all_dataset['vqax_train'],
 ]
 
 for dataset in dataset_args_sft:

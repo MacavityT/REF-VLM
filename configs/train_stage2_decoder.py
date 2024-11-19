@@ -20,12 +20,12 @@ dataloader_num_workers = 4
 #     train_all_dataset['res_refcoco'],
 #     train_all_dataset['res_refcocoa'],
 #     train_all_dataset['res_refcocog'],
-    # train_all_dataset['llavag_gcg'],
-    # train_all_dataset['openpsg'],
-    # train_all_dataset['interact_mask'],
-    # grand_cond_s,
-    # train_all_dataset['grand_s'],
-    # train_all_dataset['grand_c_s'],
+#     train_all_dataset['llavag_gcg'],
+#     train_all_dataset['openpsg'],
+#     train_all_dataset['interact_mask'],
+#     grand_cond_s,
+#     train_all_dataset['grand_s'],
+#     train_all_dataset['grand_c_s'],
 # ]
 for dataset in dataset_args:
     if dataset['type'] == 'SubSet':
@@ -41,6 +41,9 @@ train_dataset = dict(
     tokenizer=tokenizer,
     dataset_map_fn=dict(
         function=vt_map_fn_stage2,
+        args = dict(
+            use_cot=False,
+        )
     ),
     template_map_fn=dict(
         type=vt_template_map_fn_factory, template=prompt_template),
@@ -59,30 +62,32 @@ val_cfg = None
 # config models
 # pretrained_pth = 'checkpoints/vicuna_7b/stage2/0828/iter_64500.pth'
 
-model_dir = 'checkpoints/vicuna_7b/hf_model/0828_nodecoder_iter64500'
+# model_dir = 'checkpoints/vicuna_7b/hf_model/0828_nodecoder_iter64500'
+
+pretrained_pth = 'checkpoints/vicuna_7b/stage1/0510_1_20_gc_rvg/iter_3558.pth'
 
 
-projector = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=f"{model_dir}/projector",
-    trust_remote_code=True,
-)
+# projector = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=f"{model_dir}/projector",
+#     trust_remote_code=True,
+# )
 
-vpt_encoder = dict(
-    type=AutoModel.from_pretrained,
-    pretrained_model_name_or_path=f"{model_dir}/vpt_encoder",
-    trust_remote_code=True,
-)
+# vpt_encoder = dict(
+#     type=AutoModel.from_pretrained,
+#     pretrained_model_name_or_path=f"{model_dir}/vpt_encoder",
+#     trust_remote_code=True,
+# )
 
-llm=dict(
-    type=AutoModelForCausalLM.from_pretrained,
-    # pretrained_model_name_or_path=vicuna_7b_path,
-    pretrained_model_name_or_path=model_dir,
-    trust_remote_code=True)
+# llm=dict(
+#     type=AutoModelForCausalLM.from_pretrained,
+#     # pretrained_model_name_or_path=vicuna_7b_path,
+#     pretrained_model_name_or_path=model_dir,
+#     trust_remote_code=True)
 
 model=dict(
     type=VTPlugModel,
-    # pretrained_pth=pretrained_pth,
+    pretrained_pth=pretrained_pth,
     freeze_llm=False,
     # llm_lora=dict(
     #     type=LoraConfig,
@@ -94,23 +99,23 @@ model=dict(
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
     cutoff_len=cutoff_len,
-    llm=llm,
+    # llm=llm,
     visual_encoder=clip_patch14_336['visual_encoder'],
     visual_tower=clip_convnext_512['visual_encoder'],
-    vpt_encoder=vpt_encoder,
-    projector=projector,
-    # llm=dict(
-    #     type=AutoModelForCausalLM.from_pretrained,
-    #     pretrained_model_name_or_path=vicuna_7b_path,
-    #     trust_remote_code=True),
-    # vpt_encoder=dict(
-    #     strategy='pooling',
-    #     patch_size=vpt_patch_size,
-    #     num_patches = vpt_num_patches,
-    #     visual_hidden_size=visual_hidden_size,
-    #     use_mask_token=True,
-    #     use_projector=False
-    # ),
+    # vpt_encoder=vpt_encoder,
+    # projector=projector,
+    llm=dict(
+        type=AutoModelForCausalLM.from_pretrained,
+        pretrained_model_name_or_path=vicuna_7b_path,
+        trust_remote_code=True),
+    vpt_encoder=dict(
+        strategy='pooling',
+        patch_size=vpt_patch_size,
+        num_patches = vpt_num_patches,
+        visual_hidden_size=visual_hidden_size,
+        use_mask_token=True,
+        use_projector=False
+    ),
     visual_decoder=dict(
         box=dict(
             use_group_matcher=True,

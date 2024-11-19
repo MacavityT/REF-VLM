@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any, List
 from functools import partial
 from PIL import Image
-
+import shutil
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset as TorchConcatDataset
@@ -414,4 +414,77 @@ class VTInstructDataset(Dataset):
             print(e)
             save_wrong_data(f"wrong_data_dict", data_dict)
             raise ValueError('Error in get data process')
+        # #region debug
+        # ori_path = 'vis_origin.jpg'
+        # shutil.copy(data_dict['image_path'], ori_path)
+
+        # image = data_dict['pixel_values'].numpy().transpose((1, 2, 0))
+        # image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        # image = image.astype(np.uint8)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # res_path = 'vis_normed.jpg'
+        # cv2.imwrite(res_path, image)
+
+        # if 'pixel_masks' in data_dict.keys():
+        #     pixel_mask = data_dict['pixel_masks']
+        #     vis_pixel_mask = visualize_mask_single(image, pixel_mask.cpu().numpy(), alpha=1.0, beta=1.0)
+        #     save_path = f'pixel_mask.jpg'
+        #     cv2.imwrite(save_path, vis_pixel_mask)
+
+        # if 'decode_labels' in data_dict.keys():
+        #     if 'mask' in data_dict['decode_labels'].keys():
+        #         masks = data_dict['decode_labels']['mask']
+        #         for j,mask in enumerate(masks):
+        #             vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #             save_path = f'decode_label_mask_{j}.jpg'
+        #             cv2.imwrite(save_path, vis_mask)
+        #     if 'box' in data_dict['decode_labels'].keys():
+        #         boxes = data_dict['decode_labels']['box']
+        #         width = image.shape[0]
+        #         height = image.shape[1]
+        #         for k,box in enumerate(boxes):
+        #             box = box_xywh_to_xyxy(box)
+        #             denorm_box = de_norm_box_xyxy(box,width,height)
+        #             vis_box = visualize_box_single(image.copy(), denorm_box)
+        #             save_path = f'decode_labels_box_{k}.jpg'
+        #             cv2.imwrite(save_path, vis_box)
+
+        # if 'visual_prompts' in data_dict.keys():
+        #     vpts = data_dict['visual_prompts']
+        #     for i,vpt in enumerate(vpts):
+        #         vis_vpt = visualize_mask_single(image, vpt, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_vpt_{i}.jpg'
+        #         cv2.imwrite(save_path, vis_vpt)
+
+        # if 'masks' in data_dict['target'].keys():
+        #     masks = data_dict['target']['masks']
+        #     for j,mask in enumerate(masks):
+        #         vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #         save_path = f'vis_mask_{j}.jpg'
+        #         cv2.imwrite(save_path, vis_mask)
+        
+        # if 'boxes' in data_dict['target'].keys():
+        #     boxes = data_dict['target']['boxes']
+        #     width = image.shape[0]
+        #     height = image.shape[1]
+        #     for k,box in enumerate(boxes):
+        #         denorm_box = de_norm_box_xyxy(box,width,height)
+        #         vis_box = visualize_box_single(image.copy(), denorm_box)
+        #         save_path = f'vis_box_{k}.jpg'
+        #         cv2.imwrite(save_path, vis_box)
+
+
+        # if 'keypoints' in data_dict['target'].keys():
+        #     keypoints = data_dict['target']['keypoints']
+        #     image = Image.open(ori_path)
+        #     width_origin = image.width
+        #     height_origin = image.height
+        #     image = np.array(image)
+        #     for p,keypoint in enumerate(keypoints):
+        #         skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]] 
+        #         keypoint = de_norm_keypoint_square2origin(np.array(keypoint),width_origin,height_origin)
+        #         keypoint = np.array(keypoint)
+        #         visualize_keypoints(image=image,keypoints=keypoint,skeleton=skeleton,index=p)
+
+        # #endregion
         return data_dict

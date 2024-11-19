@@ -24,16 +24,16 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data
-
+test_cfg = dict(type='TestLoop')
 dataloader_num_workers = 8
-dataset_name = 'res_refcocog_test'
-eval_type = 'reg'
-prefix = 'gcg_box'
-chunk = 8
+dataset_name = 'caption_flickr'
+eval_type = 'caption'
+prefix = 'caption_nocaps'
+chunk = 0
 
-save_dir = 'checkpoints/vicuna_7b/stage2_ref/1030_text_unfreezeprojector/eval7644'
+save_dir = 'checkpoints/vicuna_7b/finetune/1114_caption/eval1500'
 # model_dir = 'checkpoints/vicuna_7b/hf_model/0914_nodecoder_iter11500'
-model_dir = 'checkpoints/vicuna_7b/hf_model/1030_text_unfreezeprojector_iter7644'
+model_dir = ''
 
 
 
@@ -48,14 +48,14 @@ if prefix == 'vqa':
     test_evaluator = dict(
         type=VQAComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix='vqav2',chunk=chunk)
     test_dataset_args = [
-        # dict(
-        #     type='SubSet',
-        #     portion=1/200,
-        #     do_shuffle=False,
-        #     seed=43,
-        #     cfg=test_all_dataset['vqav2_val'],
-        #     )
-        test_all_dataset['vqav2_test_8'],
+        dict(
+            type='SubSet',
+            portion=1/200,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['vqav2_val'],
+            )
+        # test_all_dataset['vqav2_test_0'],
     ]
 
 elif prefix == 'vqa_point_pron':
@@ -111,6 +111,19 @@ elif prefix == 'caption_coco':
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset['caption'],
+            )
+    ]
+
+elif prefix == 'caption_nocaps':
+    test_evaluator = dict(
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix)
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/3,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset['nocaps_val'],
             )
     ]
 
@@ -402,30 +415,30 @@ model=dict(
     # visual_tower=clip_convnext_320['visual_encoder'],
     vpt_encoder=vpt_encoder,
     projector=projector,
-    ref_adapter=dict(
-        # Padding Method (packing=False): Max length denotes max corresponding token num in single 'phrase-unit-refs' tuple.
-        # Packing Method(packing=True): Max length denotes max corresponding token num in single batch, 
-        # and each token with a start and end token, like [ref_start]<REF>[ref_end]
+    # ref_adapter=dict(
+    #     # Padding Method (packing=False): Max length denotes max corresponding token num in single 'phrase-unit-refs' tuple.
+    #     # Packing Method(packing=True): Max length denotes max corresponding token num in single batch, 
+    #     # and each token with a start and end token, like [ref_start]<REF>[ref_end]
 
-        # packing=True,
-        # phrase_max_length=100,
-        # unit_max_length=50,
-        # ref_max_length=100,
+    #     # packing=True,
+    #     # phrase_max_length=100,
+    #     # unit_max_length=50,
+    #     # ref_max_length=100,
 
-        # phrase_max_length=1024,
-        # unit_max_length=1024,
-        # ref_max_length=300,
+    #     # phrase_max_length=1024,
+    #     # unit_max_length=1024,
+    #     # ref_max_length=300,
 
-        mode='encode',
-        modality='visual',
-        max_position_embedding=4096,
-        d_input=4096,
-        d_model=4096,
-        n_heads=8,
-        dropout=0.1,
-        d_ffn=8192,
-        num_layers=3,
-    ),
+    #     mode='encode',
+    #     modality='visual',
+    #     max_position_embedding=4096,
+    #     d_input=4096,
+    #     d_model=4096,
+    #     n_heads=8,
+    #     dropout=0.1,
+    #     d_ffn=8192,
+    #     num_layers=3,
+    # ),
     visual_decoder=dict(
         box=dict(
             use_group_matcher=True,
@@ -454,44 +467,44 @@ model=dict(
             bbox_loss_coefficient=5,
             giou_loss_coefficient=2,
         ),
-        # mask=dict(
-        #     use_group_matcher=True,
-        #     num_queries=30,
-        #     # quries_input_dim=256,
-        #     quries_input_dim=4096,
-        #     encoder_input_transform='multiple_select',
-        #     # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
-        #     # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
-        #     # encoder_input_dim=[1024, 1024, 1024],
-        #     # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
-        #     # encoder_input_dim=[192, 384, 768, 1536],  
+        mask=dict(
+            use_group_matcher=True,
+            num_queries=30,
+            # quries_input_dim=256,
+            quries_input_dim=4096,
+            encoder_input_transform='multiple_select',
+            # encoder_input_dim shape = [[16, 16, 1024], [32, 32, 1024], [64, 64, 1024]]
+            # encoder_input_index=[8, 16, 23],   # [3, 2, 1], [-2,-2,-2]
+            # encoder_input_dim=[1024, 1024, 1024],
+            # encoder_input_index=[0, 1, 2, 3], # clip-convnext features
+            # encoder_input_dim=[192, 384, 768, 1536],  
 
-        #     encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
-        #     encoder_input_dim=[192, 384, 768, 1024],
+            encoder_input_index=[0, 1, 2, 4], # clip-convnext features with clip-vpt features
+            encoder_input_dim=[192, 384, 768, 1024],
             
-        #     #region query decoder config
-        #     decoder_layers=6,
-        #     decoder_ffn_dim=2048,
-        #     decoder_attention_heads=8,
-        #     decoder_layerdrop=0.0,
-        #     pre_norm=False,
-        #     activation_function="relu",
-        #     d_model=256,
-        #     dropout=0.1,
-        #     attention_dropout=0.0,
-        #     activation_dropout=0.0,
-        #     #endregion
-        #     #region pixel decoder config
-        #     encoder_layers=6, 
-        #     fpn_feature_size=256,
-        #     mask_feature_size=256,
-        #     feature_strides=[4, 8, 16, 32],
-        #     common_stride=4,
-        #     encoder_feedforward_dim=1024,
-        #     mask_loss_coefficient=20,
-        #     dice_loss_coefficient=1,
-        #     #endregion
-        # ),
+            #region query decoder config
+            decoder_layers=6,
+            decoder_ffn_dim=2048,
+            decoder_attention_heads=8,
+            decoder_layerdrop=0.0,
+            pre_norm=False,
+            activation_function="relu",
+            d_model=256,
+            dropout=0.1,
+            attention_dropout=0.0,
+            activation_dropout=0.0,
+            #endregion
+            #region pixel decoder config
+            encoder_layers=6, 
+            fpn_feature_size=256,
+            mask_feature_size=256,
+            feature_strides=[4, 8, 16, 32],
+            common_stride=4,
+            encoder_feedforward_dim=1024,
+            mask_loss_coefficient=20,
+            dice_loss_coefficient=1,
+            #endregion
+        ),
     ),
     loss_coefficient=dict(
         llm=1,

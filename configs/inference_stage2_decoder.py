@@ -9,7 +9,7 @@ with read_base():
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
 
-model_dir = 'checkpoints/vicuna_7b/hf_model/1107_lora_llm_iter45000'
+model_dir = "/code/VT-PLUG/checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
 
 llm_adapter = os.path.join(model_dir,'llm_adapter')
 
@@ -29,6 +29,12 @@ vpt_encoder = dict(
 ref_adapter = dict(
     type=AutoModel.from_pretrained,
     pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
+    trust_remote_code=True,
+)
+
+vd_adapter = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'vd_adapter'),
     trust_remote_code=True,
 )
 
@@ -78,8 +84,9 @@ model = dict(
     projector=projector,
     vpt_encoder=vpt_encoder,
     # ref_adapter=ref_adapter,
-    # visual_decoder=dict(
-    #     box=box_decoder,
-        # mask=mask_decoder
-    # )
+    # vd_adapter=vd_adapter,
+    visual_decoder=dict(
+        box=box_decoder,
+        mask=mask_decoder
+    )
 )

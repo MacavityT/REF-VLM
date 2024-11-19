@@ -43,8 +43,8 @@ grand_re_cap = dict(
 
 grand_cond_d = dict(
     type='SubSet',
-    # portion=1/13,
-    portion=3/4,
+    portion=1/13,
+    # portion=3/4,
     do_shuffle=True,
     seed=42,
     cfg=train_all_dataset['grand_cond_d'],

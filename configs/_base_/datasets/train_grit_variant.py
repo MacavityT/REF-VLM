@@ -125,7 +125,8 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ), 
         placeholders=(IMAGE_PLACEHOLDER,CLASS_PLACEHOLDER),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det_class',        
+        # offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det_class',   
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_cond_det_new',       
     ),
     grit_r_offline=dict(
         type='GRITOfflineDataset',
@@ -135,7 +136,8 @@ train_grit_variant = dict(
             output=["<boxes>"],
         ),  
         placeholders=(IMAGE_PLACEHOLDER,EXPR_PLACEHOLDER),
-        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec_class',
+        # offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec_class',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage2and3/GRIT/offline_single/offline_rec_new',
     ),
     grit_g_offline=dict(
         type='GRITOfflineDataset',
