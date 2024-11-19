@@ -69,7 +69,7 @@ class VTPlugModel(BaseModel):
                  visual_tower=None,
                  vpt_encoder=None,
                  projector=None,
-                 ref_adapter=None,
+                 vd_adapter=None,
                  visual_decoder=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
@@ -155,11 +155,11 @@ class VTPlugModel(BaseModel):
                     vpt_encoder).to(self.llm.dtype)
             else:
                 self.vpt_encoder = None
-            if ref_adapter is not None and 'type' in ref_adapter:
-                self.ref_adapter = self._build_from_cfg_or_module(
-                    ref_adapter).to(self.llm.dtype)
+            if vd_adapter is not None and 'type' in vd_adapter:
+                self.vd_adapter = self._build_from_cfg_or_module(
+                    vd_adapter).to(self.llm.dtype)
             else:
-                self.ref_adapter = None
+                self.vd_adapter = None
 
             self.visual_decoder = nn.ModuleDict()
             if visual_decoder is not None:
@@ -185,10 +185,10 @@ class VTPlugModel(BaseModel):
             vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.llm.dtype)
-        if ref_adapter is not None and \
-            'type' not in ref_adapter:
-            ref_adapter_config = REFAdapterConfig(**ref_adapter)
-            self.ref_adapter = REFAdapterModel(ref_adapter_config).to(
+        if vd_adapter is not None and \
+            'type' not in vd_adapter:
+            ref_adapter_config = VDAdapterConfig(**vd_adapter)
+            self.vd_adapter = VDAdapterModel(ref_adapter_config).to(
                 self.llm.dtype)
         if visual_decoder is not None:
             assert isinstance(visual_decoder, dict)
@@ -215,8 +215,8 @@ class VTPlugModel(BaseModel):
             self.vpt_encoder is not None:
             self.vpt_encoder.requires_grad_(False)
         if self.freeze_ref_adapter and \
-            self.ref_adapter is not None:
-            self.ref_adapter.requires_grad_(False)
+            self.vd_adapter is not None:
+            self.vd_adapter.requires_grad_(False)
         if self.freeze_visual_decoder and \
             self.visual_decoder is not None:
             self.visual_decoder.requires_grad_(False)
@@ -236,8 +236,8 @@ class VTPlugModel(BaseModel):
             self.projector.enable_input_require_grads()
             if self.vpt_encoder is not None:
                 self.vpt_encoder.enable_input_require_grads()
-            if self.ref_adapter is not None:
-                self.ref_adapter.enable_input_require_grads()
+            if self.vd_adapter is not None:
+                self.vd_adapter.enable_input_require_grads()
             
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
@@ -301,8 +301,8 @@ class VTPlugModel(BaseModel):
         self.projector.gradient_checkpointing_enable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_enable()
-        if self.ref_adapter is not None:
-            self.ref_adapter.gradient_checkpointing_enable()
+        if self.vd_adapter is not None:
+            self.vd_adapter.gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -313,8 +313,8 @@ class VTPlugModel(BaseModel):
         self.projector.gradient_checkpointing_disable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_disable()
-        if self.ref_adapter is not None:
-            self.ref_adapter.gradient_checkpointing_disable()
+        if self.vd_adapter is not None:
+            self.vd_adapter.gradient_checkpointing_disable()
 
     def init_weights(self):
         pass
@@ -847,23 +847,21 @@ class VTPlugModel(BaseModel):
             mode=mode
         )
         results['decode_groups'] = decode_feats['decode_groups']
-        if self.ref_adapter is not None:
-
+        if self.vd_adapter is not None:
             # all empty features
             if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
                                           for feats in decode_feats['ref_feats']]):
                 return results
             
-            ref_outputs = self.ref_adapter(
+            ref_outputs = self.vd_adapter(
                 decode_feats['phrase_feats'],
-                decode_feats['unit_feats'],
                 decode_feats['ref_feats'],
                 metas=metas,
-                mode=mode,
-                hidden_states=hidden_states
+                mode=mode
             )
             ref_hidden_states = ref_outputs['ref_hidden_states']
             ref_mask = ref_outputs['ref_mask']
+            metas['visual_hidden_states'][-1] = ref_outputs['image_embeddings']
         else:
             ref_hidden_states, ref_mask = self.prepare_ref_feats(
                 hidden_states,
