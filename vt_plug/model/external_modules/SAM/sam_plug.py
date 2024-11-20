@@ -158,7 +158,7 @@ class SamPlug(DecoderModel):
         )
 
         # get predict masks
-        pred_masks = []
+        pred_masks_logits = []
         for ref_tokens, valid_mask, image_embedding in zip(
             ref_hidden_states, ref_mask, image_features):
             ref_tokens = ref_tokens[valid_mask]
@@ -171,12 +171,13 @@ class SamPlug(DecoderModel):
                 image_pe=self.sam.prompt_encoder.get_dense_pe(),
                 sparse_prompt_embeddings=sparse_embeddings, dense_prompt_embeddings=dense_embeddings,
                 multimask_output=False)
-            pred_masks.append(low_res_masks[:, 0, ...])
-        pred_masks = torch.cat(pred_masks, dim=0)
+            pred_masks_logits.append(low_res_masks[:, 0, ...])
+        pred_masks_logits = torch.cat(pred_masks_logits, dim=0)
         
         loss = None
         if mode == 'loss':   
             try:
+                pred_masks = pred_masks_logits
                 target_masks = self.get_unit_labels(metas, ref_mask, 'mask')
                 target_slices = self.get_label_slices(metas, ref_mask)
                 pixel_masks = self._expand_pixel_masks(metas, ref_mask)
@@ -199,21 +200,20 @@ class SamPlug(DecoderModel):
             else:
                 loss = pred_masks.sum() * 0.0
         else:
-            pred_masks = torch.sigmoid(pred_masks)
+            pred_masks_logits = torch.sigmoid(pred_masks_logits)
 
             start = 0
-            sigmoid_pred_masks = []
+            pred_masks = []
             for mask in ref_mask:
                 end = start + mask.sum().cpu().item()
-                sigmoid_mask = pred_masks[start:end]
-                sigmoid_pred_masks.append(sigmoid_mask)
+                sigmoid_mask = pred_masks_logits[start:end]
+                pred_masks.append(sigmoid_mask)
                 start = end
-
-            assert end == pred_masks.shape[0] - 1
+            assert end == pred_masks_logits.shape[0]
 
         return dict(
             loss=loss,
-            preds=sigmoid_pred_masks
+            preds=pred_masks
         )
 
 def build_sam_preprocessor(target_length=1024):
