@@ -199,15 +199,21 @@ class SamPlug(DecoderModel):
             else:
                 loss = pred_masks.sum() * 0.0
         else:
-            masks_queries_logits = torch.sigmoid(masks_queries_logits)
-            pred_masks = []
-            for queries_logits, mask in zip(masks_queries_logits, ref_mask):
-                masks = queries_logits[mask, :]
-                pred_masks.append(masks)
+            pred_masks = torch.sigmoid(pred_masks)
+
+            start = 0
+            sigmoid_pred_masks = []
+            for mask in ref_mask:
+                end = start + mask.sum().cpu().item()
+                sigmoid_mask = pred_masks[start:end]
+                sigmoid_pred_masks.append(sigmoid_mask)
+                start = end
+
+            assert end == pred_masks.shape[0] - 1
 
         return dict(
             loss=loss,
-            preds=pred_masks
+            preds=sigmoid_pred_masks
         )
 
 def build_sam_preprocessor(target_length=1024):
