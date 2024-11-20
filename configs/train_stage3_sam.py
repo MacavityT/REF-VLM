@@ -13,19 +13,28 @@ with read_base():
 
 
 # Data configs
-batch_size = 15  # per_device
-dataloader_num_workers = 4
+batch_size = 16  # per_device
+dataloader_num_workers = 8
+accumulative_counts = 1
+
+max_epochs = 5
+lr = 2e-5 # 2e-5 4e-6 2e-6
+betas = (0.9, 0.999)
+weight_decay = 0
+max_norm = 1  # grad clip
+warmup_ratio = 0.5
+
 
 # dataset grand det and seg
 dataset_args = [
-    # train_all_dataset['res_refcoco'],
-    # train_all_dataset['res_refcocoa'],
-    # train_all_dataset['res_refcocog'],
+    train_all_dataset['res_refcoco'],
+    train_all_dataset['res_refcocoa'],
+    train_all_dataset['res_refcocog'],
     # train_all_dataset['llavag_gcg'],
     # train_all_dataset['openpsg'],
     # train_all_dataset['interact_mask'],
     # grand_cond_s,
-    train_all_dataset['grand_s'],
+    # train_all_dataset['grand_s'],
     # train_all_dataset['grand_c_s'],
 ]
 
@@ -34,6 +43,30 @@ for dataset in dataset_args:
         dataset['cfg'].setdefault('stage',2)
     else:
         dataset['stage'] = 2
+
+# optimizer
+optim_wrapper = dict(
+    type=AmpOptimWrapper,
+    optimizer=dict(
+        type=AdamW, lr=lr, betas=betas, weight_decay=weight_decay),
+    clip_grad=dict(max_norm=max_norm, error_if_nonfinite=False),
+    accumulative_counts=accumulative_counts,
+    loss_scale='dynamic',
+    dtype='float16')
+
+param_scheduler = [
+    dict(
+        type=LinearLR,
+        start_factor=1e-5,
+        by_epoch=True,
+        begin=0,
+        end=max_epochs,
+        convert_to_iter_based=True),
+]
+
+# train, val, test setting
+train_cfg = dict(type=TrainLoop, max_epochs=max_epochs,val_interval=500)
+
 
 sam_preprocessor = dict(
     type=build_sam_preprocessor,
