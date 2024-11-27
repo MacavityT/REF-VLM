@@ -20,6 +20,7 @@ with read_base():
     from ._base_.models.all_tokenizers import *
     from ._base_.models.all_visual_encoders import *
     from ._base_.datasets.vt_test_dataset_stage2 import *
+    from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
@@ -27,12 +28,12 @@ with read_base():
 # Data
 test_cfg = dict(type='TestLoop')
 dataloader_num_workers = 8
-dataset_name = 'res_refcoco_testa'
+dataset_name = 'res_refcoco_val'
 eval_type = 'caption'
 prefix = 'res'
 chunk = 0
 
-save_dir = 'checkpoints/vicuna_7b/finetune/1119_sam_res/eval4000'
+save_dir = 'checkpoints/vicuna_7b/finetune/1119_sam_res/eval12555'
 # model_dir = 'checkpoints/vicuna_7b/hf_model/0914_nodecoder_iter11500'
 model_dir = ''
 
@@ -41,7 +42,19 @@ sam_preprocessor = dict(
     target_length=1024
 )
 
-
+if prefix == 'cot_caption':
+    test_evaluator = dict( 
+        type=ImgCapComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=dataset_name)
+    test_dataset_args = [
+        dict(
+            type='SubSet',
+            portion=1/400,
+            do_shuffle=False,
+            
+            seed=43,
+            cfg=train_all_dataset[f'{dataset_name}'],
+            )
+    ]
 
 
 if prefix == 'okvqa':
@@ -191,14 +204,14 @@ elif prefix == 'rec':
     test_evaluator = dict(
         type=RECComputeMetrics, tokenizer=tokenizer, stage=2, save_dir=save_dir, prefix=prefix,dataset_name=dataset_name)
     test_dataset_args = [
-        test_all_dataset[f'{dataset_name}'],
-        # dict(
-        #     type='SubSet',
-        #     portion=1/10,
-        #     do_shuffle=False,
-        #     seed=43,
-        #     cfg=test_all_dataset[f'{dataset_name}'],
-        #     )
+        # test_all_dataset[f'{dataset_name}'],
+        dict(
+            type='SubSet',
+            portion=1,
+            do_shuffle=False,
+            seed=43,
+            cfg=test_all_dataset[f'{dataset_name}'],
+            )
     ]
 
 elif prefix == 'res':
@@ -208,7 +221,7 @@ elif prefix == 'res':
         # test_all_dataset[f'{dataset_name}'],
         dict(
             type='SubSet',
-            portion=1/10,
+            portion=1/3,
             do_shuffle=False,
             seed=43,
             cfg=test_all_dataset[f'{dataset_name}'],

@@ -27,11 +27,11 @@ dataloader_num_workers = 4
 #     train_all_dataset['grand_s'],
 #     train_all_dataset['grand_c_s'],
 # ]
-for dataset in dataset_args:
-    if dataset['type'] == 'SubSet':
-        dataset['cfg'].setdefault('stage',2)
-    else:
-        dataset['stage'] = 2
+# for dataset in dataset_args:
+#     if dataset['type'] == 'SubSet':
+#         dataset['cfg'].setdefault('stage',2)
+#     else:
+#         dataset['stage'] = 2
 
 train_dataset = dict(
     type=VTInstructDataset,
@@ -42,7 +42,7 @@ train_dataset = dict(
     dataset_map_fn=dict(
         function=vt_map_fn_stage2,
         args = dict(
-            use_cot=False,
+            use_cot=True,
         )
     ),
     template_map_fn=dict(

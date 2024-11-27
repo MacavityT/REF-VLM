@@ -19,63 +19,15 @@ batch_size = 16  # per_device
 dataloader_num_workers = 8
 accumulative_counts = 1
 
-max_epochs = 10
+max_epochs = 3
 lr = 2e-5 # 2e-5 4e-6 2e-6
 betas = (0.9, 0.999)
 weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
+model_dir = "checkpoints/vicuna_7b/hf_model/1113_rec_refcoco_iter18860"
 
-coco_pope_random_q_a = dict(
-    type='SubSet',
-    portion=1/4,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_random_q_a'],
-)
-
-coco_pope_random_q_bca = dict(
-    type='SubSet',
-    portion=1/4,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_random_q_bca'],
-)
-
-
-coco_pope_popular_q_a = dict(
-    type='SubSet',
-    portion=1/4,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_popular_q_a'],
-)
-
-coco_pope_popular_q_bca = dict(
-    type='SubSet',
-    portion=1/4,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_popular_q_bca'],
-)
-
-coco_pope_adversarial_q_a = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_adversarial_q_a'],
-)
-
-coco_pope_adversarial_q_bca = dict(
-    type='SubSet',
-    portion=1/3,
-    do_shuffle=True,
-    seed=42,
-    cfg=test_all_dataset['coco_pope_adversarial_q_bca'],
-)
 
 dataset_args_sft = [
     # train_all_dataset['lvis_box']
@@ -103,21 +55,9 @@ dataset_args_sft = [
     # train_all_dataset['res_refcocog'],
     # train_all_dataset['rec_refcoco'],
     # train_all_dataset['rec_refcocog'],
-    # test_all_dataset['coco_pope_random_q_a'],
-    # test_all_dataset['coco_pope_random_q_bca'],
-    # test_all_dataset['coco_pope_popular_q_a'],
-    # test_all_dataset['coco_pope_popular_q_bca'],
-    # test_all_dataset['coco_pope_adversarial_q_a'],
-    # test_all_dataset['coco_pope_adversarial_q_bca'],
     # train_all_dataset['reg_refcocog_train_mask'],
-    # coco_pope_random_q_a,
-    # coco_pope_random_q_bca,
-    # coco_pope_popular_q_a,
-    # coco_pope_popular_q_bca,
-    # coco_pope_adversarial_q_a,
-    # coco_pope_adversarial_q_bca
-    train_all_dataset['flickr_caption'],
-    train_all_dataset['caption'],
+    # train_all_dataset['flickr_caption'],
+    # train_all_dataset['caption'],
     # train_all_dataset['vqav2_train'],
     # train_all_dataset['vqae_train'],
     # train_all_dataset['vqax_train'],
@@ -228,7 +168,6 @@ mask_decoder = dict(
     pretrained_model_name_or_path=f'{model_dir}/mask_decoder',
     trust_remote_code=True,
 )
-
 
 
 model = dict(

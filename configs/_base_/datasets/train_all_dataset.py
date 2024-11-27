@@ -128,7 +128,7 @@ train_all_dataset = dict(
         map_placeholders=dict(
             output=["<masks>"],
         ),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
     ),
     coco_rem_box=dict(
         type='COCOREMDataset',

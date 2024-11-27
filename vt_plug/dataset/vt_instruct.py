@@ -462,16 +462,26 @@ class VTInstructDataset(Dataset):
         #         vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
         #         save_path = f'vis_mask_{j}.jpg'
         #         cv2.imwrite(save_path, vis_mask)
+            
+        #     vis_masks = visualize_mask(image.copy(), masks,alpha=0.8)
+        #     save_path = f'vis_mask.jpg'
+        #     cv2.imwrite(save_path, vis_masks)
         
         # if 'boxes' in data_dict['target'].keys():
         #     boxes = data_dict['target']['boxes']
         #     width = image.shape[0]
         #     height = image.shape[1]
+        #     denorn_boxes = []
         #     for k,box in enumerate(boxes):
         #         denorm_box = de_norm_box_xyxy(box,width,height)
+        #         denorn_boxes.append(denorm_box)
         #         vis_box = visualize_box_single(image.copy(), denorm_box)
         #         save_path = f'vis_box_{k}.jpg'
         #         cv2.imwrite(save_path, vis_box)
+            
+        #     vis_boxes = visualize_box(image.copy(), denorn_boxes)
+        #     save_path = f'vis_box.jpg'
+        #     cv2.imwrite(save_path, vis_boxes)
 
 
         # if 'keypoints' in data_dict['target'].keys():
@@ -480,11 +490,14 @@ class VTInstructDataset(Dataset):
         #     width_origin = image.width
         #     height_origin = image.height
         #     image = np.array(image)
+        #     keypoint_list = []
         #     for p,keypoint in enumerate(keypoints):
         #         skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12], [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3], [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]] 
         #         keypoint = de_norm_keypoint_square2origin(np.array(keypoint),width_origin,height_origin)
         #         keypoint = np.array(keypoint)
+        #         keypoint_list.append(keypoint)
         #         visualize_keypoints(image=image,keypoints=keypoint,skeleton=skeleton,index=p)
+        #     visualize_all_keypoints(image,keypoint_list,skeleton,'all')
 
         # #endregion
         return data_dict
