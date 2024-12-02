@@ -50,3 +50,21 @@ clip_convnext_512 = dict(
         pretrained_model_path=clip_convnext_path
     )
 )
+
+clip_convnext_1024 = dict(
+    image_processor=dict(
+        type=_build_convnext_processor,
+        pretrained_model_path=clip_patch14_336_path,
+        size=dict(
+            shortest_edge=1024 
+        ),
+        crop_size=dict(
+            height=1024,
+            width=1024
+        )
+    ),
+    visual_encoder=dict(
+        type=CLIPConvNextModel.from_pretrained,
+        pretrained_model_path=clip_convnext_path
+    )
+)
