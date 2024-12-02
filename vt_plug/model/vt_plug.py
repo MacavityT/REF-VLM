@@ -10,7 +10,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
 from mmengine.logging import print_log
-from peft import get_peft_model, prepare_model_for_kbit_training
+from peft import get_peft_model, prepare_model_for_kbit_training,PeftModel
 from transformers import AutoConfig, GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
@@ -64,6 +64,7 @@ class VTPlugModel(BaseModel):
     def __init__(self,
                  llm,
                  tokenizer=None,
+                 llm_adapter=None,
                  visual_encoder=None,
                  visual_tower=None,
                  vpt_encoder=None,
@@ -132,6 +133,13 @@ class VTPlugModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder).to(self.llm.dtype)
+            if llm_adapter is not None:
+                self.llm.model = PeftModel.from_pretrained(
+                    self.llm.model,
+                    llm_adapter,
+                    trust_remote_code=True,
+                ) 
+
             if visual_tower is not None:
                 self.visual_tower = self._build_from_cfg_or_module(
                     visual_tower).to(self.llm.dtype)
@@ -196,6 +204,9 @@ class VTPlugModel(BaseModel):
 
         if self.freeze_llm:
             self.llm.requires_grad_(False)
+            # unfreeze_layers = list(self.llm.named_parameters())[-11:]
+            # for name, param in unfreeze_layers:
+            #     param.requires_grad = True
         if self.freeze_visual_encoder:
             self.visual_encoder.requires_grad_(False)
         if self.freeze_projector:
@@ -902,7 +913,6 @@ class VTPlugModel(BaseModel):
         for key in data.keys():
             if data[key] is not None:
                 data[key] = data[key].to(self.llm.dtype)
-        
         llm_outputs = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
@@ -975,30 +985,30 @@ class VTPlugModel(BaseModel):
         shift_labels = labels[..., 1:].contiguous()
 
         weight = torch.ones_like(shift_labels).to(shift_logits.dtype)
-        idx = torch.zeros_like(shift_labels)
-        idx[shift_labels!=IGNORE_INDEX] = 2
-        bs = shift_labels.shape[0]
-        for batch_idx in range(bs):
-            # CoT chunks
-            bot_id = self.token_ids[BOT_TOKEN]
-            eot_id = self.token_ids[EOT_TOKEN]
-            cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
-            cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
-            if len(cot_start) == len(cot_end):
-                for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = cot_weight
-                    idx[batch_idx, st:ed+1] = 1
-            elif len(cot_start) == len(cot_end) + 1:
-                last_st = cot_start[-1]
-                for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = cot_weight
-                    idx[batch_idx, st:ed+1] = 1
-                weight[batch_idx, last_st:] = cot_weight
-                idx[batch_idx, last_st:] = 1
-            else:
-                print("<Task> and </Task> not match!")
-                file_prefix = f"wrong_cot"
-                save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
+        # idx = torch.zeros_like(shift_labels)
+        # idx[shift_labels!=IGNORE_INDEX] = 2
+        # bs = shift_labels.shape[0]
+        # for batch_idx in range(bs):
+        #     # CoT chunks
+        #     bot_id = self.token_ids[BOT_TOKEN]
+        #     eot_id = self.token_ids[EOT_TOKEN]
+        #     cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
+        #     cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
+        #     if len(cot_start) == len(cot_end):
+        #         for st, ed in zip(cot_start, cot_end):
+        #             weight[batch_idx, st:ed+1] = cot_weight
+        #             idx[batch_idx, st:ed+1] = 1
+        #     elif len(cot_start) == len(cot_end) + 1:
+        #         last_st = cot_start[-1]
+        #         for st, ed in zip(cot_start, cot_end):
+        #             weight[batch_idx, st:ed+1] = cot_weight
+        #             idx[batch_idx, st:ed+1] = 1
+        #         weight[batch_idx, last_st:] = cot_weight
+        #         idx[batch_idx, last_st:] = 1
+        #     else:
+        #         print("<Task> and </Task> not match!")
+        #         file_prefix = f"wrong_cot"
+        #         save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
             
         # Flatten the tokens
         loss_fct = CrossEntropyLoss(reduction='none')
@@ -1006,16 +1016,18 @@ class VTPlugModel(BaseModel):
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
 
-        idx = idx.view(-1)
+        
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
         weight = weight.to(shift_logits.dtype).to(shift_logits.device)
         loss = loss_fct(shift_logits, shift_labels)
         
         weighted_loss = weight[shift_labels!=IGNORE_INDEX] * loss[shift_labels!=IGNORE_INDEX]
-        cot_loss = weight[idx==1] * loss[idx==1]
-        answer_loss = weight[idx==2] * loss[idx==2]
-        return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
+        # idx = idx.view(-1)
+        # cot_loss = weight[idx==1] * loss[idx==1]
+        # answer_loss = weight[idx==2] * loss[idx==2]
+        # return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
+        return weighted_loss.mean()
 
     def compute_loss(self, data, data_samples=None, metas=None):
         labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
@@ -1027,11 +1039,12 @@ class VTPlugModel(BaseModel):
         # llm loss
         outputs = self.llm(**data)
         logits = outputs.logits
-        loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
+        # loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
+        loss_llm = self.compute_loss_llm(logits, labels)
         loss_dict['llm'] = loss_llm
         cost_dict['llm_cost'] = loss_llm
-        cost_dict['cot_cost'] = loss_cot
-        cost_dict['answer_cost'] = loss_answer
+        # cost_dict['cot_cost'] = loss_cot
+        # cost_dict['answer_cost'] = loss_answer
 
         # all modules forward
         modules_outputs = self.modules_forward_pipeline(

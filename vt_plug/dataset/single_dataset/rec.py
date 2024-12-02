@@ -33,9 +33,10 @@ logging.basicConfig(
 
 @DATASETS.register_module()
 class RECDataset(MInstrDataset):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, target=False, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, EXPR_PLACEHOLDER))
         self.map_placeholders = {'output':[BOXES_PLACEHOLDER]}
+        self.target = target
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -71,7 +72,10 @@ class RECDataset(MInstrDataset):
 
 
         if self.stage == 2:
-            value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+            if self.target:
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + expr + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
+            else:
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + BOXES_PLACEHOLDER
             ret = {
                 'image': image,
                 'target': {

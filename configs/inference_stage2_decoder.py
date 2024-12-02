@@ -1,5 +1,6 @@
 import os
 from transformers import AutoModel
+from peft import PeftModel
 
 from mmengine.config import read_base
 with read_base():
@@ -8,7 +9,9 @@ with read_base():
     from ._base_.datasets.vt_val_dataset_stage2 import *
     from ._base_.models.vt_plug_vicuna_7b import *
 
-model_dir = 'checkpoints/vicuna_7b/hf_model/1024_all_self_attn_lr2e-6_iter11000'
+model_dir = "/code/VT-PLUG/checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
+
+llm_adapter = os.path.join(model_dir,'llm_adapter')
 
 projector = dict(
     type=AutoModel.from_pretrained,
@@ -26,6 +29,12 @@ vpt_encoder = dict(
 ref_adapter = dict(
     type=AutoModel.from_pretrained,
     pretrained_model_name_or_path=os.path.join(model_dir,'ref_adapter'),
+    trust_remote_code=True,
+)
+
+vd_adapter = dict(
+    type=AutoModel.from_pretrained,
+    pretrained_model_name_or_path=os.path.join(model_dir,'vd_adapter'),
     trust_remote_code=True,
 )
 
@@ -69,13 +78,15 @@ model = dict(
         type=AutoModelForCausalLM.from_pretrained,
         pretrained_model_name_or_path=model_dir,
         trust_remote_code=True),
+    # llm_adapter=llm_adapter,
     visual_encoder=clip_patch14_336['visual_encoder'],
     visual_tower=clip_convnext_512['visual_encoder'],
     projector=projector,
     vpt_encoder=vpt_encoder,
-    ref_adapter=ref_adapter,
+    # ref_adapter=ref_adapter,
+    # vd_adapter=vd_adapter,
     visual_decoder=dict(
         box=box_decoder,
-        # mask=mask_decoder
+        mask=mask_decoder
     )
 )

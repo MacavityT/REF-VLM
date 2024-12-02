@@ -122,4 +122,4 @@ class PNGDataset(MInstrDataset):
 #             #             human = {'from':'human','value':question}
 #             #             all_conversations.append()
         
-#         return ret
+        return ret

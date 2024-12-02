@@ -40,8 +40,8 @@ class COCOREMDataset(MInstrDataset):
         super().__init__(*args, **kwargs)
         self.task_type = task_type
         self.img_name =  os.listdir(self.image_folder)
-        self.dataset = self.read_json()
-        self.createIndex()
+        # self.dataset = self.read_json()
+        # self.createIndex()
 
     def read_json(self):
         with open(self.text_path) as f:

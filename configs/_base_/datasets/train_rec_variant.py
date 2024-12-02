@@ -1,24 +1,23 @@
-res_train_common_cfg = dict(
-    type='RESDataset',
+res_train_common_cfg=dict(
+    type='RECDataset',
     image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
-    template_name=r'RES',
+    template_name=r'REC',
     target=False,
-    max_dynamic_size=None,
     map_placeholders=dict(
-        output=["<masks>"],
-    ), 
+        output=["<boxes>"],
+    )
 )
 
-train_res_variant = dict(
-    res_refcoco=dict(
+train_rec_variant = dict(
+    rec_refcoco=dict(
         **res_train_common_cfg,
         text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco/train.jsonl',
     ),
-    res_refcocoa=dict(
+    rec_refcocoa=dict(
         **res_train_common_cfg,
         text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcoco+/train.jsonl',
     ),
-    res_refcocog=dict(
+    rec_refcocog=dict(
         **res_train_common_cfg,
         text_path=r'/data/Aaronzhu/DatasetStage1/Refcoco/refcocog/train.jsonl',
     ),

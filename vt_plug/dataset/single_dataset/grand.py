@@ -9,6 +9,7 @@ from pycocotools.mask import decode
 import time
 import shutil
 import cv2
+from flash_attn import flash_attn_interface
 from PIL import Image
 import re
 from .mixin import MInstrDataset
@@ -397,7 +398,8 @@ class GranDDataset(MInstrDataset):
                 box_mask_seq = [i]
                 if i != 0:
                     question = question.replace(IMAGE_PLACEHOLDER,'')
-                value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder
+                # value = PHRASE_ST_PLACEHOLDER_STAGE2 + 'target' + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder
+                value = PHRASE_ST_PLACEHOLDER_STAGE2 + cls_name + PHRASE_ED_PLACEHOLDER_STAGE2 + place_holder
                 conversation_human = {'from': 'human','value': question}
                 conversation_gpt = {'from': 'gpt', 'value': value, seq_name: [box_mask_seq]}
 
@@ -986,7 +988,8 @@ class GranDDataset(MInstrDataset):
             }
         }
 
-        objects = delete_objects(objects,80)
+        # objects = delete_objects(objects,80)
+        objects = delete_objects(objects,None)
         box_mask_seq = []
         cls_captions_boxes = []
         cls_names = []
@@ -1048,7 +1051,7 @@ class GranDDataset(MInstrDataset):
         }
 
 
-        objects = delete_objects(objects,20)
+        objects = delete_objects(objects,None)
 
 
         box_mask_seq = []
