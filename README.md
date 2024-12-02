@@ -1,4 +1,4 @@
-# VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning
+# Unified Instruction Tuning for Extensible Open-Ended Visual Decoding
 
 <p align="center" width="100%">
 <img src="images/A_00_First.jpg"  width="80%" height="80%">
@@ -10,7 +10,7 @@
 
 
 
-Official PyTorch implementation of "[VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning](https://openreview.net/forum?id=a4PBF1YInZ)" [ICLR 2025 under review].
+Official PyTorch implementation of "[Unified Instruction Tuning for Extensible Open-Ended Visual Decoding](https://openreview.net/forum?id=Cut0tz3IRq)" [CVPR 2025 under review].
 
 ## Updates
 <!-- - **28 Feb, 2024** :boom::boom: Our paper has been accepted by CVPR 2024! 🎉
@@ -21,8 +21,8 @@ Official PyTorch implementation of "[VT-PLUG: Integrating Visual Task Plugins wi
 ---
 This repository contains the **official implementation** and **dataset** of the following paper:
 
-> **VT-PLUG: Integrating Visual Task Plugins with Unified Instruction Tuning**<br>
-> https://openreview.net/forum?id=a4PBF1YInZ
+> **Unified Instruction Tuning for Extensible Open-Ended Visual Decoding**<br>
+> https://openreview.net/forum?id=Cut0tz3IRq
 >
 > **Abstract:** *Multimodal Large Language Models (MLLMs) demonstrate robust zero-shot capabilities across diverse vision-language tasks after training on mega-scale datasets. However, dense prediction tasks, such as semantic segmentation and keypoint detection, pose significant challenges for MLLMs when represented solely as text outputs. These challenges often necessitate task-specific visual decoders, leading to the underutilization of MLLMs' multi-task potential. In this work, we propose VT-PLUG, a novel framework that leverages modular visual components as scalable plugins for a variety of visual applications. During the joint training of vision-language tasks with varying prediction densities, we propose a Visual Decoding Chain-of-Thought (VD-CoT) mechanism to prevent task conflicts. VD-CoT requires the model to predict the current task's recognition entities, decoding unit type, and other specific details, while also providing learnable queries for precise decoding. Additionally, we construct VT-Instruct, a large-scale multi-task dataset containing over 100 million multimodal dialogue samples across 25 task types. Beyond text inputs and outputs, VT-Instruct incorporates various visual prompts such as point, box, scribble, and mask, and generates outputs composed of text and visual units like point, box, keypoint, and mask. The combination of different visual prompts and visual units generates a wide variety of task types, expanding the applicability of VT-PLUG significantly.*
 
