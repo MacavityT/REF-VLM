@@ -20,6 +20,7 @@ with read_base():
     from .train_cocokeypoint_variant import train_cocokeypoints_variant
     from .train_reg_variant import train_reg_variant
     from .train_res_variant import train_res_variant
+    from .train_rec_variant import train_rec_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -40,12 +41,18 @@ train_all_dataset = dict(
             output=["<masks>"],
         )
     ),
+    flickr_caption=dict(
+        type='FlickrCaptionDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_train.jsonl',  
+        image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
+        template_name=r'image_cap',
+    ),
     rec=dict(
         type='RECDataset',
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/REC_ref3_train.jsonl',
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_name=r'REC',
-        target=True,
+        target=False,
         map_placeholders=dict(
             output=["<boxes>"],
         )
@@ -121,7 +128,7 @@ train_all_dataset = dict(
         map_placeholders=dict(
             output=["<masks>"],
         ),
-        offline_processed_text_folder='',
+        offline_processed_text_folder='/data/Aaronzhu/DatasetStage1/COCO-ReM/offline',
     ),
     coco_rem_box=dict(
         type='COCOREMDataset',
@@ -199,4 +206,5 @@ train_all_dataset = dict(
     **train_png_variant,
     **train_cocokeypoints_variant,
     **train_res_variant,
+    **train_rec_variant,
 )

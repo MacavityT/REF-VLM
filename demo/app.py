@@ -831,5 +831,5 @@ with gr.Blocks(
     )
 
 demo.queue().launch(
-    debug=True,server_port=6294,
+    debug=True,server_port=6295,
 )

@@ -391,6 +391,7 @@ class PoseDecoderModel(PreTrainedModel):
         boxes_queries_logits2 = kpt_outputs['box_logits']
         kpts_queries_logits = kpt_outputs['kpt_logits']
         kpts_cls_logits = kpt_outputs['kpt_cls_logits']
+
         
         loss = None
         if mode == 'loss':
@@ -409,6 +410,8 @@ class PoseDecoderModel(PreTrainedModel):
             pred_boxes2 = boxes_queries_logits2[ref_mask, :] # [b, n, 4]
             pred_kpts = kpts_queries_logits[ref_mask, ...] # [b, n, num_body_points, 2]
             pred_kpts_cls = kpts_cls_logits[ref_mask, ...] # [b, n, num_body_points, 3]
+
+
 
             if ref_mask.sum() > 0 and target_boxes is not None:
                 target_boxes = torch.stack(
@@ -440,10 +443,11 @@ class PoseDecoderModel(PreTrainedModel):
         else:
             assert mode == 'predict'
             preds = []
-            for queries_logits, cls_logits, mask in zip(kpts_queries_logits, kpts_cls_logits, ref_mask):
+            for queries_logits, cls_logits, box_queries_logits,mask in zip(kpts_queries_logits, kpts_cls_logits, boxes_queries_logits2, ref_mask):
                 keypoints = queries_logits[mask, :]
                 cls = cls_logits[mask,:].sigmoid().argmax(-1)
-                preds.append({'pred_kpts':keypoints,'pred_cls':cls})
+                boxes = box_queries_logits[mask, :]
+                preds.append({'pred_kpts':keypoints,'pred_cls':cls,'pred_boxes':boxes})
 
             return dict(
                 loss=loss,

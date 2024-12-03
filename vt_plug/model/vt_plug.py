@@ -10,7 +10,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from mmengine.config import Config, ConfigDict
 from mmengine.model import BaseModel
 from mmengine.logging import print_log
-from peft import get_peft_model, prepare_model_for_kbit_training
+from peft import get_peft_model, prepare_model_for_kbit_training,PeftModel
 from transformers import AutoConfig, GenerationConfig, StoppingCriteriaList
 
 from xtuner.registry import BUILDER
@@ -64,11 +64,12 @@ class VTPlugModel(BaseModel):
     def __init__(self,
                  llm,
                  tokenizer=None,
+                 llm_adapter=None,
                  visual_encoder=None,
                  visual_tower=None,
                  vpt_encoder=None,
                  projector=None,
-                 ref_adapter=None,
+                 vd_adapter=None,
                  visual_decoder=None,
                  freeze_llm=False,
                  freeze_visual_encoder=False,
@@ -132,6 +133,13 @@ class VTPlugModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder).to(self.llm.dtype)
+            if llm_adapter is not None:
+                self.llm.model = PeftModel.from_pretrained(
+                    self.llm.model,
+                    llm_adapter,
+                    trust_remote_code=True,
+                ) 
+
             if visual_tower is not None:
                 self.visual_tower = self._build_from_cfg_or_module(
                     visual_tower).to(self.llm.dtype)
@@ -147,11 +155,11 @@ class VTPlugModel(BaseModel):
                     vpt_encoder).to(self.llm.dtype)
             else:
                 self.vpt_encoder = None
-            if ref_adapter is not None and 'type' in ref_adapter:
-                self.ref_adapter = self._build_from_cfg_or_module(
-                    ref_adapter).to(self.llm.dtype)
+            if vd_adapter is not None and 'type' in vd_adapter:
+                self.vd_adapter = self._build_from_cfg_or_module(
+                    vd_adapter).to(self.llm.dtype)
             else:
-                self.ref_adapter = None
+                self.vd_adapter = None
 
             self.visual_decoder = nn.ModuleDict()
             if visual_decoder is not None:
@@ -177,10 +185,10 @@ class VTPlugModel(BaseModel):
             vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
             self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
                 self.llm.dtype)
-        if ref_adapter is not None and \
-            'type' not in ref_adapter:
-            ref_adapter_config = REFAdapterConfig(**ref_adapter)
-            self.ref_adapter = REFAdapterModel(ref_adapter_config).to(
+        if vd_adapter is not None and \
+            'type' not in vd_adapter:
+            ref_adapter_config = VDAdapterConfig(**vd_adapter)
+            self.vd_adapter = VDAdapterModel(ref_adapter_config).to(
                 self.llm.dtype)
         if visual_decoder is not None:
             assert isinstance(visual_decoder, dict)
@@ -207,8 +215,8 @@ class VTPlugModel(BaseModel):
             self.vpt_encoder is not None:
             self.vpt_encoder.requires_grad_(False)
         if self.freeze_ref_adapter and \
-            self.ref_adapter is not None:
-            self.ref_adapter.requires_grad_(False)
+            self.vd_adapter is not None:
+            self.vd_adapter.requires_grad_(False)
         if self.freeze_visual_decoder and \
             self.visual_decoder is not None:
             self.visual_decoder.requires_grad_(False)
@@ -228,8 +236,8 @@ class VTPlugModel(BaseModel):
             self.projector.enable_input_require_grads()
             if self.vpt_encoder is not None:
                 self.vpt_encoder.enable_input_require_grads()
-            if self.ref_adapter is not None:
-                self.ref_adapter.enable_input_require_grads()
+            if self.vd_adapter is not None:
+                self.vd_adapter.enable_input_require_grads()
             
             # enable gradient (activation) checkpointing for memory efficiency
             self.gradient_checkpointing_enable()
@@ -293,8 +301,8 @@ class VTPlugModel(BaseModel):
         self.projector.gradient_checkpointing_enable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_enable()
-        if self.ref_adapter is not None:
-            self.ref_adapter.gradient_checkpointing_enable()
+        if self.vd_adapter is not None:
+            self.vd_adapter.gradient_checkpointing_enable()
 
     def gradient_checkpointing_disable(self):
         self.activation_checkpointing_disable()
@@ -305,8 +313,8 @@ class VTPlugModel(BaseModel):
         self.projector.gradient_checkpointing_disable()
         if self.vpt_encoder is not None:
             self.vpt_encoder.gradient_checkpointing_disable()
-        if self.ref_adapter is not None:
-            self.ref_adapter.gradient_checkpointing_disable()
+        if self.vd_adapter is not None:
+            self.vd_adapter.gradient_checkpointing_disable()
 
     def init_weights(self):
         pass
@@ -747,6 +755,8 @@ class VTPlugModel(BaseModel):
         selected_feats = visual_outputs.hidden_states[self.visual_select_layer][:, 1:]
 
         if self.visual_tower is None:
+            if 'pixel_values_tower' in data.keys():
+                metas['pixel_values_tower'] = data['pixel_values_tower'].to(self.llm.dtype)
             metas['visual_hidden_states'] = [feats[:, 1:] for feats in visual_outputs.hidden_states]
         else:
             visual_tower_outputs = self.visual_tower(data['pixel_values_tower'].to(self.visual_tower.dtype))
@@ -767,7 +777,6 @@ class VTPlugModel(BaseModel):
                 data.update(visual_prompts) 
             data['pixel_values'] = visual_feats
 
-        metas['pixel_values_proj'] = data['pixel_values']
         # prepare data for train/predict
         try:
             if mode == 'loss':
@@ -839,23 +848,21 @@ class VTPlugModel(BaseModel):
             mode=mode
         )
         results['decode_groups'] = decode_feats['decode_groups']
-        if self.ref_adapter is not None:
-
+        if self.vd_adapter is not None:
             # all empty features
             if mode == 'predict' and all([len(feats) == 1 and feats[0].shape[0] == 0 \
                                           for feats in decode_feats['ref_feats']]):
                 return results
             
-            ref_outputs = self.ref_adapter(
+            ref_outputs = self.vd_adapter(
                 decode_feats['phrase_feats'],
-                decode_feats['unit_feats'],
                 decode_feats['ref_feats'],
                 metas=metas,
-                mode=mode,
-                hidden_states=hidden_states
+                mode=mode
             )
             ref_hidden_states = ref_outputs['ref_hidden_states']
             ref_mask = ref_outputs['ref_mask']
+            metas['visual_hidden_states'][-1] = ref_outputs['image_embeddings']
         else:
             ref_hidden_states, ref_mask = self.prepare_ref_feats(
                 hidden_states,
@@ -906,7 +913,6 @@ class VTPlugModel(BaseModel):
         for key in data.keys():
             if data[key] is not None:
                 data[key] = data[key].to(self.llm.dtype)
-        
         llm_outputs = self.llm.generate(
                 **data,
                 max_new_tokens=self.max_new_tokens,
@@ -979,30 +985,30 @@ class VTPlugModel(BaseModel):
         shift_labels = labels[..., 1:].contiguous()
 
         weight = torch.ones_like(shift_labels).to(shift_logits.dtype)
-        idx = torch.zeros_like(shift_labels)
-        idx[shift_labels!=IGNORE_INDEX] = 2
-        bs = shift_labels.shape[0]
-        for batch_idx in range(bs):
-            # CoT chunks
-            bot_id = self.token_ids[BOT_TOKEN]
-            eot_id = self.token_ids[EOT_TOKEN]
-            cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
-            cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
-            if len(cot_start) == len(cot_end):
-                for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = cot_weight
-                    idx[batch_idx, st:ed+1] = 1
-            elif len(cot_start) == len(cot_end) + 1:
-                last_st = cot_start[-1]
-                for st, ed in zip(cot_start, cot_end):
-                    weight[batch_idx, st:ed+1] = cot_weight
-                    idx[batch_idx, st:ed+1] = 1
-                weight[batch_idx, last_st:] = cot_weight
-                idx[batch_idx, last_st:] = 1
-            else:
-                print("<Task> and </Task> not match!")
-                file_prefix = f"wrong_cot"
-                save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
+        # idx = torch.zeros_like(shift_labels)
+        # idx[shift_labels!=IGNORE_INDEX] = 2
+        # bs = shift_labels.shape[0]
+        # for batch_idx in range(bs):
+        #     # CoT chunks
+        #     bot_id = self.token_ids[BOT_TOKEN]
+        #     eot_id = self.token_ids[EOT_TOKEN]
+        #     cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
+        #     cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
+        #     if len(cot_start) == len(cot_end):
+        #         for st, ed in zip(cot_start, cot_end):
+        #             weight[batch_idx, st:ed+1] = cot_weight
+        #             idx[batch_idx, st:ed+1] = 1
+        #     elif len(cot_start) == len(cot_end) + 1:
+        #         last_st = cot_start[-1]
+        #         for st, ed in zip(cot_start, cot_end):
+        #             weight[batch_idx, st:ed+1] = cot_weight
+        #             idx[batch_idx, st:ed+1] = 1
+        #         weight[batch_idx, last_st:] = cot_weight
+        #         idx[batch_idx, last_st:] = 1
+        #     else:
+        #         print("<Task> and </Task> not match!")
+        #         file_prefix = f"wrong_cot"
+        #         save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
             
         # Flatten the tokens
         loss_fct = CrossEntropyLoss(reduction='none')
@@ -1010,16 +1016,18 @@ class VTPlugModel(BaseModel):
         shift_labels = shift_labels.view(-1)
         weight = weight.view(-1)
 
-        idx = idx.view(-1)
+        
         # Enable model parallelism
         shift_labels = shift_labels.to(shift_logits.device)
         weight = weight.to(shift_logits.dtype).to(shift_logits.device)
         loss = loss_fct(shift_logits, shift_labels)
         
         weighted_loss = weight[shift_labels!=IGNORE_INDEX] * loss[shift_labels!=IGNORE_INDEX]
-        cot_loss = weight[idx==1] * loss[idx==1]
-        answer_loss = weight[idx==2] * loss[idx==2]
-        return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
+        # idx = idx.view(-1)
+        # cot_loss = weight[idx==1] * loss[idx==1]
+        # answer_loss = weight[idx==2] * loss[idx==2]
+        # return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
+        return weighted_loss.mean()
 
     def compute_loss(self, data, data_samples=None, metas=None):
         labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
@@ -1031,11 +1039,12 @@ class VTPlugModel(BaseModel):
         # llm loss
         outputs = self.llm(**data)
         logits = outputs.logits
-        loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
+        # loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
+        loss_llm = self.compute_loss_llm(logits, labels)
         loss_dict['llm'] = loss_llm
         cost_dict['llm_cost'] = loss_llm
-        cost_dict['cot_cost'] = loss_cot
-        cost_dict['answer_cost'] = loss_answer
+        # cost_dict['cot_cost'] = loss_cot
+        # cost_dict['answer_cost'] = loss_answer
 
         # all modules forward
         modules_outputs = self.modules_forward_pipeline(

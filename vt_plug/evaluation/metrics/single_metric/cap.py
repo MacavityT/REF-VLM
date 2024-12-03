@@ -37,11 +37,12 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
         """
         
         for sample, gt in zip(
-            data_samples,data_batch['data']['labels']):
+            data_samples,data_batch['data']['conversations']):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
-            gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
-            target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
+            # gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
+            # target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
+            target = gt[0]['output']
             if self.stage == 2:
                 decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred, flags=re.DOTALL)
                 target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target, flags=re.DOTALL)

@@ -561,7 +561,7 @@ def visualize_keypoints(image,keypoints,skeleton,index):
     plt.savefig(f"keypoint_{index}")
 
 def visualize_all_keypoints(image,keypoints_list,skeleton,index):
-    color_list = ['green','red']
+    color_list = ['green','red',"blue","yellow"]
     plt.figure(figsize=(10,10))
     plt.imshow(image)
     for i,keypoints in enumerate(keypoints_list):

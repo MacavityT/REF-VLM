@@ -1,0 +1,1 @@
+python -m debugpy --wait-for-client --listen 127.0.0.1:5578 -m xtuner.tools.test configs/test_stage3.py --checkpoint 

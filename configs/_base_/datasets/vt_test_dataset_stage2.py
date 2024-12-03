@@ -22,6 +22,8 @@ with read_base():
     from .test_res_variant import test_res_variant
     from .test_cocodet_variant import test_cocodet_variant
     from .test_cocogcg_variant import test_cocogcg_variant
+    from .test_nocaps_dataset import test_nocaps_variant
+    from .test_cocokeypoint_variant import test_cocokeypoints_variant
 
 # Params
 max_length = 2048 - 576 # use cutoff lens instead
@@ -32,7 +34,7 @@ vpt_patch_size = 8 # sqrt(576/9)=8
 prompt_template = PROMPT_TEMPLATE.vd_cot
 
 # Datasets
-test_cfg = dict(type='TestLoop')
+
 test_all_dataset = dict(
     caption=dict(
         type='CaptionDataset',
@@ -115,6 +117,8 @@ test_all_dataset = dict(
     **test_res_variant,
     **test_cocodet_variant,
     **test_cocogcg_variant,
+    **test_nocaps_variant,
+    **test_cocokeypoints_variant,
 )
 
 

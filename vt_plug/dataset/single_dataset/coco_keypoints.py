@@ -28,8 +28,9 @@ from .mixin import MInstrDataset
 
 @DATASETS.register_module()
 class COCOKeypointsDataset(MInstrDataset):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, test=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.test = test
         self.dataset = self.read_json()
         self.createIndex()
 
@@ -62,12 +63,38 @@ class COCOKeypointsDataset(MInstrDataset):
         if (self.offline_processed_text_folder is not None) and os.path.exists(self.offline_processed_text_folder):
             return len(self.text_data)
         else:
-            return len(self.imgToAnns.keys())
+            if self.test:
+                return len(self.dataset['images'])
+            else:
+                return len(self.imgToAnns.keys())
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
         if offline_item is not None:
             return offline_item
+        
+        if self.test:
+            info = self.dataset['images'][index]
+            img_info = {
+                'path': os.path.join(self.image_folder,info['file_name']),
+                'width': info['width'],
+                'height': info['height'],
+            }
+            question = self.get_template()
+            all_keypoints = []
+            all_boxes = []
+            ret = {
+                'image':img_info,
+                'target': {'boxes':all_boxes,'keypoints':all_keypoints},
+                'conversations':[
+                    # {'from':'system','value':[[{'task':{'task_name':'keypoint_detection','element':['phrase'],'use_unit':True},'unit':['keypoint']}]]},
+                    {'from': 'system', 'value': [{'task':{'task_name':'detection','element':['phrase'],'use_unit':True},'unit':['box']}]},
+                    {'from':'human','value':question},
+                    {'from':'gpt','value':''}
+                ]
+            }
+            return ret
+
         anno_item = list(self.imgToAnns.items())[index]
         info = self.imgs[anno_item[0]]
         img_info = {

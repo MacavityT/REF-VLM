@@ -31,3 +31,4 @@ from .okvqa import OKVQADataset
 from .res import RESDataset
 from .coco_gcg_test import COCOGCG
 from .openpsg import OpenPSGDataset
+from .nocaps import NoCapsDataset

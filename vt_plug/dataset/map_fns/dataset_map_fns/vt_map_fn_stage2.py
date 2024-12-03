@@ -285,7 +285,7 @@ def conversation_map_fn(example, use_cot=True):
         elif msg['from'] == 'gpt':
             output = msg['value']
             if output is None: output = ''
-            if output != '' and use_cot:
+            if output != '':
                 if map_placeholders:
                     output_placeholders = map_placeholders.get('output', [])
                     unit_decode = any(output.count(placeholder) > 0 for placeholder in output_placeholders)
@@ -316,7 +316,8 @@ def conversation_map_fn(example, use_cot=True):
                 # for map placeholder is None
                 else:
                     cot = f"{BOT_TOKEN}\nUnit decode (False).\n{EOT_TOKEN}\n"
-                output = cot + output
+                if use_cot:
+                    output = cot + output
 
             conversation.append({'input': input, 'output': output})
             input = ''

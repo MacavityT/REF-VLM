@@ -22,7 +22,7 @@ weight_decay = 0
 max_norm = 1  # grad clip
 warmup_ratio = 0.5
 
-model_dir = "checkpoints/vicuna_7b/hf_model/0929_keypoint_iter14000"
+model_dir = "checkpoints/vicuna_7b/hf_model/1016_keypoint_iter34160"
 
 dataset_args_sft = [
     train_all_dataset['keypoints2017_det'],

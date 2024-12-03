@@ -78,9 +78,9 @@ def main():
     print(f'Load PTH model from {args.pth_model}')
 
     assert 'VTPlugModel' in model_name
-    # if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
-    #                                 or cfg.model.get('llm_lora')):
-    if cfg.model.get('llm'):
+    if cfg.model.get('llm') and (not cfg.model.get('freeze_llm', False)
+                                    or cfg.model.get('llm_lora')):
+    # if cfg.model.get('llm'):
         if 'PeftModel' in model.llm.__class__.__name__:
             llm_path = osp.join(args.save_dir, 'llm_adapter')
             print(f'Saving LLM adapter to {llm_path}')
@@ -133,14 +133,22 @@ def main():
         model.vpt_encoder.save_pretrained(
             vpt_encoder_path, max_shard_size=args.max_shard_size)
             
-    if hasattr(model, 'ref_adapter') and (
-            not cfg.model.get('freeze_ref_adapter', False)):
-        if model.ref_adapter is not None:
-            ref_adapter_path = osp.join(args.save_dir, 'ref_adapter')
-            print(f'Saving ref_adapter to {ref_adapter_path}')
-            model.ref_adapter.save_pretrained(
-                ref_adapter_path, max_shard_size=args.max_shard_size)
-            
+    # if hasattr(model, 'ref_adapter') and (
+    #         not cfg.model.get('freeze_ref_adapter', False)):
+    #     if model.ref_adapter is not None:
+    #         ref_adapter_path = osp.join(args.save_dir, 'ref_adapter')
+    #         print(f'Saving ref_adapter to {ref_adapter_path}')
+    #         model.ref_adapter.save_pretrained(
+    #             ref_adapter_path, max_shard_size=args.max_shard_size)
+
+    if hasattr(model, 'vd_adapter') and (
+            not cfg.model.get('freeze_vd_adapter', False)):
+        if model.vd_adapter is not None:
+            vd_adapter_path = osp.join(args.save_dir, 'vd_adapter')
+            print(f'Saving vd_adapter to {vd_adapter_path}')
+            model.vd_adapter.save_pretrained(
+                vd_adapter_path, max_shard_size=args.max_shard_size)
+
     if hasattr(model, 'visual_decoder') and (
             not cfg.model.get('freeze_visual_decoder', False)):
         if model.visual_decoder is not None:
