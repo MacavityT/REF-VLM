@@ -5,7 +5,7 @@ from .mixin import MInstrDataset
 @DATASETS.register_module()
 class InstructDataset(MInstrDataset):
     def __init__(self, *args, add_coco_prefix=False, **kwargs):
-        super().__init__(*args, **kwargs, placeholders=(), template_string='', template_file=None)
+        super().__init__(*args, **kwargs, placeholders=(), template_file=None)
         self.add_coco_prefix = add_coco_prefix
 
     def __getitem__(self, index):
