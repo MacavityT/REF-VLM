@@ -11,7 +11,7 @@
 
 
 Official PyTorch implementation of "Unified Instruction Tuning for Extensible Open-Ended Visual Decoding" [CVPR 2025 under review].
-Eohan Checked.
+Eohan Checked. Test git config information.
 
 ## Updates
 <!-- - **28 Feb, 2024** :boom::boom: Our paper has been accepted by CVPR 2024! 🎉
