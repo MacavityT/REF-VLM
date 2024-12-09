@@ -21,6 +21,7 @@ from vt_plug.utils.constants import (
 
 
 """
+# NOTE:重写方法，定义测评metric
 Rewrite:
     1. process (类似于extract_anns的函数)
     2. compute_metrics:   Process one batch of data samples and predictions. The processed

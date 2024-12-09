@@ -26,6 +26,7 @@ with read_base():
     from ._base_.default_runtime import *
 
 # Data
+# NOTE: test_all_dataset 是哪里定义的
 test_cfg = dict(type='TestLoop')
 dataloader_num_workers = 8
 dataset_name = 'res_refcoco_val'
@@ -33,7 +34,8 @@ eval_type = 'caption'
 prefix = 'res'
 chunk = 0
 
-save_dir = 'checkpoints/vicuna_7b/finetune/1119_sam_res/eval12555'
+# save_dir = 'checkpoints/vicuna_7b/finetune/1119_sam_res/eval12555'
+save_dir = 'ckp/yuhan/vt-plug/test'
 # model_dir = 'checkpoints/vicuna_7b/hf_model/0914_nodecoder_iter11500'
 model_dir = ''
 
@@ -370,6 +372,7 @@ test_dataset = dict(
     dataset=test_dataset_args,
     image_processor=clip_patch14_336['image_processor'],
     # image_tower_processor=clip_convnext_512['image_processor'],
+    # NOTE:这里是不是要根据不同的任务来切换processer
     image_tower_processor=sam_preprocessor,
     tokenizer=tokenizer,
     dataset_map_fn=dict(
@@ -551,7 +554,7 @@ model=dict(
         mask=dict(
             type=build_sam_plug,
             version='huge',
-            checkpoint='./checkpoints/SAM/sam_vit_h_4b8939.pth',
+            checkpoint='./ckp/SAM/sam_vit_h_4b8939.pth',
             freeze_mask_decoder=False,
             num_queries=100,
             quries_input_dim=4096,
