@@ -4,6 +4,7 @@ from vt_plug.model.modules.encoder import _build_convnext_processor, CLIPConvNex
 # openai/clip-vit-large-patch14-336
 clip_patch14_336_path = '/model/Aaronzhu/clip-14-336'
 clip_convnext_path = 'checkpoints/CLIP-ConvNext'
+clip_big_path = 'checkpoints/clip-bigG/CLIP-ViT-bigG-14-laion2B-39B-b160k'
 
 clip_patch14_336 = dict(
     image_processor = dict(
@@ -13,6 +14,16 @@ clip_patch14_336 = dict(
     visual_encoder=dict(
         type=CLIPVisionModel.from_pretrained,
         pretrained_model_name_or_path=clip_patch14_336_path)
+)
+
+clip_big14_224 = dict(
+    image_processor = dict(
+        type=CLIPImageProcessor.from_pretrained,
+        pretrained_model_name_or_path=clip_big_path,
+        trust_remote_code=True),
+    visual_encoder=dict(
+        type=CLIPVisionModel.from_pretrained,
+        pretrained_model_name_or_path=clip_big_path)
 )
 
 clip_convnext_320 = dict(

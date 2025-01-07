@@ -2,7 +2,6 @@
 import re
 from typing import List, Dict, Any, Tuple, Union
 from xtuner.utils import IGNORE_INDEX
-from xtuner.dataset.map_fns import llava_map_fn
 from vt_plug.utils.constants import (
     BOXES_PLACEHOLDER, 
     POINTS_PLACEHOLDER, 
@@ -127,6 +126,39 @@ def point_map_fn(example):
             converted = words.replace(POINTS_PLACEHOLDER, '{}').format(*points_strs)        
             # sentence['raw_value'] = sentence['value']
             sentence['value'] = converted
+
+
+def llava_map_fn(example):
+    messages = example['conversations']
+    input = ''
+    conversation = []
+    system = ''
+    while messages and messages[0]['from'] == 'gpt':
+        # Skip the first one if it is from gpt
+        messages = messages[1:]
+    for msg in messages:
+        if msg['from'] == 'system':
+            system_value = msg['value']
+            if isinstance(system_value,List):
+                system_value = "".join(system_value)
+            system = system_value
+        elif msg['from'] == 'human':
+            if DEFAULT_IMAGE_TOKEN in msg['value']:
+                msg['value'] = msg['value'].replace(DEFAULT_IMAGE_TOKEN,
+                                                    '').strip()
+                msg['value'] = DEFAULT_IMAGE_TOKEN + '\n' + msg['value']
+                msg['value'] = msg['value'].strip()
+            input += msg['value']
+
+        elif msg['from'] == 'gpt':
+            if system != '':
+                conversation.append({'system':system,'input': input, 'output': msg['value']})
+            else:
+                conversation.append({'input': input, 'output': msg['value']})
+            input = ''
+        else:
+            raise NotImplementedError
+    return {'conversation': conversation}
 
 def vt_map_fn(example):
     box_map_fn(example)

@@ -1,18 +1,19 @@
-import json
-from vt_plug.utils.constants import IMAGE_PLACEHOLDER
 from vt_plug.registry import DATASETS
 from base64 import b64decode
 from io import BytesIO
 from PIL import Image
 import numpy as np
-import cv2
+from vt_plug.utils.constants import (
+    QUESTION_PLACEHOLDER,
+    IMAGE_PLACEHOLDER)
+
 from .mixin import MInstrDataset
 
-
 @DATASETS.register_module()
-class CaptionDataset(MInstrDataset):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
+class VQADataset(MInstrDataset):
+    def __init__(self, *args, has_annotation=True, **kwargs):
+        super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER, QUESTION_PLACEHOLDER))
+        self.has_annotation = has_annotation
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
@@ -20,35 +21,31 @@ class CaptionDataset(MInstrDataset):
             return offline_item
         
         item = self.get_raw_item(index)
-
-        if 'image_str' in item.keys() or 'image_base64' in item.keys():
-            try:
-                image = item['image_str']
-            except:
-                image = item['image_base64']
+        if 'base64' in item.keys():
+            image = item['base64']
             image = Image.open(BytesIO(b64decode(image)))
             image = {'value': np.array(image)}
-
-
         else:
             img_path = item['img_path']
             image = self.get_image(img_path)
 
+        question = item['question']
+        final_question = self.get_template().replace(QUESTION_PLACEHOLDER, question)
 
-        caption = item['caption']
-        question = self.get_template()
+        final_answer = item['answer']
+
 
         ret = {
             'image': image,
             'conversations': [
                 {
                     'from': 'human',
-                    'value': question,
+                    'value': final_question,
                 },
                 {
                     'from': 'gpt',
-                    'value': caption,
-                }
+                    'value': f"{final_answer}",
+                },
             ]
         }
 
@@ -57,11 +54,6 @@ class CaptionDataset(MInstrDataset):
                         'from':'system',
                         'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}}],
                     }
-            ret['conversations'].insert(0, system)
+            ret['conversations'].insert(0, system)        
             ret['map_placeholders'] = self.map_placeholders
         return ret
-
-
-
-
-        

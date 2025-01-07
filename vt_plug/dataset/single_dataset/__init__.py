@@ -32,3 +32,9 @@ from .res import RESDataset
 from .coco_gcg_test import COCOGCG
 from .openpsg import OpenPSGDataset
 from .nocaps import NoCapsDataset
+from .product1m import Product1MDataset
+from .wukong import WuKongDataset
+from .ocr import OCRCNDataset
+from .meme import MEMEDataset
+from .vqa import VQADataset
+from .cvlue import CVLUECaptionDataset,CVLUEDialogueDataset,CVLUEVQADataset,CVLUERECDataset

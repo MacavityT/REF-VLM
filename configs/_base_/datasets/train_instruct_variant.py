@@ -1,0 +1,29 @@
+train_instruct_variant = dict(
+    llavacc3m=dict(
+        type='InstructDataset',
+        text_path=r"/data/Aaronzhu/DatasetStage1/Shikra/llava_cc3m.jsonl",
+        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava/LLaVA-CC3M-Pretrain-595K/images',  
+    ),
+    llavacc3m_cn=dict(
+        type='InstructDataset',
+        text_path=r"/data/Aaronzhu/ChineseDatasets/llava-instruct-chinese/Chinese-LLaVA-Vision-Instructions/LLaVA-CC3M-Pretrain-595K/chat-translated.json",
+        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava/LLaVA-CC3M-Pretrain-595K/images',
+        cn_dataset=True,
+    ),
+    llavalcs=dict(
+        type='InstructDataset',
+        text_path=r"/data/Aaronzhu/DatasetStage1/Shikra/blip_laion_cc_sbu_558k_filter.jsonl",
+        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images',
+    ),
+    instruct=dict(
+        type='InstructMixDataset',
+        text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter_d.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
+        offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
+    ),
+    instruct_cn=dict(
+        type='InstructMixDataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/llava-instruct-chinese/Chinese-LLaVA-Vision-Instructions/LLaVA-Instruct-150K/translated/llava_instruct_150k.json',
+        image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images/coco/train2017',
+    ),
+)

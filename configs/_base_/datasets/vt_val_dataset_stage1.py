@@ -17,11 +17,7 @@ with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
     from ..models.all_visual_encoders import clip_patch14_336
 
-# Params
-prompt_template = PROMPT_TEMPLATE.vicuna
-max_length = int(2048 - (336 / 14)**2)
-cutoff_len = 2048
-visual_hidden_size = 1024
+
 
 # Data
 val_cfg = dict(type='ValLoop')
@@ -40,16 +36,6 @@ val_all_dataset = dict(
         template_name=r"VQA",
     ),
 )
-
-val_dataset_args = [
-    dict(
-        type='SubSet',
-        portion=1/20,
-        do_shuffle=True,
-        seed=43,
-        cfg=val_all_dataset['caption'],
-            )
-]
 
 
 

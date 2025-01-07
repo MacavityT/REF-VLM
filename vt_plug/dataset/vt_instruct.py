@@ -194,7 +194,7 @@ class VTInstructDataset(Dataset):
             except:
                 print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
                 image_path = ''
-                image = np.zeros((336,336,3)).astype(np.uint8)
+                image = np.zeros((self.image_processor.crop_size['height'],self.image_processor.crop_size['width'],3)).astype(np.uint8)
         elif isinstance(image_path, np.ndarray):
             image_path = ''
         image = Image.fromarray(image) # PIL.Image
@@ -208,10 +208,10 @@ class VTInstructDataset(Dataset):
             )
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
-            image = image.resize((336, 336))
+            image = image.resize((self.image_processor.crop_size['height'], self.image_processor.crop_size['width']))
             image_path = ''
-            ori_width = 336
-            ori_height = 336
+            ori_width = self.image_processor.crop_size['width']
+            ori_height = self.image_processor.crop_size['height']
 
         image_tower = None
         if self.image_tower_processor is not None:

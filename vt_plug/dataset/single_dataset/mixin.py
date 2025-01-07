@@ -1,9 +1,9 @@
 import json
-import jsonlines
 import os
 import logging
 import jsonlines
 import numpy as np
+import pandas as pd
 from typing import List
 from mmengine import print_log
 
@@ -136,6 +136,8 @@ class MInstrDataset(QuestionTemplateMixin, Dataset):
             with open(file_path, 'r', encoding='utf8') as f:
                 for line in f:
                     file_data.append(line)
+        elif file_path.endswith('.parquet'):
+            file_data = pd.read_parquet(file_path)
         return file_data
 
     def get_image(self, image_path):

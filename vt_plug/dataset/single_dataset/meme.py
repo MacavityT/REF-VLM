@@ -10,7 +10,7 @@ from .mixin import MInstrDataset
 
 
 @DATASETS.register_module()
-class CaptionDataset(MInstrDataset):
+class MEMEDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
 
@@ -21,21 +21,11 @@ class CaptionDataset(MInstrDataset):
         
         item = self.get_raw_item(index)
 
-        if 'image_str' in item.keys() or 'image_base64' in item.keys():
-            try:
-                image = item['image_str']
-            except:
-                image = item['image_base64']
-            image = Image.open(BytesIO(b64decode(image)))
-            image = {'value': np.array(image)}
+        img_path = item['picName']
+        image = self.get_image(img_path)
 
 
-        else:
-            img_path = item['img_path']
-            image = self.get_image(img_path)
-
-
-        caption = item['caption']
+        caption = item['description']
         question = self.get_template()
 
         ret = {

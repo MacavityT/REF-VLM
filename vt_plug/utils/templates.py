@@ -23,7 +23,16 @@ PROMPT_TEMPLATE = ConfigDict(
                 '- Unit: gives answers with given unit name, follow the format of \'<Unit>unit name</Unit>[number]\'.\n'),
         SYSTEM=('{system}\n'),
         INSTRUCTION=('USER: {input} ASSISTANT:'),
-        SEP='\n')
+        SEP='\n'),
+    qwen_chat=dict(
+        SYSTEM=('<|im_start|>system\n{system}<|im_end|>\n'),
+        INSTRUCTION=('<|im_start|>user\n{input}<|im_end|>\n'
+                     '<|im_start|>assistant\n'),
+        SUFFIX='<|im_end|>',
+        DEFAULT_SYSTEM="You are a helpful assistant.",
+        SUFFIX_AS_EOS=True,
+        SEP='\n',
+        STOP_WORDS=['<|im_end|>', '<|endoftext|>']),
 )
 
 SYSTEM_TEMPLATE = ConfigDict(

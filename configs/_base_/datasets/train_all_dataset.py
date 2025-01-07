@@ -21,6 +21,10 @@ with read_base():
     from .train_reg_variant import train_reg_variant
     from .train_res_variant import train_res_variant
     from .train_rec_variant import train_rec_variant
+    from .train_instruct_variant import train_instruct_variant
+    from .train_chinese_text_variant import train_chinese_text_variant
+    from .train_chinese_meme_variant import train_chinese_meme_variant
+    from .train_cvlue_variant import train_cvlue_variant
 
 train_all_dataset = dict(
     flickr=dict(
@@ -46,6 +50,12 @@ train_all_dataset = dict(
         text_path=r'/data/Aaronzhu/DatasetStage1/Shikra/CWB_flickr30k_train.jsonl',  
         image_folder=r'/data/Aaronzhu/DatasetStage1/flickr30k/flickr30k-images',
         template_name=r'image_cap',
+    ),
+    flickr_caption_cn=dict(
+        type='CaptionDataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/flickr-cn/train.jsonl',  
+        image_folder=r'',
+        template_name=r'image_cap_cn',
     ),
     rec=dict(
         type='RECDataset',
@@ -92,21 +102,11 @@ train_all_dataset = dict(
         image_folder=r'/data/Aaronzhu/DatasetStage1/MSCOCO/2014/train',
         template_name=r'image_cap',
     ),
-    llavacc3m=dict(
-        type='InstructDataset',
-        text_path=r"/data/Aaronzhu/DatasetStage1/Shikra/llava_cc3m.jsonl",
-        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava/LLaVA-CC3M-Pretrain-595K/images',  
-    ),
-    llavalcs=dict(
-        type='InstructDataset',
-        text_path=r"/data/Aaronzhu/DatasetStage1/Shikra/blip_laion_cc_sbu_558k_filter.jsonl",
-        image_folder=r'/data/Aaronzhu/DatasetStage1/llava/llava-pretrain/LLaVA-Pretrain/images',
-    ),
-    instruct=dict(
-        type='InstructMixDataset',
-        text_path=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/llava_v1_5_mix665k_fliter_d.json',
-        image_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/images',
-        offline_processed_text_folder=r'/data/Aaronzhu/DatasetStage2and3/llava-instruct/offline',
+    coco_caption_cn=dict(
+        type='CaptionDataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/coco-cn/train.jsonl',
+        image_folder=r'',
+        template_name=r'image_cap_cn',
     ),
     openpsg=dict(
         type='OpenPSGDataset',
@@ -187,6 +187,25 @@ train_all_dataset = dict(
         ),
         offline_processed_text_folder='',
     ),
+    product1m=dict(
+        type='Product1MDataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/product1M/train_id_info_filter.json',
+        image_folder=r'/data/Aaronzhu/ChineseDatasets/product1M/images',
+        template_name=r'Product_CN',
+    ),
+    wukong=dict(
+        type='WuKongDataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/wukong/labels-0107.jsonl',
+        image_folder=r'/data/Aaronzhu/ChineseDatasets/wukong/images',
+        template_name=r'image_cap_cn',
+    ),
+    fm_iqa=dict(
+        type='VQADataset',
+        text_path=r'/data/Aaronzhu/ChineseDatasets/fm-iqa/train.jsonl',
+        image_folder=r'',
+        template_name=r'VQA_CN',
+    ),
+
     **train_reg_variant,
     **train_gqa_variant,
     **train_clevr_variant,
@@ -207,4 +226,8 @@ train_all_dataset = dict(
     **train_cocokeypoints_variant,
     **train_res_variant,
     **train_rec_variant,
+    **train_instruct_variant,
+    **train_chinese_text_variant,
+    **train_chinese_meme_variant,
+    **train_cvlue_variant,
 )

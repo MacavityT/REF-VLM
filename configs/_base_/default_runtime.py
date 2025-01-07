@@ -2,7 +2,8 @@
 from mmengine.visualization import Visualizer, TensorboardVisBackend
 from mmengine.hooks import (CheckpointHook, DistSamplerSeedHook, IterTimerHook,
                             LoggerHook, ParamSchedulerHook, )
-from mmengine.visualization import Visualizer, TensorboardVisBackend
+from mmengine.visualization import Visualizer, TensorboardVisBackend, WandbVisBackend
+from datetime import datetime
 # Save
 save_steps = 500
 save_total_limit = 2  # Maximum checkpoints to keep (-1 means unlimited)
@@ -39,7 +40,8 @@ env_cfg = dict(
 # set visualizer
 visualizer = dict(
     type=Visualizer,
-    vis_backends=[dict(type=TensorboardVisBackend)]
+    vis_backends=[dict(type=WandbVisBackend,init_kwargs=dict(
+        project='YongZhi-Qwen2.5',name=datetime.now().strftime("%Y-%m-%d-%H:%M")))]
 )
 
 # set log level

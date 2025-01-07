@@ -11,7 +11,7 @@ from xtuner.utils import IGNORE_INDEX
 from vt_plug.utils.constants import BOT_TOKEN,EOT_TOKEN
 from ..base import BaseComputeMetrics
 
-
+STOP_WORDS = ['<|im_end|>', '<|endoftext|>','</s>']
 @METRICS.register_module()
 class ImgCapComputeMetrics(BaseComputeMetrics):
 
@@ -36,18 +36,20 @@ class ImgCapComputeMetrics(BaseComputeMetrics):
             {'generate_ids': generate ids}
         """
         
-        for sample, gt in zip(
-            data_samples,data_batch['data']['conversations']):
+        for sample, gt in zip(data_samples,data_batch['data']['labels']):
             generate_ids =sample['generate_ids']
             decode_pred = self.decode_generate_ids(ids=generate_ids,skip_special_tokens=False)
-            # gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
-            # target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
-            target = gt[0]['output']
+            gt = gt[gt != IGNORE_INDEX]  # filter pad tokens (notes: better to use formal parameters)
+            target = self.decode_generate_ids(ids=gt,skip_special_tokens=False)
+            # target = gt[0]['output']
             if self.stage == 2:
                 decode_pred = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", decode_pred, flags=re.DOTALL)
                 target = re.sub(f"{BOT_TOKEN}.*?{EOT_TOKEN}", "", target, flags=re.DOTALL)
-            target = target.replace('</s>','').strip()
-            decode_pred = decode_pred.replace('</s>','').strip()
+            
+            for stop_word in STOP_WORDS:
+                target = target.replace(stop_word,'').strip() 
+                decode_pred = decode_pred.replace(stop_word,'').strip()
+                
             if self.save_dir is not None:
                 self.save_outputs(decode_pred,target,f"{self.prefix}")
                 

@@ -16,6 +16,10 @@ def vt_template_map_fn(example, template):
         if system != '' and system is not None:
             system = template.SYSTEM.format(system=system)
             input_text = system + input_text
+        else:
+            if template.get('DEFAULT_SYSTEM', None) is not None:
+                system = template.SYSTEM.format(system=template.DEFAULT_SYSTEM)
+                input_text = system + input_text
         
         if i == 0 and template.get('SYSTEM_PREFIX', None) is not None:
             input_text = template.SYSTEM_PREFIX + input_text

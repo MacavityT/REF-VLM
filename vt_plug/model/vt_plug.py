@@ -80,6 +80,7 @@ class VTPlugModel(BaseModel):
                  visual_select_layer=-2,
                  pretrained_pth=None,
                  projector_depth=2,
+                 stage=2,
                  llm_lora=None,
                  visual_encoder_lora=None,
                  use_activation_checkpointing=True,
@@ -95,25 +96,28 @@ class VTPlugModel(BaseModel):
         self.freeze_visual_decoder = freeze_visual_decoder
         self.cutoff_len = cutoff_len
         self.loss_coefficient = loss_coefficient
+        self.stage = stage
         with LoadWoInit():
             if isinstance(llm, dict):
                 llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
 
             self.llm = self._build_from_cfg_or_module(llm)
-            self.tokenizer = self._prepare_tokenizer(tokenizer)
-            self.llm.resize_token_embeddings(len(self.tokenizer))
+            self.tokenizer = self._prepare_tokenizer(tokenizer,self.stage)
+            if self.stage != 1:
+                self.llm.resize_token_embeddings(len(self.tokenizer))
             # token labels
-            tokens_in_labels = [
-                BOT_TOKEN, EOT_TOKEN, 
-                BOU_TOKEN, EOU_TOKEN, 
-                BOV_TOKEN, EOV_TOKEN,
-                VISUAL_REFERENCE_TOKEN,
-                PHRASE_ST_PLACEHOLDER_STAGE2,
-                PHRASE_ED_PLACEHOLDER_STAGE2
-            ]
-            self.token_ids = {}
-            for token in tokens_in_labels:
-                self.token_ids[token] = self.tokenizer.convert_tokens_to_ids(token)
+            # tokens_in_labels = [
+            #     BOT_TOKEN, EOT_TOKEN, 
+            #     BOU_TOKEN, EOU_TOKEN, 
+            #     BOV_TOKEN, EOV_TOKEN,
+            #     VISUAL_REFERENCE_TOKEN,
+            #     PHRASE_ST_PLACEHOLDER_STAGE2,
+            #     PHRASE_ED_PLACEHOLDER_STAGE2
+            # ]
+            # self.token_ids = {}
+            # for token in tokens_in_labels:
+            #     self.token_ids[token] = self.tokenizer.convert_tokens_to_ids(token)
+
             # generate config
             default_generation_kwargs = dict(
                 max_new_tokens=512,
@@ -145,7 +149,7 @@ class VTPlugModel(BaseModel):
                     visual_tower).to(self.llm.dtype)
             else:
                 self.visual_tower = None
-            if projector is not None:
+            if projector is not None and 'type' in projector:
                 self.projector = self._build_from_cfg_or_module(
                     projector).to(self.llm.dtype)
             else:
@@ -178,6 +182,12 @@ class VTPlugModel(BaseModel):
                 llm_hidden_size=self.llm.config.hidden_size,
                 depth=projector_depth
             )
+            self.projector = ProjectorModel(projector_config).to(
+                self.llm.dtype)
+        if projector is not None and 'type' not in projector:
+            projector_config = ProjectorConfig(
+                visual_hidden_size=self.visual_encoder.config.hidden_size,
+                **projector)
             self.projector = ProjectorModel(projector_config).to(
                 self.llm.dtype)
         if vpt_encoder is not None and \
@@ -261,10 +271,13 @@ class VTPlugModel(BaseModel):
         self._is_init = True
 
     @staticmethod
-    def _prepare_tokenizer(tokenizer_cfg):
+    def _prepare_tokenizer(tokenizer_cfg,stage=2):
         tokenizer = BUILDER.build(tokenizer_cfg)
-        tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
-        return tokenizer
+        if stage == 1:
+            return tokenizer
+        else:
+            tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
+            return tokenizer
 
     def _parse_lora_config(self, lora_config):
         if isinstance(lora_config, dict) or isinstance(
@@ -780,7 +793,8 @@ class VTPlugModel(BaseModel):
         # prepare data for train/predict
         try:
             if mode == 'loss':
-                data['token_masks'] = self.prepare_token_masks(data['input_ids'])
+                if self.stage != 1:
+                    data['token_masks'] = self.prepare_token_masks(data['input_ids'])
             
             if mode == 'predict':
                 labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
@@ -931,21 +945,24 @@ class VTPlugModel(BaseModel):
         # remove last generated token (the last one usually is </s>)
         # in all situations, the last token will not used for inference (</s> or cutoff as max_length)
         # pad left because no decode token in prompts
-        token_masks = self.prepare_token_masks(llm_outputs.sequences[:, :-1])
-        metas['token_masks'] = _pad_token_masks(
-            token_masks=token_masks,
-            target_size=hidden_states.shape[:-1],
-            pad_side='left'
-        )
+        decode_groups = None
+        decoder_outputs = None
+        if self.stage != 1:
+            token_masks = self.prepare_token_masks(llm_outputs.sequences[:, :-1])
+            metas['token_masks'] = _pad_token_masks(
+                token_masks=token_masks,
+                target_size=hidden_states.shape[:-1],
+                pad_side='left'
+            )
 
-        # get pipeline outputs
-        pipeline_outputs = self.modules_forward_pipeline(
-            hidden_states=hidden_states, 
-            metas=metas, 
-            mode='predict'
-        )
-        decode_groups = pipeline_outputs.get('decode_groups', None)
-        decoder_outputs = pipeline_outputs.get('visual_decoder', None)
+            # get pipeline outputs
+            pipeline_outputs = self.modules_forward_pipeline(
+                hidden_states=hidden_states, 
+                metas=metas, 
+                mode='predict'
+            )
+            decode_groups = pipeline_outputs.get('decode_groups', None)
+            decoder_outputs = pipeline_outputs.get('visual_decoder', None)
 
         results = []
         for batch_idx, generate_id in enumerate(llm_outputs.sequences):

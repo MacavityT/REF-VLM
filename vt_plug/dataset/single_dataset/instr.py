@@ -4,16 +4,19 @@ from .mixin import MInstrDataset
 
 @DATASETS.register_module()
 class InstructDataset(MInstrDataset):
-    def __init__(self, *args, add_coco_prefix=False, **kwargs):
+    def __init__(self, *args, add_coco_prefix=False, cn_dataset=False, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(), template_file=None)
         self.add_coco_prefix = add_coco_prefix
+        self.cn_dataset = cn_dataset
 
     def __getitem__(self, index):
         offline_item = super().__getitem__(index)
         if offline_item is not None:
             return offline_item
-        
-        item = self.get_raw_item(index)
+        if self.cn_dataset:
+            item = self.text_data[index]
+        else:
+            item = self.get_raw_item(index)
         if self.add_coco_prefix:
             img_path = f"COCO_train2014_{item['image']}"
         else:
@@ -25,6 +28,15 @@ class InstructDataset(MInstrDataset):
             'image': image,
             'conversations': conversations,
         }
+
+        if self.stage == 2:
+            system = {
+                        'from':'system',
+                        'value': [{'task':{'task_name':'vqa','element':['sentence'],'use_unit':False}} for _ in range(len(conversations)//2)],
+                    }
+            ret['conversations'].insert(0, system)
+            ret['map_placeholders'] = self.map_placeholders
+
         return ret
 
 @DATASETS.register_module()

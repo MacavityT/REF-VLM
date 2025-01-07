@@ -25,3 +25,12 @@ llama3_8b_path_tokenizer = dict(
     pretrained_model_name_or_path=llama3_8b_path,
     trust_remote_code=True,
     padding_side='right')
+
+
+# qwen2.5 7b
+qwen2_7b_path = '/model/Aaronzhu/OkapiModel/Qwen2.5/Qwen2_5-7B-Instruct'
+qwen2_7b_path_tokenizer = dict(
+    type=AutoTokenizer.from_pretrained,
+    pretrained_model_name_or_path=qwen2_7b_path,
+    trust_remote_code=True,
+    padding_side='right')

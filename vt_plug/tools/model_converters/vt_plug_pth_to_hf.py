@@ -128,10 +128,11 @@ def main():
     # if hasattr(model, 'vpt_encoder') and (
     #         not cfg.model.get('freeze_vpt_encoder', False)):
     if hasattr(model, 'vpt_encoder'):
-        vpt_encoder_path = osp.join(args.save_dir, 'vpt_encoder')
-        print(f'Saving vpt_encoder to {vpt_encoder_path}')
-        model.vpt_encoder.save_pretrained(
-            vpt_encoder_path, max_shard_size=args.max_shard_size)
+        if model.vpt_encoder is not None:
+            vpt_encoder_path = osp.join(args.save_dir, 'vpt_encoder')
+            print(f'Saving vpt_encoder to {vpt_encoder_path}')
+            model.vpt_encoder.save_pretrained(
+                vpt_encoder_path, max_shard_size=args.max_shard_size)
             
     # if hasattr(model, 'ref_adapter') and (
     #         not cfg.model.get('freeze_ref_adapter', False)):

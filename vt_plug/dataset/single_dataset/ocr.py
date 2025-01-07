@@ -10,7 +10,7 @@ from .mixin import MInstrDataset
 
 
 @DATASETS.register_module()
-class CaptionDataset(MInstrDataset):
+class OCRCNDataset(MInstrDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, placeholders=(IMAGE_PLACEHOLDER,))
 
@@ -19,23 +19,20 @@ class CaptionDataset(MInstrDataset):
         if offline_item is not None:
             return offline_item
         
-        item = self.get_raw_item(index)
+        item = self.text_data.loc[index]
+        image_bytes = item['image']['bytes']
+        image = np.asarray(bytearray(image_bytes),dtype='uint8')
+        image = cv2.imdecode(image,cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        image = {'value': np.array(image)}
 
-        if 'image_str' in item.keys() or 'image_base64' in item.keys():
-            try:
-                image = item['image_str']
-            except:
-                image = item['image_base64']
-            image = Image.open(BytesIO(b64decode(image)))
-            image = {'value': np.array(image)}
-
-
-        else:
-            img_path = item['img_path']
-            image = self.get_image(img_path)
-
-
-        caption = item['caption']
+        if 'text' in item.keys():
+            caption = item['text']
+        elif 'ground_truth' in item.keys():
+            json_string = item['ground_truth']
+            parsed_data = json.loads(json_string)
+            caption = parsed_data['gt_parse']['text_sequence']
+            
         question = self.get_template()
 
         ret = {
