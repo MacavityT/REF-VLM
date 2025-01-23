@@ -13,7 +13,7 @@ with read_base():
     from ._base_.models.vt_plug_qwen import *
 
 
-model_dir = "/code/VT-PLUG/checkpoints/Qwen2.5/hf_output/0102_iter30000"
+model_dir = "/code/VT-PLUG/checkpoints/Qwen2.5/hf_output/0120_iter206953"
 max_length = int(2048 - (336 / 14)**2)
 
 projector = dict(

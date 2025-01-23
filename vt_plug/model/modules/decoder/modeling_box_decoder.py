@@ -10,8 +10,9 @@ from transformers.models.detr import DetrConfig
 from transformers.models.detr.modeling_detr import (
     DetrDecoder,
     DetrMLPPredictionHead,
-    generalized_box_iou
+    # generalized_box_iou,
 )
+from transformers.loss.loss_deformable_detr import generalized_box_iou
 from transformers.image_transforms import center_to_corners_format
 from transformers.utils import requires_backends, is_scipy_available
 

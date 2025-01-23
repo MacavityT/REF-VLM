@@ -17,8 +17,8 @@ batch_size = 10  # per_device
 dataloader_num_workers = 5
 
 # Params
-max_length = int(4096 - (336 / 14)**2)
-cutoff_len = 4096
+max_length = int(2048 - (336 / 14)**2)
+cutoff_len = 2048
 visual_hidden_size = 1024
 model_dir = '/code/VT-PLUG/checkpoints/Qwen2.5/xtuner_output/stage1/0102_instruct/iter_118989.pth'
 

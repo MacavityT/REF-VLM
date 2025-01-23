@@ -12,6 +12,8 @@ from mmengine.model import BaseModel
 from mmengine.logging import print_log
 from peft import get_peft_model, prepare_model_for_kbit_training,PeftModel
 from transformers import AutoConfig, GenerationConfig, StoppingCriteriaList
+from vllm import LLM
+from vllm.sampling_params import SamplingParams
 
 from xtuner.registry import BUILDER
 from xtuner.utils import IGNORE_INDEX
@@ -20,14 +22,14 @@ from xtuner.model.utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
                     make_inputs_require_grad, traverse_dict)
 
-from .modules import *
-from .utils import (LoadWoInit, find_all_linear_names,
+from vt_plug.model.modules import *
+from vt_plug.model.utils import (LoadWoInit, find_all_linear_names,
                     get_peft_model_state_dict, guess_load_checkpoint,
                     make_inputs_require_grad, traverse_dict,
                     prepare_inputs_labels_for_multimodal,
                     save_wrong_data)
 
-from ..utils.constants import (
+from vt_plug.utils.constants import (
     SPECIAL_TOKENS,
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
@@ -59,52 +61,35 @@ TOKEN_MASK_IDS = {
     'eop_masks': 5,
 }
 
-class VTPlugModel(BaseModel):
+class YongZhiWrapper(BaseModel):
 
     def __init__(self,
                  llm,
                  tokenizer=None,
-                 llm_adapter=None,
                  visual_encoder=None,
                  visual_tower=None,
                  vpt_encoder=None,
                  projector=None,
                  vd_adapter=None,
                  visual_decoder=None,
-                 freeze_llm=False,
-                 freeze_visual_encoder=False,
-                 freeze_projector=False,
-                 freeze_vpt_encoder=False,
-                 freeze_ref_adapter=False,
-                 freeze_visual_decoder=False,
                  visual_select_layer=-2,
-                 pretrained_pth=None,
-                 projector_depth=2,
                  stage=2,
-                 llm_lora=None,
-                 visual_encoder_lora=None,
-                 use_activation_checkpointing=True,
                  cutoff_len=None,
                  max_position_embeddings=None,
                  loss_coefficient=None):
         super().__init__()
-        self.freeze_llm = freeze_llm
-        self.freeze_visual_encoder = freeze_visual_encoder
-        self.freeze_projector = freeze_projector
-        self.freeze_vpt_encoder = freeze_vpt_encoder
-        self.freeze_ref_adapter = freeze_ref_adapter
-        self.freeze_visual_decoder = freeze_visual_decoder
+
+
         self.cutoff_len = cutoff_len
         self.loss_coefficient = loss_coefficient
         self.stage = stage
-        with LoadWoInit():
-            if isinstance(llm, dict):
-                llm = self._dispatch_lm_model_cfg(llm, max_position_embeddings)
 
-            self.llm = self._build_from_cfg_or_module(llm)
-            self.tokenizer = self._prepare_tokenizer(tokenizer,self.stage)
-            if self.stage != 1:
-                self.llm.resize_token_embeddings(len(self.tokenizer))
+        with LoadWoInit():
+
+
+            self.llm = LLM(**llm)
+            self.tokenizer = BUILDER.build(tokenizer)
+
             # token labels
             tokens_in_labels = [
                 BOT_TOKEN, EOT_TOKEN, 
@@ -117,6 +102,8 @@ class VTPlugModel(BaseModel):
             self.token_ids = {}
             for token in tokens_in_labels:
                 self.token_ids[token] = self.tokenizer.convert_tokens_to_ids(token)
+            
+            self.stop_words_ids = [self.tokenizer.im_start_id,self.tokenizer.im_end_id,self.tokenizer.eos_token_id]
 
             # generate config
             default_generation_kwargs = dict(
@@ -137,12 +124,6 @@ class VTPlugModel(BaseModel):
 
             self.visual_encoder = self._build_from_cfg_or_module(
                 visual_encoder).to(self.llm.dtype)
-            if llm_adapter is not None:
-                self.llm.model = PeftModel.from_pretrained(
-                    self.llm.model,
-                    llm_adapter,
-                    trust_remote_code=True,
-                ) 
 
             if visual_tower is not None:
                 self.visual_tower = self._build_from_cfg_or_module(
@@ -174,258 +155,15 @@ class VTPlugModel(BaseModel):
                             self._build_from_cfg_or_module(decoder_config).to(self.llm.dtype)
 
         self.llm.config.use_cache = False
-        dispatch_modules(self.llm)
 
-        if self.projector is None:
-            projector_config = ProjectorConfig(
-                visual_hidden_size=self.visual_encoder.config.hidden_size,
-                llm_hidden_size=self.llm.config.hidden_size,
-                depth=projector_depth
-            )
-            self.projector = ProjectorModel(projector_config).to(
-                self.llm.dtype)
-        if projector is not None and 'type' not in projector:
-            projector_config = ProjectorConfig(
-                visual_hidden_size=self.visual_encoder.config.hidden_size,
-                **projector)
-            self.projector = ProjectorModel(projector_config).to(
-                self.llm.dtype)
-        if vpt_encoder is not None and \
-            'type' not in vpt_encoder:
-            vpt_encoder_config = VPTEncoderConfig(**vpt_encoder)
-            self.vpt_encoder = VPTEncoderModel(vpt_encoder_config).to(
-                self.llm.dtype)
-        if vd_adapter is not None and \
-            'type' not in vd_adapter:
-            ref_adapter_config = VDAdapterConfig(**vd_adapter)
-            self.vd_adapter = VDAdapterModel(ref_adapter_config).to(
-                self.llm.dtype)
-        if visual_decoder is not None:
-            assert isinstance(visual_decoder, dict)
-            for decoder_type, decoder_config in visual_decoder.items():
-                if 'type' not in decoder_config:
-                    assert decoder_type not in self.visual_decoder.keys()
-                    decoder_config = DECODER_CONFIG_CLASS[decoder_type](**decoder_config)
-                    self.visual_decoder[decoder_type] = \
-                        DECODER_MODEL_CLASS[decoder_type](decoder_config).to(
-                            self.llm.dtype)
         if len(self.visual_decoder) == 0:
             self.visual_decoder = None
 
-        if self.freeze_llm:
-            self.llm.requires_grad_(False)
-            # unfreeze_layers = list(self.llm.named_parameters())[-11:]
-            # for name, param in unfreeze_layers:
-            #     param.requires_grad = True
-        if self.freeze_visual_encoder:
-            self.visual_encoder.requires_grad_(False)
-        if self.freeze_projector:
-            self.projector.requires_grad_(False)
-        if self.freeze_vpt_encoder and \
-            self.vpt_encoder is not None:
-            self.vpt_encoder.requires_grad_(False)
-        if self.freeze_ref_adapter and \
-            self.vd_adapter is not None:
-            self.vd_adapter.requires_grad_(False)
-        if self.freeze_visual_decoder and \
-            self.visual_decoder is not None:
-            self.visual_decoder.requires_grad_(False)
-
-        if use_activation_checkpointing:
-            # For backward compatibility
-            if hasattr(self.llm, 'enable_input_require_grads'):
-                self.llm.enable_input_require_grads()
-            else:
-                self.llm.get_input_embeddings().register_forward_hook(
-                    make_inputs_require_grad)
-            if hasattr(self.visual_encoder, 'enable_input_require_grads'):
-                self.visual_encoder.enable_input_require_grads()
-            else:
-                self.visual_encoder.get_input_embeddings(
-                ).register_forward_hook(make_inputs_require_grad)
-            self.projector.enable_input_require_grads()
-            if self.vpt_encoder is not None:
-                self.vpt_encoder.enable_input_require_grads()
-            if self.vd_adapter is not None:
-                self.vd_adapter.enable_input_require_grads()
-            
-            # enable gradient (activation) checkpointing for memory efficiency
-            self.gradient_checkpointing_enable()
-
-        self.use_llm_lora = llm_lora is not None
-        self.use_visual_encoder_lora = visual_encoder_lora is not None
-
-        if self.use_llm_lora:
-            self._prepare_llm_for_lora(llm_lora, use_activation_checkpointing)
-        if self.use_visual_encoder_lora:
-            self._prepare_visual_encoder_for_lora(
-                visual_encoder_lora, use_activation_checkpointing)
-
-        if pretrained_pth is not None:
-            pretrained_state_dict = guess_load_checkpoint(pretrained_pth)
-
-            self.load_state_dict(pretrained_state_dict, strict=False)
-            print(f'Load pretrained weight from {pretrained_pth}')
 
         self.visual_select_layer = visual_select_layer
         self._is_init = True
 
-    @staticmethod
-    def _prepare_tokenizer(tokenizer_cfg,stage=2):
-        tokenizer = BUILDER.build(tokenizer_cfg)
-        if stage == 1:
-            return tokenizer
-        else:
-            tokenizer.add_tokens(SPECIAL_TOKENS, special_tokens=True)
-            return tokenizer
 
-    def _parse_lora_config(self, lora_config):
-        if isinstance(lora_config, dict) or isinstance(
-                lora_config, Config) or isinstance(lora_config, ConfigDict):
-            lora_config = BUILDER.build(lora_config)
-        return lora_config
-
-    def _prepare_llm_for_lora(self,
-                              lora_config,
-                              use_activation_checkpointing=True):
-        lora_config = self._parse_lora_config(lora_config)
-        self.llm = prepare_model_for_kbit_training(
-            self.llm, use_activation_checkpointing)
-        if lora_config.target_modules is None:
-            modules = find_all_linear_names(self.llm)
-            lora_config.target_modules = modules
-        self.llm = get_peft_model(self.llm, lora_config)
-
-    def _prepare_visual_encoder_for_lora(self,
-                                         lora_config,
-                                         use_activation_checkpointing=True):
-        lora_config = self._parse_lora_config(lora_config)
-        if lora_config.target_modules is None:
-            modules = find_all_linear_names(self.visual_encoder)
-            lora_config.target_modules = modules
-        self.visual_encoder = get_peft_model(self.visual_encoder, lora_config)
-
-    def gradient_checkpointing_enable(self):
-        self.activation_checkpointing_enable()
-
-    def activation_checkpointing_enable(self):
-        self.llm.gradient_checkpointing_enable()
-        self.visual_encoder.gradient_checkpointing_enable()
-        self.projector.gradient_checkpointing_enable()
-        if self.vpt_encoder is not None:
-            self.vpt_encoder.gradient_checkpointing_enable()
-        if self.vd_adapter is not None:
-            self.vd_adapter.gradient_checkpointing_enable()
-
-    def gradient_checkpointing_disable(self):
-        self.activation_checkpointing_disable()
-
-    def activation_checkpointing_disable(self):
-        self.llm.gradient_checkpointing_disable()
-        self.visual_encoder.gradient_checkpointing_disable()
-        self.projector.gradient_checkpointing_disable()
-        if self.vpt_encoder is not None:
-            self.vpt_encoder.gradient_checkpointing_disable()
-        if self.vd_adapter is not None:
-            self.vd_adapter.gradient_checkpointing_disable()
-
-    def init_weights(self):
-        pass
-
-    def state_dict(self, *args, **kwargs):
-        state_dict = super().state_dict(*args, **kwargs)
-        to_return = OrderedDict()
-        # Step 1. visual_encoder
-        if self.use_visual_encoder_lora:
-            to_return.update(
-                get_peft_model_state_dict(
-                    self.visual_encoder, state_dict=state_dict))
-        elif not self.freeze_visual_encoder:
-            to_return.update({
-                k: v
-                for k, v in state_dict.items() if 'visual_encoder.' in k
-            })
-        # Step 2. LLM
-        if self.use_llm_lora:
-            to_return.update(
-                get_peft_model_state_dict(self.llm, state_dict=state_dict))
-        elif not self.freeze_llm:
-            to_return.update(
-                {k: v
-                 for k, v in state_dict.items() if 'llm.' in k})
-        # Step 3. Projector
-        to_return.update(
-            {k: v
-             for k, v in state_dict.items() if 'projector.' in k})
-        # Step 4. VPT Encoder
-        to_return.update(
-            {k: v
-             for k, v in state_dict.items() if 'vpt_encoder.' in k})
-        # Step 5. REFAdapter
-        to_return.update(
-            {k: v
-             for k, v in state_dict.items() if 'ref_adapter.' in k})
-        # Step 6. Visual Decoders
-        to_return.update(
-            {k: v
-             for k, v in state_dict.items() if 'visual_decoder.' in k})
-        return to_return
-
-    @staticmethod
-    def _prepare_for_long_context_training(cfg, llm_cfg,
-                                           max_position_embeddings):
-
-        orig_rope_scaling = getattr(llm_cfg, 'rope_scaling', None)
-        if orig_rope_scaling is None:
-            orig_rope_scaling = {'factor': 1}
-
-        orig_rope_scaling_factor = orig_rope_scaling[
-            'factor'] if 'factor' in orig_rope_scaling.keys() else 1
-        orig_ctx_len = getattr(llm_cfg, 'max_position_embeddings', None)
-        if orig_ctx_len:
-            orig_ctx_len *= orig_rope_scaling_factor
-            if max_position_embeddings > orig_ctx_len:
-                scaling_factor = float(
-                    math.ceil(max_position_embeddings / orig_ctx_len))
-                llm_cfg.rope_scaling = {
-                    'type': 'linear',
-                    'factor': scaling_factor
-                }
-
-        # hardcode for internlm2
-        llm_cfg.attn_implementation = 'flash_attention_2'
-        cfg.config = llm_cfg
-
-        return cfg, llm_cfg
-
-    @staticmethod
-    def _prepare_for_flash_attn(cfg, llm_cfg):
-        cls_name = type(llm_cfg).__name__
-        SUPPORT_SDPA_ATTN = ('LlamaConfig', 'GemmaConfig', 'MistralConfig',
-                             'MixtralConfig', 'Qwen2Config',
-                             'Starcoder2Config', 'Starcoder2Config')
-        SUPPORT_FLASH_ATTN2 = ('InternLM2Config', 'LlamaConfig', 'GemmaConfig',
-                               'MistralConfig', 'MixtralConfig', 'Qwen2Config',
-                               'Starcoder2Config', 'Starcoder2Config')
-
-        if SUPPORT_FLASH2 and cls_name in SUPPORT_FLASH_ATTN2:
-            cfg.torch_dtype = torch.bfloat16 \
-                if torch.cuda.is_bf16_supported() else torch.float16
-            cfg.attn_implementation = 'flash_attention_2'
-        elif SUPPORT_FLASH1 and cls_name in SUPPORT_SDPA_ATTN:
-            cfg.attn_implementation = 'sdpa'
-
-        return cfg, llm_cfg
-
-    def _dispatch_lm_model_cfg(self, cfg, max_position_embeddings=None):
-        pretrained_model_name_or_path = cfg.pretrained_model_name_or_path
-        llm_cfg = AutoConfig.from_pretrained(
-            pretrained_model_name_or_path, trust_remote_code=True)
-        cfg, llm_cfg = self._prepare_for_flash_attn(cfg, llm_cfg)
-        if max_position_embeddings is not None:
-            cfg, llm_cfg = self._prepare_for_long_context_training(
-                cfg, llm_cfg, max_position_embeddings)
-        return cfg
 
     def _build_from_cfg_or_module(self, cfg_or_mod):
         if isinstance(cfg_or_mod, nn.Module):
@@ -436,7 +174,7 @@ class VTPlugModel(BaseModel):
         else:
             raise NotImplementedError
 
-    def prepare_visual_feats(self, visual_hidden_states, vpt_regions, mode='loss'):
+    def prepare_visual_feats(self, visual_hidden_states, vpt_regions):
         # get vpt feats
         if vpt_regions is not None:
             visual_prompts = self.vpt_encoder(
@@ -444,20 +182,6 @@ class VTPlugModel(BaseModel):
                 regions = vpt_regions, 
                 return_dict = True
             )
-        elif mode == 'loss':
-            # fake regions for contain compute graph
-            bs = visual_hidden_states.shape[0]
-            w = h = int(math.sqrt(visual_hidden_states.shape[1]))
-            fake_region = np.zeros((h, w))
-            regions = [None] * bs
-            regions[0] = [fake_region]
-            vpt_count = [0] * bs
-            visual_prompts = self.vpt_encoder(
-                visual_hidden_states,
-                regions = regions, 
-                return_dict = True
-            )
-            visual_prompts['vpt_count'] = vpt_count
         else:
             visual_prompts = None
 
@@ -749,7 +473,7 @@ class VTPlugModel(BaseModel):
                 token_masks[batch_idx, mask] = TOKEN_MASK_IDS[type]
         return token_masks
 
-    def forward(self, data, data_samples=None, mode='loss'):
+    def chat(self, data, data_samples=None, mode='loss'):
         metas = dict()
         meta_keys = [
             # 'pixel_values', 'image_path',
@@ -790,65 +514,27 @@ class VTPlugModel(BaseModel):
                 data.update(visual_prompts) 
             data['pixel_values'] = visual_feats
 
-        # prepare data for train/predict
-        try:
-            if mode == 'loss':
-                if self.stage != 1:
-                    data['token_masks'] = self.prepare_token_masks(data['input_ids'])
-            
-            if mode == 'predict':
-                labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
-                trim = ['input_ids']
-                remove = ['labels', 'attention_mask', 'position_ids']
-                for key in trim:
-                    value = data.get(key, None)
-                    if value is None: continue
-                    data[key] = data[key][0][:labels_mask.index(False)].unsqueeze(0)
-                for key in remove:
-                    data[key] = None
+        # prepare data for predict
 
-            data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
-            if self.cutoff_len is not None:
-                for key, value in data.items():
-                    if value is None: continue
-                    if value.shape[1] > self.cutoff_len:
-                        data[key] = value[:, :self.cutoff_len]
-            
-            if mode == 'loss':
-                metas['token_masks'] = data.pop('token_masks')
-        except Exception as e:
-            print(e)
-            file_prefix = f"wrong_prepare_data"
-            save_wrong_data(file_prefix, data)
+        labels_mask = (data['labels'].detach().cpu().numpy()[0] == IGNORE_INDEX).tolist()
+        trim = ['input_ids']
+        remove = ['labels', 'attention_mask', 'position_ids']
+        for key in trim:
+            value = data.get(key, None)
+            if value is None: continue
+            data[key] = data[key][0][:labels_mask.index(False)].unsqueeze(0)
+        for key in remove:
+            data[key] = None
 
-        if mode == 'loss':
-            return self.compute_loss(data, data_samples, metas)
-        elif mode == 'predict':
-            return self.predict(data, data_samples, metas)
-        elif mode == 'tensor':
-            return self._forward(data, data_samples, metas)
-        else:
-            raise NotImplementedError
+        data = prepare_inputs_labels_for_multimodal(llm=self.llm, **data)
+        if self.cutoff_len is not None:
+            for key, value in data.items():
+                if value is None: continue
+                if value.shape[1] > self.cutoff_len:
+                    data[key] = value[:, :self.cutoff_len]
 
-    def _forward(self, data, data_samples=None, metas=None):
+        return self.predict(data, data_samples, metas)
 
-        for key in data.keys():
-            if data[key] is not None:
-                data[key] = data[key].to(self.llm.dtype)
-            
-        data['labels'] = data['labels'].to(torch.long)
-        llm_outputs = self.llm(**data,output_attentions=True,output_hidden_states=True)
-        output_sequences = llm_outputs.logits.argmax(dim=-1)
-        results = []
-
-        results.append(
-            {
-                'generate_ids': output_sequences,
-                'attentions':llm_outputs['attentions'],
-            }
-        )
-
-        return results
     
     def modules_forward_pipeline(self, hidden_states, metas, mode):
         results = dict()
@@ -927,13 +613,27 @@ class VTPlugModel(BaseModel):
         for key in data.keys():
             if data[key] is not None:
                 data[key] = data[key].to(self.llm.dtype)
-        llm_outputs = self.llm.generate(
-                **data,
-                max_new_tokens=self.max_new_tokens,
-                generation_config=self.gen_config,
-                bos_token_id=self.tokenizer.bos_token_id,
-                stopping_criteria=self.stop_criteria)
+
+        # VLLM请求配置
+        sampling_params=SamplingParams(stop_token_ids=self.stop_words_ids, 
+                                         early_stopping=False,
+                                         top_p=self.gen_config.top_p,
+                                         top_k=-1 if self.gen_config.top_k == 0 else self.gen_config.top_k,
+                                         temperature=self.gen_config.temperature,
+                                         repetition_penalty=self.gen_config.repetition_penalty,
+                                         max_tokens=self.gen_config.max_new_tokens)
+
+        # llm_outputs = self.llm.generate(
+        #         **data,
+        #         max_new_tokens=self.max_new_tokens,
+        #         generation_config=self.gen_config,
+        #         bos_token_id=self.tokenizer.bos_token_id,
+        #         stopping_criteria=self.stop_criteria)
         
+
+        llm_outputs = self.model.generate(prompt_token_ids=[prompt_tokens],sampling_params=sampling_params,use_tqdm=False)
+        llm_outputs = llm_outputs[0]
+
         # prepare hidden_states for modules
         hidden_states = []
         for time_step_feats in llm_outputs.hidden_states:
@@ -994,97 +694,6 @@ class VTPlugModel(BaseModel):
             )
 
         return results
-
-    def compute_loss_llm(self, logits, labels):
-        cot_weight = 1
-        # Shift so that tokens < n predict n
-        shift_logits = logits[..., :-1, :].contiguous()
-        shift_labels = labels[..., 1:].contiguous()
-
-        weight = torch.ones_like(shift_labels).to(shift_logits.dtype)
-        # idx = torch.zeros_like(shift_labels)
-        # idx[shift_labels!=IGNORE_INDEX] = 2
-        # bs = shift_labels.shape[0]
-        # for batch_idx in range(bs):
-        #     # CoT chunks
-        #     bot_id = self.token_ids[BOT_TOKEN]
-        #     eot_id = self.token_ids[EOT_TOKEN]
-        #     cot_start = torch.where(shift_labels[batch_idx] == bot_id)[0].tolist()
-        #     cot_end = torch.where(shift_labels[batch_idx] == eot_id)[0].tolist()                
-        #     if len(cot_start) == len(cot_end):
-        #         for st, ed in zip(cot_start, cot_end):
-        #             weight[batch_idx, st:ed+1] = cot_weight
-        #             idx[batch_idx, st:ed+1] = 1
-        #     elif len(cot_start) == len(cot_end) + 1:
-        #         last_st = cot_start[-1]
-        #         for st, ed in zip(cot_start, cot_end):
-        #             weight[batch_idx, st:ed+1] = cot_weight
-        #             idx[batch_idx, st:ed+1] = 1
-        #         weight[batch_idx, last_st:] = cot_weight
-        #         idx[batch_idx, last_st:] = 1
-        #     else:
-        #         print("<Task> and </Task> not match!")
-        #         file_prefix = f"wrong_cot"
-        #         save_wrong_data(file_prefix,shift_labels.clone().detach().cpu().numpy())
-            
-        # Flatten the tokens
-        loss_fct = CrossEntropyLoss(reduction='none')
-        shift_logits = shift_logits.view(-1, self.llm.config.vocab_size)
-        shift_labels = shift_labels.view(-1)
-        weight = weight.view(-1)
-
-        
-        # Enable model parallelism
-        shift_labels = shift_labels.to(shift_logits.device)
-        weight = weight.to(shift_logits.dtype).to(shift_logits.device)
-        loss = loss_fct(shift_logits, shift_labels)
-        
-        weighted_loss = weight[shift_labels!=IGNORE_INDEX] * loss[shift_labels!=IGNORE_INDEX]
-        # idx = idx.view(-1)
-        # cot_loss = weight[idx==1] * loss[idx==1]
-        # answer_loss = weight[idx==2] * loss[idx==2]
-        # return weighted_loss.mean(), cot_loss.mean(), answer_loss.mean()
-        return weighted_loss.mean()
-
-    def compute_loss(self, data, data_samples=None, metas=None):
-        labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
-        if 'output_hidden_states' not in data.keys():
-            data['output_hidden_states'] = True
-        
-        loss_dict = dict() # for loss backward propagation
-        cost_dict = dict() # for record only
-        # llm loss
-        outputs = self.llm(**data)
-        logits = outputs.logits
-        # loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
-        loss_llm = self.compute_loss_llm(logits, labels)
-        loss_dict['llm'] = loss_llm
-        cost_dict['llm_cost'] = loss_llm
-        # cost_dict['cot_cost'] = loss_cot
-        # cost_dict['answer_cost'] = loss_answer
-
-        # all modules forward
-        modules_outputs = self.modules_forward_pipeline(
-            hidden_states=outputs.hidden_states[-1], 
-            metas=metas, 
-            mode='loss'
-        )
-        decoder_outputs = modules_outputs.get('visual_decoder', None)
-        if decoder_outputs is not None:
-            for type, outputs in decoder_outputs.items():
-                loss_dict[type] = outputs['loss']
-                cost_dict[f'{type}_cost'] = outputs['loss']
-
-        # loss
-        loss = 0
-        for key, value in loss_dict.items():
-            coefficient = self.loss_coefficient[key]
-            loss += coefficient * value
-        
-        loss_result = dict()
-        loss_result['loss'] = loss
-        loss_result.update(cost_dict)
-        return loss_result
 
     def __getattr__(self, name: str):
         try:

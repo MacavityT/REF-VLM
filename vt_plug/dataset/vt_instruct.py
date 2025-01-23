@@ -197,15 +197,19 @@ class VTInstructDataset(Dataset):
                 image = np.zeros((self.image_processor.crop_size['height'],self.image_processor.crop_size['width'],3)).astype(np.uint8)
         elif isinstance(image_path, np.ndarray):
             image_path = ''
-        image = Image.fromarray(image) # PIL.Image
+        image = Image.fromarray(image).convert('RGB') # PIL.Image
         ori_width = image.size[0]
         ori_height = image.size[1]
         # expand2square
         if self.pad_image_to_square:
-            image = expand2square(
-                image,
-                tuple(int(x * 255) for x in self.image_processor.image_mean)
-            )
+            try:
+                image = expand2square(
+                    image,
+                    tuple(int(x * 255) for x in self.image_processor.image_mean)
+                )
+            except:
+                print_log(f"Warning: Image path {image_path} is invalid in expand2square! Please check the image path.")
+                image = np.zeros((self.image_processor.crop_size['height'],self.image_processor.crop_size['width'],3)).astype(np.uint8)
         if ori_width == 1 and ori_height == 1:
             print_log(f"Warning: Image path {image_path} is invalid! Please check the image path.")
             image = image.resize((self.image_processor.crop_size['height'], self.image_processor.crop_size['width']))
