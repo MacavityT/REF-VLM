@@ -16,22 +16,22 @@ batch_size = 15  # per_device
 dataloader_num_workers = 4
 
 # dataset grand det and seg
-# dataset_args = [
-#     train_all_dataset['res_refcoco'],
-#     train_all_dataset['res_refcocoa'],
-#     train_all_dataset['res_refcocog'],
-#     train_all_dataset['llavag_gcg'],
-#     train_all_dataset['openpsg'],
-#     train_all_dataset['interact_mask'],
-#     grand_cond_s,
-#     train_all_dataset['grand_s'],
-#     train_all_dataset['grand_c_s'],
-# ]
-# for dataset in dataset_args:
-#     if dataset['type'] == 'SubSet':
-#         dataset['cfg'].setdefault('stage',2)
-#     else:
-#         dataset['stage'] = 2
+dataset_args = [
+    train_all_dataset['res_refcoco'],
+    train_all_dataset['res_refcocoa'],
+    train_all_dataset['res_refcocog'],
+    train_all_dataset['llavag_gcg'],
+    train_all_dataset['openpsg'],
+    train_all_dataset['interact_mask'],
+    grand_cond_s,
+    train_all_dataset['grand_s'],
+    train_all_dataset['grand_c_s'],
+]
+for dataset in dataset_args:
+    if dataset['type'] == 'SubSet':
+        dataset['cfg'].setdefault('stage',2)
+    else:
+        dataset['stage'] = 2
 
 train_dataset = dict(
     type=VTInstructDataset,

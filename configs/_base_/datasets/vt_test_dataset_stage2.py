@@ -24,6 +24,7 @@ with read_base():
     from .test_cocogcg_variant import test_cocogcg_variant
     from .test_nocaps_dataset import test_nocaps_variant
     from .test_cocokeypoint_variant import test_cocokeypoints_variant
+    from .test_grand_variant import test_grand_variant
 
 # Params
 max_length = 2048 - 576 # use cutoff lens instead
@@ -119,6 +120,7 @@ test_all_dataset = dict(
     **test_cocogcg_variant,
     **test_nocaps_variant,
     **test_cocokeypoints_variant,
+    **test_grand_variant,
 )
 
 

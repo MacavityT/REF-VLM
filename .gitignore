@@ -128,3 +128,4 @@ checkpoints
 *core*
 myhostfile.txt
 *wrong_output*
+wandb/
