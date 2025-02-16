@@ -36,8 +36,8 @@ train_grand_variant = dict(
             output=["<masks>"],
         ),     
         placeholders=('<image>',),
-        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg_nofilter',
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg_nofilter',
+        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_seg',
     ),
     grand_cond_d=dict(
         **grand_train_common_cfg, 
@@ -131,8 +131,8 @@ train_grand_variant = dict(
             output=["<masks>"],
         ),     
         placeholders=('<image>',),
-        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_nofilter',
-        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_0904',
+        offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_nofilter',
+        # offline_processed_text_folder='/data/Aaronzhu/GranD/GranD/offline_single_task/offline_gcg_seg_0904',
     ),
     grand_mix = dict(
         **grand_train_common_cfg, 
