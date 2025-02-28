@@ -43,7 +43,7 @@ dataset_args = [
     # grand_cond_d,
     # grand_cond_s,
     # train_all_dataset['grand_d'],
-    # train_all_dataset['grand_s'],
+    train_all_dataset['grand_s'],
     # train_all_dataset['grand_c_d'],
     # train_all_dataset['grand_c_s'],
     # train_all_dataset['coco_rem_mask'],

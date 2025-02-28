@@ -108,7 +108,7 @@ test_all_dataset = dict(
         ),
     ),
     **test_rec_variant,
-    **train_grand_variant,
+    # **train_grand_variant,
     **test_interact_variant,
     **test_reg_variant,
     **test_flickr_variant,

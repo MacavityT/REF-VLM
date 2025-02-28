@@ -58,3 +58,13 @@ SPECIAL_TOKENS = [
     VISUAL_REPRESENTATION_TOKEN,
     VISUAL_REFERENCE_TOKEN
 ]
+
+TOKEN_MASK_IDS = {
+    'ref_masks': 1,
+    'bou_masks': 2,
+    'eou_masks': 3,
+    'bop_masks': 4,
+    'eop_masks': 5,
+    'vis_masks': 6,
+    'vpt_masks': 7
+}

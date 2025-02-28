@@ -9,7 +9,7 @@ from transformers.activations import ACT2FN
 from torch.utils.checkpoint import checkpoint
 
 from .configuration_vd_adapter import VDAdapterConfig
-from .transformer import TwoWayTransformer
+from .transformer import TwoWayTransformer, MLPBlock
 from .prompt_encoder import PositionEmbeddingRandom
 
 class PositionalEncoding(nn.Module):
@@ -52,11 +52,10 @@ class VDAdapterModel(PreTrainedModel):
         d_input_token = config.d_input_token
         d_model = config.d_model
 
-        if d_input_image != d_model:
-            self.in_proj_image = nn.Linear(d_input_image, d_model)
-        if d_input_token != d_model:
-            self.in_proj_text = nn.Linear(d_input_token, d_model)
-            self.in_proj_ref = nn.Linear(d_input_token, d_model)
+        self.in_proj_image = MLPBlock(embedding_dim=d_input_image, mlp_dim=8192)
+        self.in_proj_text = MLPBlock(embedding_dim=d_input_token, mlp_dim=8192)
+        # self.in_proj_ref = MLPBlock(embedding_dim=d_input_token, mlp_dim=8192)
+        
         self.pe_image = PositionEmbeddingRandom(d_model // 2)
         self.pe_queries = PositionalEncoding(
             d_model, 
@@ -64,8 +63,8 @@ class VDAdapterModel(PreTrainedModel):
             max_len=num_queries,
             batch_first=True
         )
-        self.ref_embedding = nn.Embedding(config.ref_max_length, config.d_model)
-        self.text_embedding = nn.Embedding(config.phrase_max_length, config.d_model)
+        # self.ref_embedding = nn.Embedding(config.ref_max_length, config.d_model)
+        self.text_embedding = nn.Embedding(config.phrase_max_length + config.ref_max_length, config.d_model)
         self.model = TwoWayTransformer(
                 depth=config.num_layers,
                 embedding_dim=config.d_model,
@@ -152,6 +151,16 @@ class VDAdapterModel(PreTrainedModel):
         
         return new_hidden_states, hidden_states_mask
 
+    # def padding_sequences_2(self, sequences):
+    #     padded_sequences = []
+    #     for seqs in sequences:
+    #         seqs = torch.cat(seqs, dim=0)
+    #         padded_sequences.append(seqs)
+    #     return padded_sequences
+    
+    # def reform_padded_sequences(self, ef_sequences, hidden_states):
+    #     pass
+
     def blc2bchw(self, x):
         if len(x.shape) == 3:
             b, l, c = x.shape
@@ -168,6 +177,7 @@ class VDAdapterModel(PreTrainedModel):
 
     def forward(
         self,
+        image_embeddings,
         phrase_sequences, 
         ref_sequences,
         metas, 
@@ -177,20 +187,22 @@ class VDAdapterModel(PreTrainedModel):
         text_feats = self.padding_sequences(phrase_sequences, self.config.phrase_max_length)
         ref_feats = self.padding_sequences(ref_sequences, self.config.ref_max_length)
 
-        if self.config.d_input_token != self.config.d_model:
-            ref_feats = self.in_proj_ref(ref_feats)
-            text_feats = self.in_proj_text(text_feats)
+        # ref_feats = self.in_proj_ref(ref_feats)
+        # text_feats = self.in_proj_text(text_feats)
         
-        # tokens embedding
-        text_feats += self.text_embedding.weight
-        ref_feats += self.ref_embedding.weight
+        # # tokens embedding
+        # text_feats += self.text_embedding.weight
+        # ref_feats += self.ref_embedding.weight
+        # output_tokens = torch.cat([ref_feats, text_feats], dim=1)
+        # output_tokens = self.pe_queries(output_tokens)
+
         output_tokens = torch.cat([ref_feats, text_feats], dim=1)
+        output_tokens = self.in_proj_text(output_tokens)
+        output_tokens += self.text_embedding.weight
         output_tokens = self.pe_queries(output_tokens)
 
         # image embedding
-        image_embeddings = metas['visual_hidden_states'][-1]
-        if self.config.d_input_image != self.config.d_model:
-            image_embeddings = self.in_proj_image(image_embeddings)
+        image_embeddings = self.in_proj_image(image_embeddings)
         length = image_embeddings.shape[1]
         grid_size = int(math.sqrt(length))
 
@@ -205,7 +217,7 @@ class VDAdapterModel(PreTrainedModel):
         image_pos_expand = torch.repeat_interleave(image_pos, output_tokens.shape[0], dim=0)
 
         if self.gradient_checkpointing and self.training:
-            image_pos_expand, image_embeddings_expand = checkpoint(
+            output_tokens, image_embeddings_expand = checkpoint(
                 self.model, 
                 image_embeddings_expand,
                 image_pos_expand,
@@ -213,7 +225,7 @@ class VDAdapterModel(PreTrainedModel):
                 use_reentrant=True
             )
         else:
-            image_pos_expand, image_embeddings_expand = self.model(
+            output_tokens, image_embeddings_expand = self.model(
                 image_embeddings_expand,
                 image_pos_expand,
                 output_tokens,
@@ -240,3 +252,17 @@ class VDAdapterModel(PreTrainedModel):
             ref_hidden_states = hidden_states,
             ref_mask = hidden_states_mask
         )
+    
+    # def forward(
+    #     self,
+    #     image_embeddings,
+    #     phrase_sequences, 
+    #     ref_sequences,
+    #     metas, 
+    #     mode='loss'
+    # ):
+    #     # output tokens
+    #     text_feats = self.padding_sequences(phrase_sequences, self.config.phrase_max_length)
+    #     ref_feats = self.padding_sequences(ref_sequences, self.config.ref_max_length)
+
+    #     for 

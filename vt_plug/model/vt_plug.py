@@ -29,6 +29,7 @@ from .utils import (LoadWoInit, find_all_linear_names,
 
 from ..utils.constants import (
     SPECIAL_TOKENS,
+    TOKEN_MASK_IDS,
     BOT_TOKEN, EOT_TOKEN,
     BOU_TOKEN, EOU_TOKEN,
     BOV_TOKEN, EOV_TOKEN,
@@ -51,13 +52,6 @@ DECODER_MODEL_CLASS = {
     'depth': DepthDecoderModel
 }
 
-TOKEN_MASK_IDS = {
-    'ref_masks': 1,
-    'bou_masks': 2,
-    'eou_masks': 3,
-    'bop_masks': 4,
-    'eop_masks': 5,
-}
 
 class VTPlugModel(BaseModel):
 
@@ -75,7 +69,6 @@ class VTPlugModel(BaseModel):
                  freeze_visual_encoder=False,
                  freeze_projector=False,
                  freeze_vpt_encoder=False,
-                 freeze_ref_adapter=False,
                  freeze_visual_decoder=False,
                  visual_select_layer=-2,
                  pretrained_pth=None,
@@ -91,7 +84,6 @@ class VTPlugModel(BaseModel):
         self.freeze_visual_encoder = freeze_visual_encoder
         self.freeze_projector = freeze_projector
         self.freeze_vpt_encoder = freeze_vpt_encoder
-        self.freeze_ref_adapter = freeze_ref_adapter
         self.freeze_visual_decoder = freeze_visual_decoder
         self.cutoff_len = cutoff_len
         self.loss_coefficient = loss_coefficient
@@ -214,9 +206,6 @@ class VTPlugModel(BaseModel):
         if self.freeze_vpt_encoder and \
             self.vpt_encoder is not None:
             self.vpt_encoder.requires_grad_(False)
-        if self.freeze_ref_adapter and \
-            self.vd_adapter is not None:
-            self.vd_adapter.requires_grad_(False)
         if self.freeze_visual_decoder and \
             self.visual_decoder is not None:
             self.visual_decoder.requires_grad_(False)
@@ -823,7 +812,10 @@ class VTPlugModel(BaseModel):
                 data[key] = data[key].to(self.llm.dtype)
             
         data['labels'] = data['labels'].to(torch.long)
-        llm_outputs = self.llm(**data,output_attentions=True,output_hidden_states=True)
+        llm_outputs = self.llm(
+            **data, 
+            output_hidden_states=True
+        )
         output_sequences = llm_outputs.logits.argmax(dim=-1)
         results = []
 
@@ -854,15 +846,29 @@ class VTPlugModel(BaseModel):
                                           for feats in decode_feats['ref_feats']]):
                 return results
             
-            ref_outputs = self.vd_adapter(
+            # replace CLIP visual feats with LLM output feats
+            token_masks = metas.get('token_masks', None)
+            vis_masks = token_masks == TOKEN_MASK_IDS['vis_masks']
+            batch_size, length, dim = metas['visual_hidden_states'][-1].shape
+            dim_llm = hidden_states.shape[-1]
+            image_embeddings = torch.zeros((batch_size, length, dim_llm),
+                                          dtype=metas['visual_hidden_states'][-1].dtype,
+                                          device=metas['visual_hidden_states'][-1].device)
+            for batch_idx, (feats, mask) in enumerate(zip(hidden_states, vis_masks)):
+                vis_feats = feats[mask, :]
+                valid_len = vis_feats.shape[0]
+                image_embeddings[batch_idx, :valid_len, :] = vis_feats[:valid_len, :]
+
+            adapter_outputs = self.vd_adapter(
+                image_embeddings,
                 decode_feats['phrase_feats'],
                 decode_feats['ref_feats'],
                 metas=metas,
                 mode=mode
             )
-            ref_hidden_states = ref_outputs['ref_hidden_states']
-            ref_mask = ref_outputs['ref_mask']
-            metas['visual_hidden_states'][-1] = ref_outputs['image_embeddings']
+            ref_hidden_states = adapter_outputs['ref_hidden_states']
+            ref_mask = adapter_outputs['ref_mask']
+            metas['visual_hidden_states'][-1] = adapter_outputs['image_embeddings']
         else:
             ref_hidden_states, ref_mask = self.prepare_ref_feats(
                 hidden_states,
@@ -1031,13 +1037,14 @@ class VTPlugModel(BaseModel):
 
     def compute_loss(self, data, data_samples=None, metas=None):
         labels = data.pop("labels") # to avoid computing loss in llm_base_class.forward()
-        if 'output_hidden_states' not in data.keys():
-            data['output_hidden_states'] = True
         
         loss_dict = dict() # for loss backward propagation
         cost_dict = dict() # for record only
         # llm loss
-        outputs = self.llm(**data)
+        outputs = self.llm(
+            **data, 
+            output_hidden_states=True
+        )
         logits = outputs.logits
         # loss_llm, loss_cot, loss_answer = self.compute_loss_llm(logits, labels)
         loss_llm = self.compute_loss_llm(logits, labels)
@@ -1047,8 +1054,11 @@ class VTPlugModel(BaseModel):
         # cost_dict['answer_cost'] = loss_answer
 
         # all modules forward
+        # merged_hidden_states = torch.stack(outputs.hidden_states)
+        # merged_hidden_states = merged_hidden_states.mean(dim=0)
         modules_outputs = self.modules_forward_pipeline(
             hidden_states=outputs.hidden_states[-1], 
+            # hidden_states=merged_hidden_states,
             metas=metas, 
             mode='loss'
         )

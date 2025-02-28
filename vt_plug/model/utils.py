@@ -11,7 +11,7 @@ from torch import nn
 from transformers import PreTrainedModel
 
 from xtuner.utils import IGNORE_INDEX, IMAGE_TOKEN_INDEX
-from vt_plug.utils import VISUAL_PROMPT_INDEX
+from vt_plug.utils import VISUAL_PROMPT_INDEX, TOKEN_MASK_IDS
 
 def set_obj_dtype(d):
     for key, value in d.items():
@@ -278,9 +278,12 @@ def prepare_inputs_labels_for_multimodal(
                             IGNORE_INDEX,
                             device=cur_labels.device,
                             dtype=cur_labels.dtype))
+            
+            token_mask_value = TOKEN_MASK_IDS['vpt_masks'] \
+                if vpt_append else TOKEN_MASK_IDS['vis_masks']
             cur_new_token_masks.append(
                 torch.full((feats_slice.shape[0], ),
-                            0,
+                            token_mask_value,
                             device=cur_token_masks.device,
                             dtype=cur_token_masks.dtype))
 
