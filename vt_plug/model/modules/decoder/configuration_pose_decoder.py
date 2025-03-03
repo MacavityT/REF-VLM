@@ -2,11 +2,6 @@
 from transformers import PretrainedConfig
 from .configuration_box_decoder import BoxDecoderConfig
 
-
-def call_with_override(default_params, **manual_params):
-    # 使用 {**default_params, **manual_params} 来实现参数覆盖，字典中的参数优先。
-    combined_params = {**manual_params, **default_params}
-
 class KeypointDecoderConfig(PretrainedConfig):
 
     def __init__(
@@ -64,7 +59,7 @@ class PoseDecoderConfig(PretrainedConfig):
         box_config={},
         keypoint_config={},
         use_group_matcher=True,
-        use_auxiliary_loss=True,
+        auxiliary_loss=True,
         aux_loss_coefficient=0.5,
         **kwargs,
     ):
@@ -74,7 +69,7 @@ class PoseDecoderConfig(PretrainedConfig):
         self.encoder_input_index = encoder_input_index
         self.encoder_input_dim = encoder_input_dim
         self.use_group_matcher = use_group_matcher
-        self.use_auxiliary_loss = use_auxiliary_loss
+        self.auxiliary_loss = auxiliary_loss
         self.aux_loss_coefficient = aux_loss_coefficient
 
         box_config_manual = dict(

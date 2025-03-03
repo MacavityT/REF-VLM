@@ -25,6 +25,7 @@ class BoxDecoderConfig(PretrainedConfig):
         use_group_matcher=True,
         bbox_loss_coefficient=5,
         giou_loss_coefficient=2,
+        auxiliary_loss=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -46,4 +47,5 @@ class BoxDecoderConfig(PretrainedConfig):
         self.use_group_matcher = use_group_matcher
         self.bbox_loss_coefficient = bbox_loss_coefficient
         self.giou_loss_coefficient = giou_loss_coefficient
+        self.auxiliary_loss = auxiliary_loss
         

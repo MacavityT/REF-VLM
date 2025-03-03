@@ -176,6 +176,7 @@ class BoxDecoderModel(DecoderModel):
             dropout=config.dropout,
             attention_dropout=config.attention_dropout,
             activation_dropout=config.activation_dropout,
+            auxiliary_loss=config.auxiliary_loss
         )
         self.decoder = DetrDecoder(decoder_config)
         self.predictor = DetrMLPPredictionHead(

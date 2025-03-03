@@ -151,13 +151,7 @@ class KeypointDecoderModel(DecoderModel):
         # Create projection layer
         self.in_proj_visual_feats = nn.Linear(self.in_channels, config.d_model)
         self.in_proj_queries = nn.Linear(config.quries_input_dim, config.d_model)
-        
-        self.register_buffer(
-            "kpt_ids", 
-            torch.arange(config.num_body_points).unsqueeze(0), 
-            persistent=False
-            )
-        self.kpt_embedding = nn.Embedding(config.num_body_points, config.d_model)
+        self.kpt_embedding = nn.Embedding(config.num_body_points + 1, config.d_model)
         num_combine_queries = int((config.num_body_points + 1) * config.num_queries)
         self.query_position_embeddings = nn.Embedding(
             num_combine_queries,
@@ -199,7 +193,7 @@ class KeypointDecoderModel(DecoderModel):
         visual_mask=None,
         ref_mask=None,
         metas=None,
-        expand=True,
+        fuse_mode='Add',
         mode='loss'
     ):
         # prepare visual hidden states
@@ -215,18 +209,26 @@ class KeypointDecoderModel(DecoderModel):
         )
 
         # prepare learnable queries
-        batch_size = ref_hidden_states.shape[0]
-        ref_hidden_states = self.in_proj_queries(ref_hidden_states)
-        if expand:
-            ref_hidden_states_expand = ref_hidden_states.repeat(1, self.config.num_body_points + 1, 1)
-            empty_tensor = torch.zeros((1, 1, self.config.d_model)).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
-            kpt_queries_init = torch.cat([empty_tensor, self.kpt_embedding(self.kpt_ids)], dim=1)
-            kpt_queries_init = kpt_queries_init.repeat(1, self.config.num_queries, 1)
-            ref_hidden_states_expand = ref_hidden_states_expand + kpt_queries_init  # cancel 
-        else:
-            empty = torch.zeros((ref_hidden_states.shape[0],self.config.num_body_points*ref_hidden_states.shape[1],ref_hidden_states.shape[2])).to(ref_hidden_states.dtype).to(ref_hidden_states.device)
-            ref_hidden_states_expand = torch.cat([ref_hidden_states,empty],dim=1)
+        batch_size, length, dim = ref_hidden_states.shape
+        ref_hidden_states = self.in_proj_queries(ref_hidden_states) # [bs, length, dim]
 
+        '''
+        <REF> feats fusion.
+        Assume ref_length = 3, then the 3 ref tokens could be denote as r1, r2, r3;
+        Assume num_body_points = 2, then the 2 embedding vector could be denote as e1, e2;
+        Now we need the fusion process to be: [r1, r1, r2, r2, r3, r3] + [e1, e2, e1, e2, e1, e2]
+        '''
+        # repeat 'num_body_points+1' times, in ref elements level, so there will be 
+        # if expand(-1, num_body_points+1, -1, -1), the repeat would be the whole ref_sequences level in each batch
+        ref_hidden_states_expand = ref_hidden_states.unsqueeze(2).expand(-1, -1, self.config.num_body_points+1, -1) # [bs, ref_length, dim] -> [bs, ref_length, 1, dim] -> [bs, ref_length, num_body_points, dim]
+        ref_hidden_states_expand = ref_hidden_states_expand.reshape(batch_size, (self.config.num_body_points+1)*length, dim)
+
+        # repeat 'num_body_points+1', in embedding sequences level
+        kpt_queries_init = self.kpt_embedding.weight.unsqueeze(0).unsqueeze(1) # [1, 1, num_body_points+1, model_dim]
+        kpt_queries_init = kpt_queries_init.repeat(batch_size, length, 1, 1) # [batch_size, ref_length, num_body_points+1, model_dim]
+        kpt_queries_init = kpt_queries_init.view(batch_size, length*(self.config.num_body_points+1), dim)
+
+        ref_hidden_states_expand = ref_hidden_states_expand + kpt_queries_init  # cancel 
         query_position_embeddings = self.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         assert ref_hidden_states_expand.shape == query_position_embeddings.shape
 
@@ -272,7 +274,7 @@ class PoseDecoderModel(PreTrainedModel):
     def __init__(self, config: PoseDecoderConfig):
         super().__init__(config)
         self.config = config
-        if  'type' in config.box_config:
+        if 'type' in config.box_config:
             self.box_decoder = self._build_from_cfg_or_module(config.box_config)
         else:
             self.box_decoder = BoxDecoderModel(BoxDecoderConfig(**config.box_config))
@@ -392,7 +394,6 @@ class PoseDecoderModel(PreTrainedModel):
         kpts_queries_logits = kpt_outputs['kpt_logits']
         kpts_cls_logits = kpt_outputs['kpt_cls_logits']
 
-        
         loss = None
         if mode == 'loss':
             try:
@@ -410,8 +411,6 @@ class PoseDecoderModel(PreTrainedModel):
             pred_boxes2 = boxes_queries_logits2[ref_mask, :] # [b, n, 4]
             pred_kpts = kpts_queries_logits[ref_mask, ...] # [b, n, num_body_points, 2]
             pred_kpts_cls = kpts_cls_logits[ref_mask, ...] # [b, n, num_body_points, 3]
-
-
 
             if ref_mask.sum() > 0 and target_boxes is not None:
                 target_boxes = torch.stack(
