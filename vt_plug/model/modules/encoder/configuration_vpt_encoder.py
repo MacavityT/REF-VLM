@@ -18,6 +18,7 @@ class VPTEncoderConfig(PretrainedConfig):
         hidden_act='gelu',
         depth=2,
         bias=True,
+        legacy=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -31,4 +32,5 @@ class VPTEncoderConfig(PretrainedConfig):
         self.hidden_act=hidden_act
         self.depth = depth
         self.bias = bias
+        self.legacy = legacy
         assert strategy in ['embedding', 'pooling']

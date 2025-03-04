@@ -44,7 +44,10 @@ class VPTEncoder(nn.Module):
         if config.use_mask_token:
             num_patches = num_patches + 1
             self.mask_pooling = nn.AdaptiveAvgPool2d((1, 1))
-            self.mask_embedding = nn.Linear(1, config.visual_hidden_size)
+            if config.use_projector:
+                self.mask_embedding = nn.Linear(1, config.llm_hidden_size)
+            else:
+                self.mask_embedding = nn.Linear(1, config.visual_hidden_size)
 
         self.position_embedding = nn.Embedding(num_patches, config.visual_hidden_size)
         self.register_buffer("position_ids", torch.arange(num_patches).expand((1, -1)), persistent=False)
@@ -160,6 +163,60 @@ class VPTEncoder(nn.Module):
         else:
             result = (vpt_feats, vpt_count)
         return result
+    
+class VPTEncoderLegacy(VPTEncoder):
+    def __init__(self, config: VPTEncoderConfig) -> None:
+        super(VPTEncoderLegacy, self).__init__(config)
+
+        self.vpt_feats_proj = nn.Linear(config.visual_hidden_size, config.llm_hidden_size)
+        self.mask_embedding = nn.Linear(24*24, config.llm_hidden_size)
+
+    def get_mask_token(self, mask):
+        mask_feats = mask.flatten(2) # [b, q, hw]
+        mask_feats = self.mask_embedding(mask_feats) # [b, q, llm_hidden_states]
+        mask_token = mask_feats.unsqueeze(2) # [b, q, 1, llm_hidden_states]
+        return mask_token
+
+    def forward(self, x, regions, return_dict=True):
+        """
+        To extract the region feartures based on the region mask.
+        Args:
+            x(`tensor`): [B, L, C], image feature -> [batch_size, 256, 1024]
+            regions(`List[List[torch.Tensor]]`): mask
+        Returns:
+            region features: [B, Q, N, C]
+            return the mask patch pooling features based on the region mask.
+        """
+        b, l, c = x.shape
+        w = h = int(math.sqrt(x.shape[1]))
+        assert x.size(0) == len(regions)
+
+        # pad regions list to tensor
+        masks, vpt_count = self.pad_regions(regions, x.dtype, x.device) # b, q, h, w
+        x = x.reshape(b, h, w, c).permute(0, 3, 1, 2)  # b, c, h, w
+
+        # resize masks
+        if not x.shape[-2:] == masks.shape[-2:]:
+            # reshape mask to x
+            masks = F.interpolate(masks, size=x.shape[-2:], mode='bilinear', align_corners=False)
+        masks = (masks > 0).to(masks.dtype).to(masks.device)
+        denorm = masks.sum(dim=(-1, -2), keepdim=True) + 1e-8
+        masks = masks / denorm
+
+        # get vpt feats using visual feats and masks
+        vpt_feats = self.mask_patch_feats(x, masks)  # b, q, 1, c
+        vpt_feats = self.vpt_feats_proj(vpt_feats) # b, q, 1, llm_hidden_size
+        mask_token = self.get_mask_token(masks)
+        vpt_feats = torch.cat([vpt_feats, mask_token], dim=2) # [b, q, n+1, c]
+        
+        if return_dict:
+            result = dict(
+                vpt_feats = vpt_feats,
+                vpt_count = vpt_count
+            )
+        else:
+            result = (vpt_feats, vpt_count)
+        return result
 
 class VPTEncoderModel(PreTrainedModel):
     _auto_class = 'AutoModel'
@@ -170,8 +227,16 @@ class VPTEncoderModel(PreTrainedModel):
     def __init__(self, config: VPTEncoderConfig) -> None:
         super().__init__(config)
         self.gradient_checkpointing = False
+        
+        if config.legacy:
+            config.strategy = 'pooling'
+            config.num_patches = 1
+            config.use_projector = True
+            self.model = VPTEncoderLegacy(config)
+        else:
+            self.model = VPTEncoder(config)
+        
         self.config = config
-        self.model = VPTEncoder(config)
 
     def enable_input_require_grads(self):
         def make_inputs_require_grad(module, input, output):

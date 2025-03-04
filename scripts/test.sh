@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=4 xtuner test configs/test_stage2.py --checkpoint /code/VT-PLUG/checkpoints/vicuna_7b/finetune/1119_sam_res/iter_12555.pth
+CUDA_VISIBLE_DEVICES=0 xtuner test configs/ablation/test_stage2_vpt.py --checkpoint work_dirs/ablation/0303_vpt_ours/iter_2247.pth
