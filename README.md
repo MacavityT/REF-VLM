@@ -1,4 +1,4 @@
-# Unified Instruction Tuning for Extensible Open-Ended Visual Decoding
+# REF-VLM: Triplet-Based Referring Paradigm for Unified Visual Decoding
 
 <p align="center" width="100%">
 <img src="images/A_00_First.jpg"  width="80%" height="80%">
@@ -10,7 +10,7 @@
 
 
 
-Official PyTorch implementation of "Unified Instruction Tuning for Extensible Open-Ended Visual Decoding" [CVPR 2025 under review].
+Official PyTorch implementation of "REF-VLM: Triplet-Based Referring Paradigm for Unified Visual Decoding" [ICCV 2025 under review].
 
 ## Updates
 <!-- - **28 Feb, 2024** :boom::boom: Our paper has been accepted by CVPR 2024! 🎉
@@ -21,9 +21,9 @@ Official PyTorch implementation of "Unified Instruction Tuning for Extensible Op
 ---
 This repository contains the **official implementation** and **dataset** of the following paper:
 
-> **Unified Instruction Tuning for Extensible Open-Ended Visual Decoding**<br>
+> **REF-VLM: Triplet-Based Referring Paradigm for Unified Visual Decoding**<br>
 >
-> **Abstract:** *Multimodal Large Language Models (MLLMs) demonstrate robust zero-shot capabilities across diverse vision-language tasks after training on mega-scale datasets. However, dense prediction tasks, such as semantic segmentation and keypoint detection, pose significant challenges for MLLMs when represented solely as text outputs. These challenges often necessitate task-specific visual decoders, leading to the underutilization of MLLMs' multi-task potential. In this work, we propose VT-PLUG, a novel framework that leverages modular visual components as extensible plugins for a variety of visual tasks. During the joint training of vision-language tasks with varying prediction densities, we propose a Visual Decoding Chain-of-Thought (VD-CoT) mechanism to improve response accuracy, prevent task conflicts, and provide extensibility for unknown visual decoding tasks. VD-CoT requires the MLLM to predict the current task's recognition entities, decoding unit type, and other specific details. Additionally, we construct Visual-Task Instruction Following Dataset (VT-Instruct), a large-scale multi-task dataset containing over 100 million multimodal dialogue samples across 25 task types. Beyond text inputs and outputs, VT-Instruct incorporates various visual prompts such as point, box, scribble, and mask, and generates outputs composed of text and visual units like box, keypoint, depth and mask. The combination of different visual prompts and visual units generates a wide variety of task types, expanding the applicability of VT-PLUG significantly. Both qualitative and quantitative experiments demonstrate that our VT-PLUG outperforms other MLLMs across a variety of standard benchmarks.*
+> **Abstract:** *Multimodal Large Language Models (MLLMs) demonstrate robust zero-shot capabilities across diverse vision-language tasks after training on mega-scale datasets. However, dense prediction tasks, such as semantic segmentation and keypoint detection, pose significant challenges for MLLMs when represented solely as text outputs. Simultaneously, current MLLMs utilizing latent embeddings for visual task decoding generally demonstrate limited adaptability to both multi-task learning and multi-granularity scenarios. In this work, we present REF-VLM, an end-to-end framework for unified training of various visual decoding tasks. To address complex visual decoding scenarios, we introduce the Triplet-Based Referring Paradigm (TRP), which explicitly decouples three critical dimensions in visual decoding tasks through a triplet structure: concepts, decoding types, and targets. TRP employs symbolic delimiters to enforce structured representation learning, enhancing the parsability and interpretability of model outputs. Additionally, we construct Visual-Task Instruction Following Dataset (VTInstruct), a large-scale multi-task dataset containing over 100 million multimodal dialogue samples across 25 task types. Beyond text inputs and outputs, VT-Instruct incorporates various visual prompts such as point, box, scribble, and mask, and generates outputs composed of text and visual units like box, keypoint, depth and mask. The combination of different visual prompts and visual units generates a wide variety of task types, expanding the applicability of REF-VLM significantly. Both qualitative and quantitative experiments demonstrate that our REF-VLM outperforms other MLLMs across a variety of standard benchmarks. The code, dataset, and demo available at https://github.com/MacavityT/REF-VLM.*
 
   
 ## Todo
@@ -56,7 +56,7 @@ accelerate config
 Coming soon.
 
 ```text
-VT-PLUG/
+REV-VLM/
 ├── checkpoints
     ├── vicuna_7b
         ├──stage1
@@ -70,7 +70,7 @@ VT-PLUG/
 Coming soon.
 
 ```text
-VT-PLUG/
+REV-VLM/
 ├── checkpoints
     ├── vicuna_7b
         ├──stage1
@@ -115,7 +115,7 @@ NPROC_PER_NODE=8 xtuner train configs/train_stage3_keypoint.py --deepspeed deeps
 
 ## Cite
 
-```bibtex
+<!-- ```bibtex
 @inproceedings{
         anonymous2024vtplug,
         title={{VT}-{PLUG}: Integrating Visual Task Plugins with Unified Instruction Tuning},
@@ -125,4 +125,4 @@ NPROC_PER_NODE=8 xtuner train configs/train_stage3_keypoint.py --deepspeed deeps
         url={https://openreview.net/forum?id=a4PBF1YInZ},
         note={under review}
 }
-```
+``` -->
