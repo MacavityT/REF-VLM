@@ -40,8 +40,8 @@ class COCOREMDataset(MInstrDataset):
         super().__init__(*args, **kwargs)
         self.task_type = task_type
         self.img_name =  os.listdir(self.image_folder)
-        # self.dataset = self.read_json()
-        # self.createIndex()
+        self.dataset = self.read_json()
+        self.createIndex()
 
     def read_json(self):
         with open(self.text_path) as f:
@@ -123,8 +123,6 @@ class COCOREMDataset(MInstrDataset):
     
         
     def build_conversations(self, index):
-
-
         question = self.get_template()
         img_info,boxes_masks,caption,boxes_masks_seq = self.build_caption(index)
         human = {'from':'human','value':question}
@@ -151,35 +149,36 @@ class COCOREMDataset(MInstrDataset):
         }
         ret['map_placeholders'] = self.map_placeholders
 
-        ori_path = 'vis_origin.jpg'
-        shutil.copy(ret['image']['path'], ori_path)
+        # # visualization for check
+        # ori_path = 'vis_origin.jpg'
+        # shutil.copy(ret['image']['path'], ori_path)
 
-        image = Image.open(ret['image']['path'])
+        # image = Image.open(ret['image']['path'])
 
-        if 'masks' in ret['target'].keys():
-            masks = ret['target']['masks']
-            new_masks = []
-            for j,mask in enumerate(masks):
-                mask = Image.fromarray(mask)
-                mask = mask.resize((int(image.width),int(image.height)), Image.LANCZOS)
-                mask = np.array(mask)
-                mask[mask!=0] = 1
-                new_masks.append(mask)
-                # vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
-                # save_path = f'vis_mask_{j}.jpg'
-                # cv2.imwrite(save_path, vis_mask)
-            image = visualize_mask(image,new_masks)
-            image = Image.fromarray(image)
-            image.save('vis_mask.jpg')
+        # if 'masks' in ret['target'].keys():
+        #     masks = ret['target']['masks']
+        #     new_masks = []
+        #     for j,mask in enumerate(masks):
+        #         mask = Image.fromarray(mask)
+        #         mask = mask.resize((int(image.width),int(image.height)), Image.LANCZOS)
+        #         mask = np.array(mask)
+        #         mask[mask!=0] = 1
+        #         new_masks.append(mask)
+        #         # vis_mask = visualize_mask_single(image, mask, alpha=1.0, beta=1.0)
+        #         # save_path = f'vis_mask_{j}.jpg'
+        #         # cv2.imwrite(save_path, vis_mask)
+        #     image = visualize_mask(image,new_masks)
+        #     image = Image.fromarray(image)
+        #     image.save('vis_mask.jpg')
         
-        if 'boxes' in ret['target'].keys():
-            boxes = ret['target']['boxes']
-            vis_box = visualize_box(image,boxes)
-            # for k,box in enumerate(boxes):
-                # denorm_box = de_norm_box_xyxy(box,width,height)
-                # vis_box = visualize_box_single(image.copy(), box)
-            save_path = f'vis_box.jpg'
-            cv2.imwrite(save_path, vis_box)
+        # if 'boxes' in ret['target'].keys():
+        #     boxes = ret['target']['boxes']
+        #     vis_box = visualize_box(image,boxes)
+        #     # for k,box in enumerate(boxes):
+        #         # denorm_box = de_norm_box_xyxy(box,width,height)
+        #         # vis_box = visualize_box_single(image.copy(), box)
+        #     save_path = f'vis_box.jpg'
+        #     cv2.imwrite(save_path, vis_box)
 
         return ret
     

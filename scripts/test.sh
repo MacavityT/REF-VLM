@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=0 xtuner test configs/ablation/test_stage2_vpt.py --checkpoint work_dirs/ablation/0303_vpt_ours/iter_2247.pth
+CUDA_VISIBLE_DEVICES=7 xtuner test configs/ablation/test_stage2_det.py --checkpoint work_dirs/ablation/0305_det_no_match/iter_966.pth

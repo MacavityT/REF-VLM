@@ -129,3 +129,4 @@ checkpoints
 myhostfile.txt
 *wrong_output*
 wandb/
+tmp/
