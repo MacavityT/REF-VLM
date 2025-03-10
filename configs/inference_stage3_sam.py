@@ -1,15 +1,15 @@
 import os
 from transformers import AutoModel
 from peft import PeftModel
-from vt_plug.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
+from ref_vlm.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_320,clip_convnext_512
+    from ._base_.models.ref_vlm_encoders import clip_patch14_336,clip_convnext_320,clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
 
-pretrained_pth = "/code/VT-PLUG/checkpoints/vicuna_7b/finetune/1121_sam_rem/iter_500.pth"
+pretrained_pth = "checkpoints/vicuna_7b/finetune/1121_sam_rem/iter_500.pth"
 
 sam_preprocessor = dict(
     type=build_sam_preprocessor,
@@ -53,7 +53,7 @@ llm=dict(
     trust_remote_code=True)
 
 model=dict(
-    type=VTPlugModel,
+    type=REFVLMModel,
     pretrained_pth=pretrained_pth,
     freeze_llm=True,
     tokenizer=tokenizer,

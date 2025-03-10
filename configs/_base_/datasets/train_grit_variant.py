@@ -1,4 +1,4 @@
-from vt_plug.utils.constants import (
+from ref_vlm.utils.constants import (
     IMAGE_PLACEHOLDER,
     PHRASE_ST_PLACEHOLDER_STAGE2,
     PHRASE_ED_PLACEHOLDER_STAGE2,

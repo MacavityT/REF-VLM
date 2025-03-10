@@ -1,8 +1,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
 from transformers import AutoModelForCausalLM
-from vt_plug.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
-from vt_plug.evaluation.metrics.single_metric import (
+from ref_vlm.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
+from ref_vlm.evaluation.metrics.single_metric import (
     ImgCapComputeMetrics,
     VQAComputeMetrics,
     COTComputeMetrics,
@@ -18,10 +18,10 @@ from transformers import AutoModel
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
-    from ._base_.models.all_visual_encoders import *
+    from ._base_.models.ref_vlm_encoders import *
     from ._base_.datasets.vt_test_dataset_stage2 import *
     from ._base_.datasets.vt_train_dataset_stage2 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
@@ -453,7 +453,7 @@ else:
 
 
 model=dict(
-    type=VTPlugModel,
+    type=REFVLMModel,
     freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,
@@ -564,7 +564,7 @@ model=dict(
 
 
 # model=dict(
-#     type=VTPlugModel,
+#     type=REFVLMModel,
 #     # pretrained_pth=pretrained_pth,
 #     freeze_llm=False,
 #     tokenizer=tokenizer,

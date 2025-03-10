@@ -1,13 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from transformers import AutoModel
 from mmengine.config import read_base
-from vt_plug.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
+from ref_vlm.model.external_modules.SAM import build_sam_plug, build_sam_preprocessor
 
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_512
+    from ._base_.models.ref_vlm_encoders import clip_patch14_336, clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
@@ -151,7 +151,7 @@ llm=dict(
 
 
 model=dict(
-    type=VTPlugModel,
+    type=REFVLMModel,
     # pretrained_pth=pretrained_pth,
     freeze_llm=True,
     tokenizer=tokenizer,

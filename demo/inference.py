@@ -13,13 +13,13 @@ from xtuner.dataset.utils import expand2square, load_image
 from xtuner.tools.utils import get_stop_criteria
 from xtuner.utils import (DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX,
                           PROMPT_TEMPLATE, SYSTEM_TEMPLATE)
-from vt_plug.utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
+from ref_vlm.utils.constants import VISUAL_PROMPT_PLACEHOLDER,IMAGE_PLACEHOLDER,VISUAL_PROMPT_INDEX
 from xtuner.registry import BUILDER
 from xtuner.configs import cfgs_name_path
 
-from vt_plug.model.utils import prepare_inputs_labels_for_multimodal
-from vt_plug.dataset.utils import masks_expand2square,mask_transform
-class VTPlugInference:
+from ref_vlm.model.utils import prepare_inputs_labels_for_multimodal
+from ref_vlm.dataset.utils import masks_expand2square,mask_transform
+class REFVLMInference:
 
     def __init__(self,
                  config=None,

@@ -1,16 +1,16 @@
 from mmengine.config import read_base
 from mmengine.dataset import DefaultSampler
-from vt_plug.dataset.map_fns import (
+from ref_vlm.dataset.map_fns import (
     vt_map_fn_stage2,
     vt_template_map_fn_factory
 )
-from vt_plug.dataset import VTInstructDataset
-from vt_plug.dataset.collate_fns import vt_collate_fn
-from vt_plug.utils import PROMPT_TEMPLATE
+from ref_vlm.dataset import VTInstructDataset
+from ref_vlm.dataset.collate_fns import vt_collate_fn
+from ref_vlm.utils import PROMPT_TEMPLATE
 
 with read_base():
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
-    from ..models.all_visual_encoders import clip_patch14_336
+    from ..models.ref_vlm_encoders import clip_patch14_336
     from .test_rec_variant import test_rec_variant
     from .test_reg_variant import test_reg_variant
     from .train_grand_variant import train_grand_variant

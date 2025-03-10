@@ -13,12 +13,12 @@ import time
 import random
 from PIL import Image
 
-from vt_plug.utils import PROMPT_TEMPLATE,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
-from vt_plug.utils.constants import MASKS_PLACEHOLDER
-from vt_plug.dataset import VTInstructDataset
-from vt_plug.dataset.collate_fns import vt_collate_fn
-from vt_plug.dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
-from vt_plug.dataset.utils import (
+from ref_vlm.utils import PROMPT_TEMPLATE,VISUAL_PROMPT_PLACEHOLDER,BOV_TOKEN,EOV_TOKEN,VISUAL_REPRESENTATION_TOKEN
+from ref_vlm.utils.constants import MASKS_PLACEHOLDER
+from ref_vlm.dataset import VTInstructDataset
+from ref_vlm.dataset.collate_fns import vt_collate_fn
+from ref_vlm.dataset.map_fns.dataset_map_fns.vt_map_fn_stage2 import get_cot_elements
+from ref_vlm.dataset.utils import (
     visualize_box,
     visualize_mask,
     visualize_keypoints,
@@ -28,7 +28,7 @@ from vt_plug.dataset.utils import (
     de_norm_keypoint_square2origin,
     visualize_keypoints_pytorch
 )
-from inference import VTPlugInference
+from inference import REFVLMInference
 from utils import SingleInferDataset
 from mmengine.config import Config, DictAction
 from xtuner.registry import BUILDER
@@ -403,7 +403,7 @@ def clear_states(preprocessed_img,selected_points,point_mask,prompt_image_list,c
 theme = gr.themes.Default()
 
 # title_markdown = ("""
-# ![LOGO](/code/okapi-mllm/demo/assets/logo/logo3.png)
+# ![LOGO](demo/assets/logo/logo3.png)
 # # 🌋 Ladon: Multi-Visual Tasks Multimodal Large Language Model
 # [[Project Page]](https://github.com/MacavityT/okapi-mllm/) [[Paper]](https://github.com/MacavityT/okapi-mllm/) [[Code]](https://github.com/MacavityT/okapi-mllm/) [[Model]](https://github.com/MacavityT/okapi-mllm/)
 # """)

@@ -3,13 +3,13 @@ from mmengine.optim import AmpOptimWrapper, LinearLR
 from torch.optim import AdamW
 from xtuner.engine.runner import TrainLoop
 from transformers import AutoModel
-from vt_plug.model.external_modules.unipose.unipose_plug import build_unipose_plug
+from ref_vlm.model.external_modules.unipose.unipose_plug import build_unipose_plug
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336, clip_convnext_1024
+    from ._base_.models.ref_vlm_encoders import clip_patch14_336, clip_convnext_1024
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
     from ._base_.default_runtime import *
 
 # Data configs
@@ -140,7 +140,7 @@ mask_decoder = dict(
 )
 
 model=dict(
-    type=VTPlugModel,
+    type=REFVLMModel,
     freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,

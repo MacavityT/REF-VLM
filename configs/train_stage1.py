@@ -2,10 +2,10 @@
 from mmengine.config import read_base
 
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336
+    from ._base_.models.ref_vlm_encoders import clip_patch14_336
     from ._base_.datasets.vt_train_dataset_stage1 import *
     from ._base_.datasets.vt_val_dataset_stage1 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
     from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 

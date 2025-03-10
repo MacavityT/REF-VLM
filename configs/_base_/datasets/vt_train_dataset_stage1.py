@@ -8,14 +8,14 @@ from xtuner.dataset import LLaVADataset, ConcatDataset
 from xtuner.dataset.collate_fns import default_collate_fn
 from xtuner.dataset.map_fns import llava_map_fn, template_map_fn_factory
 
-from vt_plug.dataset.map_fns import vt_map_fn
-from vt_plug.dataset import VTInstructDataset
-from vt_plug.evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
+from ref_vlm.dataset.map_fns import vt_map_fn
+from ref_vlm.dataset import VTInstructDataset
+from ref_vlm.evaluation.metrics import ImgCapComputeMetrics, VQAComputeMetrics
 
 with read_base():
     from .train_all_dataset import train_all_dataset
     from ..models.all_tokenizers import vicuna_7b_path_tokenizer
-    from ..models.all_visual_encoders import clip_patch14_336
+    from ..models.ref_vlm_encoders import clip_patch14_336
 
 # Params
 prompt_template = PROMPT_TEMPLATE.vicuna
