@@ -4,12 +4,12 @@ from peft import PeftModel
 
 from mmengine.config import read_base
 with read_base():
-    from ._base_.models.all_visual_encoders import clip_patch14_336,clip_convnext_320,clip_convnext_512
+    from ._base_.models.ref_vlm_encoders import clip_patch14_336,clip_convnext_320,clip_convnext_512
     from ._base_.datasets.vt_train_dataset_stage2 import *
     from ._base_.datasets.vt_val_dataset_stage2 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
 
-model_dir = "/code/VT-PLUG/checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
+model_dir = "checkpoints/vicuna_7b/hf_model/0914_full_512_0124_epoch2_iter23000"
 
 llm_adapter = os.path.join(model_dir,'llm_adapter')
 
@@ -69,7 +69,7 @@ infer_dataset = dict(
 
 
 model = dict(
-    type=VTPlugModel,
+    type=REFVLMModel,
     freeze_llm=True,
     tokenizer=tokenizer,
     freeze_visual_encoder=True,

@@ -2,14 +2,14 @@
 from xtuner.engine.hooks import DatasetInfoHook, EvaluateChatHook
 from xtuner.utils import PROMPT_TEMPLATE
 from transformers import AutoModelForCausalLM
-from vt_plug.model import VTPlugModel
+from ref_vlm.model import REFVLMModel
 
 from mmengine.config import read_base
 with read_base():
     from ._base_.models.all_tokenizers import *
-    from ._base_.models.all_visual_encoders import *
+    from ._base_.models.ref_vlm_encoders import *
     from ._base_.datasets.vt_test_dataset_stage1 import *
-    from ._base_.models.vt_plug_vicuna_7b import *
+    from ._base_.models.ref_vlm_vicuna_7b import *
     # from ._base_.schedules.schedule import *
     from ._base_.default_runtime import *
 
