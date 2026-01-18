@@ -10,7 +10,7 @@
 
 
 
-Official PyTorch implementation of "REF-VLM: Triplet-Based Referring Paradigm for Unified Visual Decoding" [ICCV 2025 under review].
+Official PyTorch implementation of "REF-VLM: Triplet-Based Referring Paradigm for Unified Visual Decoding".
 
 ## Updates
 <!-- - **28 Feb, 2024** :boom::boom: Our paper has been accepted by CVPR 2024! 🎉
